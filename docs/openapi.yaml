@@ -1,0 +1,578 @@
+openapi: 3.1.0
+info:
+  title: AKSIS Core API
+  version: 1.0.0
+  description: Phase 03 REST contract for authentication, tenant details, classes, and students.
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Local development
+tags:
+  - name: Auth
+  - name: Schools
+  - name: Classes
+  - name: Students
+security:
+  - bearerAuth: []
+    schoolId: []
+paths:
+  /health:
+    get:
+      operationId: health
+      summary: API liveness probe
+      security: []
+      responses:
+        '200':
+          description: Process is accepting requests
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [status]
+                        properties:
+                          status: { type: string, const: ok }
+  /auth/login:
+    post:
+      tags: [Auth]
+      operationId: login
+      summary: Authenticate using Supabase Auth
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authenticated session and available active schools
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          $ref: '#/components/responses/InvalidCredentials'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      operationId: refreshSession
+      summary: Exchange a refresh token for a new session
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [refresh_token]
+              properties:
+                refresh_token: { type: string, minLength: 1 }
+      responses:
+        '200':
+          description: Refreshed session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '401':
+          $ref: '#/components/responses/AuthInvalid'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /auth/session:
+    get:
+      tags: [Auth]
+      operationId: getSession
+      summary: Resolve the current authenticated user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          $ref: '#/components/responses/AuthRequired'
+  /auth/logout:
+    post:
+      tags: [Auth]
+      operationId: logout
+      summary: Revoke all refresh tokens for the current user
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [refresh_token]
+              properties:
+                refresh_token: { type: string, minLength: 1 }
+      responses:
+        '204': { description: Session revoked }
+        '401':
+          $ref: '#/components/responses/AuthRequired'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '503':
+          $ref: '#/components/responses/ServerUnavailable'
+  /schools/current:
+    get:
+      tags: [Schools]
+      operationId: getCurrentSchool
+      summary: Get the selected tenant details
+      responses:
+        '200':
+          description: School details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SchoolResponse'
+        '401':
+          $ref: '#/components/responses/AuthRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /classes:
+    get:
+      tags: [Classes]
+      operationId: listClasses
+      summary: List classes in the selected tenant
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Search'
+      responses:
+        '200':
+          description: Paginated classes
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    required: [data, meta]
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/Class' }
+                      meta: { $ref: '#/components/schemas/PaginationMeta' }
+        '401': { $ref: '#/components/responses/AuthRequired' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Classes]
+      operationId: createClass
+      summary: Create a class
+      description: Requires `academic.manage`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ClassCreate' }
+      responses:
+        '201':
+          description: Created class
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClassResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /classes/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Classes]
+      operationId: getClass
+      summary: Get a class
+      responses:
+        '200':
+          description: Class details
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClassResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Classes]
+      operationId: updateClass
+      summary: Update a class
+      description: Requires `academic.manage`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ClassUpdate' }
+      responses:
+        '200':
+          description: Updated class
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClassResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    delete:
+      tags: [Classes]
+      operationId: deleteClass
+      summary: Soft-delete a class
+      description: Requires `academic.manage`.
+      responses:
+        '204': { description: Class deactivated and soft-deleted }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /students:
+    get:
+      tags: [Students]
+      operationId: listStudents
+      summary: List students
+      description: Requires `student.read`.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Search'
+      responses:
+        '200':
+          description: Paginated students
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    required: [data, meta]
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/Student' }
+                      meta: { $ref: '#/components/schemas/PaginationMeta' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Students]
+      operationId: createStudent
+      summary: Create a student
+      description: Requires `student.create`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StudentCreate' }
+      responses:
+        '201':
+          description: Created student
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StudentResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /students/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Students]
+      operationId: getStudent
+      summary: Get a student
+      description: Requires `student.read`.
+      responses:
+        '200':
+          description: Student details
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StudentResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Students]
+      operationId: updateStudent
+      summary: Update a student
+      description: Requires `student.update`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StudentUpdate' }
+      responses:
+        '200':
+          description: Updated student
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StudentResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    delete:
+      tags: [Students]
+      operationId: deleteStudent
+      summary: Soft-delete a student
+      description: Requires `student.update`.
+      responses:
+        '204': { description: Student deactivated and soft-deleted }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    schoolId:
+      type: apiKey
+      in: header
+      name: X-School-Id
+      description: UUID of the active school membership.
+  parameters:
+    ResourceId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    PageSize:
+      name: page_size
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    Search:
+      name: search
+      in: query
+      schema: { type: string, minLength: 1, maxLength: 100, pattern: '^[\p{L}\p{N}\s.-]+$' }
+  responses:
+    AuthRequired:
+      description: Missing, expired, or invalid bearer token
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    AuthInvalid:
+      description: Invalid session credentials
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    InvalidCredentials:
+      description: Invalid email or password
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Forbidden:
+      description: Tenant membership or permission is missing
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    NotFound:
+      description: Resource not found in the active tenant
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Conflict:
+      description: Resource violates a uniqueness constraint
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    ValidationError:
+      description: Request payload, parameters, or query are invalid
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    RateLimited:
+      description: Request quota exceeded
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    ServerUnavailable:
+      description: Upstream service unavailable
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+  schemas:
+    SuccessEnvelope:
+      type: object
+      required: [success, data]
+      properties:
+        success: { type: boolean, const: true }
+        data: {}
+    ErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required: [success, error, request_id]
+      properties:
+        success: { type: boolean, const: false }
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum: [AUTH_REQUIRED, AUTH_INVALID, INVALID_CREDENTIALS, SESSION_REFRESH_FAILED, FORBIDDEN, TENANT_REQUIRED, SCHOOL_NOT_FOUND, CLASS_NOT_FOUND, STUDENT_NOT_FOUND, INVALID_JSON, PAYLOAD_TOO_LARGE, VALIDATION_ERROR, CONFLICT, RATE_LIMITED, ROUTE_NOT_FOUND, DATABASE_ERROR, SERVER_UNAVAILABLE, INTERNAL_ERROR]
+            message: { type: string }
+            details: {}
+        request_id: { type: string }
+    PaginationMeta:
+      type: object
+      required: [page, page_size, total]
+      properties:
+        page: { type: integer }
+        page_size: { type: integer }
+        total: { type: integer }
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8, maxLength: 128, format: password }
+    Session:
+      type: object
+      required: [access_token, refresh_token, token_type]
+      properties:
+        access_token: { type: string }
+        refresh_token: { type: string }
+        expires_at: { type: integer }
+        token_type: { type: string }
+    User:
+      type: object
+      description: Supabase Auth user representation.
+      required: [id]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: [string, 'null'], format: email }
+    LoginResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessEnvelope'
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [user, session, schools]
+              properties:
+                user: { $ref: '#/components/schemas/User' }
+                session: { $ref: '#/components/schemas/Session' }
+                schools:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      school_id: { type: string, format: uuid }
+                      schools: { $ref: '#/components/schemas/School' }
+    SessionResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessEnvelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/Session' }
+    UserResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessEnvelope'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                user: { $ref: '#/components/schemas/User' }
+    School:
+      type: object
+      required: [id, code, name, status, timezone, is_active]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        status: { type: string, enum: [ACTIVE, SUSPENDED, INACTIVE] }
+        timezone: { type: string }
+        is_active: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    SchoolResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessEnvelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/School' }
+    Class:
+      type: object
+      required: [id, school_id, academic_year_id, code, name, is_active]
+      properties:
+        id: { type: string, format: uuid }
+        school_id: { type: string, format: uuid }
+        academic_year_id: { type: string, format: uuid }
+        code: { type: string, maxLength: 50 }
+        name: { type: string, maxLength: 120 }
+        grade_level: { type: [integer, 'null'], minimum: 1, maximum: 12 }
+        homeroom_teacher_user_id: { type: [string, 'null'], format: uuid }
+        is_active: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    ClassPayload:
+      type: object
+      additionalProperties: false
+      properties:
+        academic_year_id: { type: string, format: uuid }
+        code: { type: string, minLength: 1, maxLength: 50 }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        grade_level: { type: [integer, 'null'], minimum: 1, maximum: 12 }
+        homeroom_teacher_user_id: { type: [string, 'null'], format: uuid }
+        is_active: { type: boolean }
+    ClassCreate:
+      allOf:
+        - $ref: '#/components/schemas/ClassPayload'
+      required: [academic_year_id, code, name]
+    ClassUpdate:
+      allOf:
+        - $ref: '#/components/schemas/ClassPayload'
+      minProperties: 1
+    ClassResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessEnvelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/Class' }
+    Student:
+      type: object
+      required: [id, school_id, student_number, full_name, gender, is_active]
+      properties:
+        id: { type: string, format: uuid }
+        school_id: { type: string, format: uuid }
+        nisn: { type: [string, 'null'], pattern: '^\\d{10}$' }
+        student_number: { type: string, maxLength: 50 }
+        full_name: { type: string, maxLength: 200 }
+        gender: { type: string, enum: [MALE, FEMALE, OTHER, UNDISCLOSED] }
+        date_of_birth: { type: [string, 'null'], format: date }
+        is_active: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    StudentPayload:
+      type: object
+      additionalProperties: false
+      properties:
+        nisn: { type: [string, 'null'], pattern: '^\\d{10}$' }
+        student_number: { type: string, minLength: 1, maxLength: 50 }
+        full_name: { type: string, minLength: 1, maxLength: 200 }
+        gender: { type: string, enum: [MALE, FEMALE, OTHER, UNDISCLOSED] }
+        date_of_birth: { type: [string, 'null'], format: date }
+        is_active: { type: boolean }
+    StudentCreate:
+      allOf:
+        - $ref: '#/components/schemas/StudentPayload'
+      required: [student_number, full_name]
+    StudentUpdate:
+      allOf:
+        - $ref: '#/components/schemas/StudentPayload'
+      minProperties: 1
+    StudentResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessEnvelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/Student' }
