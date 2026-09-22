@@ -19,6 +19,10 @@ import { schoolsRouter } from "./routes/schools.js";
 import { studentHistoryRouter } from "./routes/student-history.js";
 import { studentsRouter } from "./routes/students.js";
 
+/**
+ * Conflict-resolution invariant: all Phase 03-05 routers are composed here.
+ * Device runtime routes must be mounted before the human tenant boundary.
+ */
 export function createApp() {
   const app = express();
   app.disable("x-powered-by");
@@ -43,14 +47,24 @@ export function createApp() {
     res.json({ success: true, data: { status: "ok" } });
   app.get("/health", health);
   app.get("/api/v1/health", health);
+
+  // Phase 03 public/session endpoints.
   app.use("/api/v1/auth", authRouter);
-  // Device heartbeat/config use per-device credentials rather than human JWTs.
-  // The register route applies human auth and tenant middleware internally.
+
+  // Phase 05 uses two security boundaries in one router. Registration applies
+  // human middleware locally; runtime calls authenticate with a device token.
   app.use("/api/v1/devices", devicesRouter);
+
+  // Shared human authentication + tenant context for Phase 03-04 resources.
   app.use("/api/v1", requireAuth, requireTenant);
+
+  // Phase 03 core tenant resources.
   app.use("/api/v1/schools", schoolsRouter);
-  app.use("/api/v1/academic-years", academicYearsRouter);
   app.use("/api/v1/classes", classesRouter);
+
+  // Phase 04 academic lifecycle resources. Mount nested history before the
+  // student router so a future student catch-all cannot shadow it.
+  app.use("/api/v1/academic-years", academicYearsRouter);
   app.use("/api/v1/students/:id/history", studentHistoryRouter);
   app.use("/api/v1/students", studentsRouter);
   app.use("/api/v1/cards", cardsRouter);

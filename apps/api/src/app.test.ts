@@ -28,8 +28,14 @@ describe("Core API envelope", () => {
     });
   });
 
-  it("rejects unauthenticated tenant routes", async () => {
-    const response = await request(createApp()).get("/api/v1/students");
+  it.each([
+    ["Phase 03 classes", "/api/v1/classes"],
+    ["Phase 03 students", "/api/v1/students"],
+    ["Phase 04 academic years", "/api/v1/academic-years"],
+    ["Phase 04 student history", "/api/v1/students/0199b4dc-3ea3-7d25-b493-0b998dbafabe/history"],
+    ["Phase 04 cards", "/api/v1/cards"]
+  ])("protects the integrated human tenant boundary for %s", async (_name, path) => {
+    const response = await request(createApp()).get(path);
     expect(response.status).toBe(401);
     expect(response.body.error.code).toBe("AUTH_REQUIRED");
   });
@@ -38,6 +44,12 @@ describe("Core API envelope", () => {
     const response = await request(createApp()).get("/api/v1/devices/config");
     expect(response.status).toBe(401);
     expect(response.body.error.code).toBe("DEVICE_AUTH_INVALID");
+  });
+
+  it("keeps device registration behind the human auth boundary", async () => {
+    const response = await request(createApp()).post("/api/v1/devices/register").send({});
+    expect(response.status).toBe(401);
+    expect(response.body.error.code).toBe("AUTH_REQUIRED");
   });
 
   it("validates login input before calling Supabase", async () => {

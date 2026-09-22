@@ -1,8 +1,18 @@
 openapi: 3.1.0
 info:
   title: AKSIS Core API
-  version: 1.0.0
-  description: Phase 03 REST contract for authentication, tenant details, classes, and students.
+  version: 1.2.0
+  description: >-
+    Integrated Phase 03-05 REST contract covering authentication and tenant
+    context, schools/classes/students, academic periods and student history,
+    card lifecycle, and secure device provisioning/runtime operations.
+  x-aksis-phases:
+    - phase: 3
+      resources: [Auth, Schools, Classes, Students]
+    - phase: 4
+      resources: [Academic Years, Student History, Cards]
+    - phase: 5
+      resources: [Devices]
 servers:
   - url: http://localhost:3000/api/v1
     description: Local development

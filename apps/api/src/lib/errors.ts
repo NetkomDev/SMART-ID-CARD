@@ -1,6 +1,7 @@
 import type { PostgrestError } from "@supabase/supabase-js";
 
 export type ErrorCode =
+  // Phase 03: authentication, tenant context, and core resources.
   | "AUTH_REQUIRED"
   | "AUTH_INVALID"
   | "INVALID_CREDENTIALS"
@@ -8,10 +9,12 @@ export type ErrorCode =
   | "FORBIDDEN"
   | "TENANT_REQUIRED"
   | "SCHOOL_NOT_FOUND"
-  | "ACADEMIC_YEAR_NOT_FOUND"
   | "CLASS_NOT_FOUND"
   | "STUDENT_NOT_FOUND"
+  // Phase 04: academic lifecycle and card management.
+  | "ACADEMIC_YEAR_NOT_FOUND"
   | "CARD_NOT_FOUND"
+  // Phase 05: device provisioning and runtime authentication.
   | "DEVICE_NOT_REGISTERED"
   | "DEVICE_AUTH_INVALID"
   | "RESOURCE_NOT_FOUND"
