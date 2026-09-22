@@ -22,6 +22,7 @@
     "start": "node apps/api/dist/server.js",
     "typecheck": "tsc -p apps/api/tsconfig.json --noEmit",
     "test": "vitest run",
+    "test:db:library": "bash tooling/test-phase-11-library.sh",
     "test:watch": "vitest"
   },
   "dependencies": {
