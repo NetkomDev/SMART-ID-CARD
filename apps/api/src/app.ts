@@ -11,6 +11,7 @@ import { errorHandler, notFound } from "./middleware/error-handler.js";
 import { requireAuth } from "./middleware/auth.js";
 import { requireTenant } from "./middleware/tenant.js";
 import { authRouter } from "./routes/auth.js";
+import { attendanceRouter } from "./routes/attendance.js";
 import { academicYearsRouter } from "./routes/academic-years.js";
 import { cardsRouter } from "./routes/cards.js";
 import { classesRouter } from "./routes/classes.js";
@@ -70,6 +71,7 @@ export function createApp() {
   app.use("/api/v1/students/:id/history", studentHistoryRouter);
   app.use("/api/v1/students", studentsRouter);
   app.use("/api/v1/cards", cardsRouter);
+  app.use("/api/v1/attendance", attendanceRouter);
   app.use(notFound);
   app.use(errorHandler);
   return app;

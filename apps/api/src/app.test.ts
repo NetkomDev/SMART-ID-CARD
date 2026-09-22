@@ -33,7 +33,10 @@ describe("Core API envelope", () => {
     ["Phase 03 students", "/api/v1/students"],
     ["Phase 04 academic years", "/api/v1/academic-years"],
     ["Phase 04 student history", "/api/v1/students/0199b4dc-3ea3-7d25-b493-0b998dbafabe/history"],
-    ["Phase 04 cards", "/api/v1/cards"]
+    ["Phase 04 cards", "/api/v1/cards"],
+    ["Phase 07 admin context", "/api/v1/schools/current/context"],
+    ["Phase 07 attendance read model", "/api/v1/attendance"],
+    ["Phase 07 device inventory", "/api/v1/devices"]
   ])("protects the integrated human tenant boundary for %s", async (_name, path) => {
     const response = await request(createApp()).get(path);
     expect(response.status).toBe(401);

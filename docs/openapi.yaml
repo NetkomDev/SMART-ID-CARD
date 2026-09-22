@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
   title: AKSIS Core API
-  version: 1.3.0
+  version: 1.4.0
   description: >-
-    Integrated Phase 03-06 REST contract covering authentication and tenant
+    Integrated Phase 03-07 REST contract covering authentication and tenant
     context, schools/classes/students, academic periods and student history,
     card lifecycle, and secure device provisioning/runtime operations.
   x-aksis-phases:
@@ -15,6 +15,8 @@ info:
       resources: [Devices]
     - phase: 6
       resources: [Gate Attendance, Offline Sync]
+    - phase: 7
+      resources: [Admin Context, Attendance Read Model, Device Inventory]
 servers:
   - url: http://localhost:3000/api/v1
     description: Local development
@@ -569,6 +571,45 @@ paths:
         '401': { $ref: '#/components/responses/AuthInvalid' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '422': { $ref: '#/components/responses/ValidationError' }
+  /schools/current/context:
+    get:
+      tags: [Schools]
+      operationId: getCurrentAdminContext
+      summary: Resolve roles and permissions for the selected school membership
+      responses:
+        '200': { description: Active tenant authorization context, content: { application/json: { schema: { $ref: '#/components/schemas/AdminContextResponse' } } } }
+        '401': { $ref: '#/components/responses/AuthRequired' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /devices:
+    get:
+      tags: [Devices]
+      operationId: listDevices
+      summary: List the selected school's device inventory
+      description: Requires `device.read`; credential material is never returned.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Search'
+      responses:
+        '200': { description: Paginated device inventory, content: { application/json: { schema: { $ref: '#/components/schemas/DeviceListResponse' } } } }
+        '401': { $ref: '#/components/responses/AuthRequired' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /attendance:
+    get:
+      tags: [Gate Attendance]
+      operationId: listAttendance
+      summary: List tenant-scoped gate attendance for the admin portal
+      description: Requires `attendance.read`.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - { name: direction, in: query, schema: { type: string, enum: [CHECK_IN, CHECK_OUT] } }
+        - { name: occurred_from, in: query, schema: { type: string, format: date-time } }
+        - { name: occurred_to, in: query, schema: { type: string, format: date-time } }
+      responses:
+        '200': { description: Paginated attendance read model, content: { application/json: { schema: { $ref: '#/components/schemas/AttendanceListResponse' } } } }
+        '401': { $ref: '#/components/responses/AuthRequired' }
+        '403': { $ref: '#/components/responses/Forbidden' }
 components:
   securitySchemes:
     bearerAuth:
@@ -1076,3 +1117,59 @@ components:
                   type: array
                   items: { $ref: '#/components/schemas/GateAttendanceSyncItem' }
                 processed: { type: integer, minimum: 1, maximum: 500 }
+    AdminContextResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessEnvelope'
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [school_id, membership_id, roles, permissions]
+              properties:
+                school_id: { type: string, format: uuid }
+                membership_id: { type: string, format: uuid }
+                roles: { type: array, items: { type: string } }
+                permissions: { type: array, items: { type: string } }
+    DeviceInventoryItem:
+      type: object
+      required: [id, school_id, device_code, device_type, name, status]
+      properties:
+        id: { type: string, format: uuid }
+        school_id: { type: string, format: uuid }
+        device_code: { type: string }
+        device_type: { $ref: '#/components/schemas/DeviceType' }
+        name: { type: string }
+        location: { type: [string, 'null'] }
+        firmware_version: { type: [string, 'null'] }
+        hardware_version: { type: [string, 'null'] }
+        update_channel: { type: string }
+        status: { type: string, enum: [PROVISIONING, ACTIVE, DISABLED, MAINTENANCE, RETIRED] }
+        last_seen_at: { type: [string, 'null'], format: date-time }
+    DeviceListResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessEnvelope'
+        - type: object
+          properties:
+            data: { type: array, items: { $ref: '#/components/schemas/DeviceInventoryItem' } }
+            meta: { $ref: '#/components/schemas/PaginationMeta' }
+    AttendanceReadItem:
+      type: object
+      required: [id, direction, source, occurred_at_local, is_late]
+      properties:
+        id: { type: string, format: uuid }
+        event_id: { type: string, format: uuid }
+        direction: { type: string, enum: [CHECK_IN, CHECK_OUT] }
+        source: { type: string, enum: [REALTIME, OFFLINE_SYNC] }
+        occurred_at_local: { type: string, format: date-time }
+        occurred_at_server: { type: string, format: date-time }
+        is_late: { type: boolean }
+        students: { type: [object, 'null'], additionalProperties: true }
+        classes: { type: [object, 'null'], additionalProperties: true }
+        devices: { type: [object, 'null'], additionalProperties: true }
+    AttendanceListResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessEnvelope'
+        - type: object
+          properties:
+            data: { type: array, items: { $ref: '#/components/schemas/AttendanceReadItem' } }
+            meta: { $ref: '#/components/schemas/PaginationMeta' }

@@ -9,8 +9,24 @@ import { requireAuth } from "../middleware/auth.js";
 import { requirePermission, requireTenant } from "../middleware/tenant.js";
 import { validate } from "../middleware/validate.js";
 import { heartbeatSchema, registerDeviceSchema } from "../schemas/device.js";
+import { paginationSchema } from "../schemas/common.js";
 
 const router = Router();
+
+router.get("/", requireAuth, requireTenant, requirePermission("device.read"),
+  validate({ query: paginationSchema }), asyncHandler(async (req, res) => {
+    const { page, page_size: pageSize, search } = req.query as unknown as {
+      page: number; page_size: number; search?: string;
+    };
+    let query = req.auth!.client.from("devices")
+      .select("id, school_id, device_code, device_type, name, location, firmware_version, hardware_version, update_channel, status, last_seen_at, created_at, updated_at", { count: "exact" })
+      .eq("school_id", req.tenant!.schoolId).is("deleted_at", null)
+      .range((page - 1) * pageSize, page * pageSize - 1).order("name");
+    if (search) query = query.or(`name.ilike.%${search}%,device_code.ilike.%${search}%`);
+    const { data, error, count } = await query;
+    if (error) throw fromDatabaseError(error);
+    sendData(res, data ?? [], 200, { page, page_size: pageSize, total: count ?? 0 });
+  }));
 
 router.post("/register", requireAuth, requireTenant, requirePermission("device.manage"),
   validate({ body: registerDeviceSchema }), asyncHandler(async (req, res) => {

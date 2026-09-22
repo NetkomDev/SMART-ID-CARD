@@ -8,7 +8,9 @@
   },
   "scripts": {
     "dev": "tsx watch apps/api/src/server.ts",
+    "dev:admin": "vite --config apps/admin-web/vite.config.ts",
     "build": "tsc -p apps/api/tsconfig.json",
+    "build:admin": "vite build --config apps/admin-web/vite.config.ts",
     "start": "node apps/api/dist/server.js",
     "typecheck": "tsc -p apps/api/tsconfig.json --noEmit",
     "test": "vitest run",
@@ -33,6 +35,7 @@
     "supertest": "^7.1.4",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2",
+    "vite": "^7.3.6",
     "vitest": "^3.2.4"
   }
 }

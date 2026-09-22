@@ -5,6 +5,15 @@ import { asyncHandler } from "../middleware/async-handler.js";
 
 const router = Router();
 
+router.get("/current/context", (req, res) => {
+  sendData(res, {
+    school_id: req.tenant!.schoolId,
+    membership_id: req.tenant!.membershipId,
+    roles: req.tenant!.roles,
+    permissions: req.tenant!.permissions
+  });
+});
+
 router.get("/current", asyncHandler(async (req, res) => {
   const { data, error } = await req.auth!.client
     .from("schools")
