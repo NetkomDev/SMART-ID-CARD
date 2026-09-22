@@ -1,8 +1,18 @@
 openapi: 3.1.0
 info:
   title: AKSIS Core API
-  version: 1.0.0
-  description: Phase 03 REST contract for authentication, tenant details, classes, and students.
+  version: 1.2.0
+  description: >-
+    Integrated Phase 03-05 REST contract covering authentication and tenant
+    context, schools/classes/students, academic periods and student history,
+    card lifecycle, and secure device provisioning/runtime operations.
+  x-aksis-phases:
+    - phase: 3
+      resources: [Auth, Schools, Classes, Students]
+    - phase: 4
+      resources: [Academic Years, Student History, Cards]
+    - phase: 5
+      resources: [Devices]
 servers:
   - url: http://localhost:3000/api/v1
     description: Local development
@@ -11,6 +21,9 @@ tags:
   - name: Schools
   - name: Classes
   - name: Students
+  - name: Academic Years
+  - name: Cards
+  - name: Devices
 security:
   - bearerAuth: []
     schoolId: []
@@ -322,6 +335,182 @@ paths:
         '204': { description: Student deactivated and soft-deleted }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /academic-years:
+    get:
+      tags: [Academic Years]
+      operationId: listAcademicYears
+      summary: List academic years for the active tenant
+      responses:
+        '200': { description: Academic year list, content: { application/json: { schema: { $ref: '#/components/schemas/AcademicYearListResponse' } } } }
+        '401': { $ref: '#/components/responses/AuthRequired' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Academic Years]
+      operationId: createAcademicYear
+      summary: Create an inactive academic year
+      description: Requires `academic.manage`.
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AcademicYearWrite' } } } }
+      responses:
+        '201': { description: Created academic year, content: { application/json: { schema: { $ref: '#/components/schemas/AcademicYearResponse' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /academic-years/switch:
+    post:
+      tags: [Academic Years]
+      operationId: switchAcademicYear
+      summary: Atomically select the active academic year
+      description: Requires `academic.manage`; deactivates the previous period in the same transaction.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [academic_year_id]
+              properties: { academic_year_id: { type: string, format: uuid } }
+      responses:
+        '200': { description: Newly active academic year, content: { application/json: { schema: { $ref: '#/components/schemas/AcademicYearResponse' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /academic-years/{id}:
+    parameters: [{ $ref: '#/components/parameters/ResourceId' }]
+    get:
+      tags: [Academic Years]
+      operationId: getAcademicYear
+      summary: Get an academic year
+      responses:
+        '200': { description: Academic year, content: { application/json: { schema: { $ref: '#/components/schemas/AcademicYearResponse' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Academic Years]
+      operationId: updateAcademicYear
+      summary: Update an academic year
+      description: Requires `academic.manage`. Activation must use the switch endpoint.
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AcademicYearUpdate' } } } }
+      responses:
+        '200': { description: Updated academic year, content: { application/json: { schema: { $ref: '#/components/schemas/AcademicYearResponse' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    delete:
+      tags: [Academic Years]
+      operationId: deleteAcademicYear
+      summary: Soft-delete an inactive academic year
+      description: Requires `academic.manage`; an active period must be switched first.
+      responses:
+        '204': { description: Academic year soft-deleted }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /students/{id}/history:
+    parameters: [{ $ref: '#/components/parameters/ResourceId' }]
+    get:
+      tags: [Students]
+      operationId: listStudentClassHistory
+      summary: List a student's class history
+      description: Requires `student.read`.
+      responses:
+        '200': { description: Student class history, content: { application/json: { schema: { $ref: '#/components/schemas/StudentHistoryListResponse' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [Students]
+      operationId: recordStudentClassHistory
+      summary: Atomically promote or assign a student to a class
+      description: Requires `student.update`; closes the prior current assignment.
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/StudentHistoryWrite' } } } }
+      responses:
+        '201': { description: New current assignment, content: { application/json: { schema: { $ref: '#/components/schemas/StudentHistoryResponse' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /cards:
+    get:
+      tags: [Cards]
+      operationId: listCards
+      summary: List cards for the active tenant
+      description: Requires `card.read`.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - { name: student_id, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/CardStatus' } }
+      responses:
+        '200': { description: Paginated cards, content: { application/json: { schema: { $ref: '#/components/schemas/CardListResponse' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Cards]
+      operationId: createCard
+      summary: Issue a student card
+      description: Requires `card.manage`; opaque `qr_key` must contain no PII.
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CardWrite' } } } }
+      responses:
+        '201': { description: Issued card, content: { application/json: { schema: { $ref: '#/components/schemas/CardResponse' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /cards/{id}:
+    parameters: [{ $ref: '#/components/parameters/ResourceId' }]
+    get:
+      tags: [Cards]
+      operationId: getCard
+      summary: Get a card
+      responses:
+        '200': { description: Card details, content: { application/json: { schema: { $ref: '#/components/schemas/CardResponse' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Cards]
+      operationId: updateCardStatus
+      summary: Change card status or expiration
+      description: Requires `card.manage`.
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CardUpdate' } } } }
+      responses:
+        '200': { description: Updated card, content: { application/json: { schema: { $ref: '#/components/schemas/CardResponse' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      tags: [Cards]
+      operationId: blockCard
+      summary: Block a card without deleting its history
+      responses:
+        '204': { description: Card blocked }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /devices/register:
+    post:
+      tags: [Devices]
+      operationId: registerDevice
+      summary: Register a device and issue its initial credential once
+      description: Uses human bearer/tenant authentication and requires `device.manage`.
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/DeviceRegister' } } } }
+      responses:
+        '201': { description: Device and one-time plaintext credential, content: { application/json: { schema: { $ref: '#/components/schemas/DeviceRegistrationResponse' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /devices/heartbeat:
+    post:
+      tags: [Devices]
+      operationId: deviceHeartbeat
+      summary: Authenticate a device and record telemetry
+      security: [{ deviceAuth: [], deviceId: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/DeviceHeartbeat' } } } }
+      responses:
+        '200': { description: Heartbeat accepted, content: { application/json: { schema: { $ref: '#/components/schemas/DeviceHeartbeatResponse' } } } }
+        '401': { $ref: '#/components/responses/AuthInvalid' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /devices/config:
+    get:
+      tags: [Devices]
+      operationId: getDeviceConfig
+      summary: Authenticate a device and obtain only its tenant-scoped configuration
+      security: [{ deviceAuth: [], deviceId: [] }]
+      responses:
+        '200': { description: Device configuration, content: { application/json: { schema: { $ref: '#/components/schemas/DeviceConfigResponse' } } } }
+        '401': { $ref: '#/components/responses/AuthInvalid' }
+        '404': { $ref: '#/components/responses/NotFound' }
 components:
   securitySchemes:
     bearerAuth:
@@ -333,6 +522,16 @@ components:
       in: header
       name: X-School-Id
       description: UUID of the active school membership.
+    deviceAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: Per-device credential formatted as `Device <token>`.
+    deviceId:
+      type: apiKey
+      in: header
+      name: X-Device-Id
+      description: Registered device UUID; school context is derived server-side.
   parameters:
     ResourceId:
       name: id
@@ -416,7 +615,7 @@ components:
           properties:
             code:
               type: string
-              enum: [AUTH_REQUIRED, AUTH_INVALID, INVALID_CREDENTIALS, SESSION_REFRESH_FAILED, FORBIDDEN, TENANT_REQUIRED, SCHOOL_NOT_FOUND, CLASS_NOT_FOUND, STUDENT_NOT_FOUND, INVALID_JSON, PAYLOAD_TOO_LARGE, VALIDATION_ERROR, CONFLICT, RATE_LIMITED, ROUTE_NOT_FOUND, DATABASE_ERROR, SERVER_UNAVAILABLE, INTERNAL_ERROR]
+              enum: [AUTH_REQUIRED, AUTH_INVALID, INVALID_CREDENTIALS, SESSION_REFRESH_FAILED, FORBIDDEN, TENANT_REQUIRED, SCHOOL_NOT_FOUND, ACADEMIC_YEAR_NOT_FOUND, CLASS_NOT_FOUND, STUDENT_NOT_FOUND, CARD_NOT_FOUND, DEVICE_NOT_REGISTERED, DEVICE_AUTH_INVALID, RESOURCE_NOT_FOUND, INVALID_JSON, PAYLOAD_TOO_LARGE, VALIDATION_ERROR, CONFLICT, RATE_LIMITED, ROUTE_NOT_FOUND, DATABASE_ERROR, SERVER_UNAVAILABLE, INTERNAL_ERROR]
             message: { type: string }
             details: {}
         request_id: { type: string }
@@ -576,3 +775,176 @@ components:
         - type: object
           properties:
             data: { $ref: '#/components/schemas/Student' }
+    AcademicYear:
+      type: object
+      required: [id, school_id, name, start_date, end_date, is_active]
+      properties:
+        id: { type: string, format: uuid }
+        school_id: { type: string, format: uuid }
+        name: { type: string, maxLength: 32 }
+        start_date: { type: string, format: date }
+        end_date: { type: string, format: date }
+        is_active: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    AcademicYearPayload:
+      type: object
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 32 }
+        start_date: { type: string, format: date }
+        end_date: { type: string, format: date }
+    AcademicYearWrite:
+      allOf: [{ $ref: '#/components/schemas/AcademicYearPayload' }]
+      required: [name, start_date, end_date]
+    AcademicYearUpdate:
+      allOf: [{ $ref: '#/components/schemas/AcademicYearPayload' }]
+      minProperties: 1
+    AcademicYearResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessEnvelope'
+        - { type: object, properties: { data: { $ref: '#/components/schemas/AcademicYear' } } }
+    AcademicYearListResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessEnvelope'
+        - { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/AcademicYear' } } } }
+    StudentHistory:
+      type: object
+      required: [id, school_id, student_id, class_id, academic_year_id, start_date, is_current]
+      properties:
+        id: { type: string, format: uuid }
+        school_id: { type: string, format: uuid }
+        student_id: { type: string, format: uuid }
+        class_id: { type: string, format: uuid }
+        academic_year_id: { type: string, format: uuid }
+        start_date: { type: string, format: date }
+        end_date: { type: [string, 'null'], format: date }
+        is_current: { type: boolean }
+    StudentHistoryWrite:
+      type: object
+      additionalProperties: false
+      required: [class_id, academic_year_id, start_date]
+      properties:
+        class_id: { type: string, format: uuid }
+        academic_year_id: { type: string, format: uuid }
+        start_date: { type: string, format: date }
+    StudentHistoryResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessEnvelope'
+        - { type: object, properties: { data: { $ref: '#/components/schemas/StudentHistory' } } }
+    StudentHistoryListResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessEnvelope'
+        - { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/StudentHistory' } } } }
+    CardStatus: { type: string, enum: [ACTIVE, LOST, BLOCKED, REPLACED, EXPIRED] }
+    Card:
+      type: object
+      required: [id, school_id, student_id, card_uid, card_serial, qr_key, status]
+      properties:
+        id: { type: string, format: uuid }
+        school_id: { type: string, format: uuid }
+        student_id: { type: string, format: uuid }
+        card_uid: { type: string }
+        card_serial: { type: string }
+        qr_key: { type: string, description: Opaque random identifier containing no PII. }
+        status: { $ref: '#/components/schemas/CardStatus' }
+        issued_at: { type: [string, 'null'], format: date-time }
+        revoked_at: { type: [string, 'null'], format: date-time }
+        expires_at: { type: [string, 'null'], format: date-time }
+    CardWrite:
+      type: object
+      additionalProperties: false
+      required: [student_id, card_uid, card_serial, qr_key]
+      properties:
+        student_id: { type: string, format: uuid }
+        card_uid: { type: string, minLength: 1, maxLength: 64 }
+        card_serial: { type: string, minLength: 1, maxLength: 100 }
+        qr_key: { type: string, minLength: 16, maxLength: 128 }
+        status: { $ref: '#/components/schemas/CardStatus' }
+        issued_at: { type: [string, 'null'], format: date-time }
+        expires_at: { type: [string, 'null'], format: date-time }
+    CardUpdate:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status: { $ref: '#/components/schemas/CardStatus' }
+        expires_at: { type: [string, 'null'], format: date-time }
+    CardResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessEnvelope'
+        - { type: object, properties: { data: { $ref: '#/components/schemas/Card' } } }
+    CardListResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessEnvelope'
+        - type: object
+          properties:
+            data: { type: array, items: { $ref: '#/components/schemas/Card' } }
+            meta: { $ref: '#/components/schemas/PaginationMeta' }
+    DeviceType: { type: string, enum: [GATE, LIBRARY, LED, CARD_STATION, WASTE_SCALE, OTHER] }
+    DeviceRegister:
+      type: object
+      additionalProperties: false
+      required: [device_code, device_type, name]
+      properties:
+        device_code: { type: string, minLength: 1, maxLength: 64 }
+        device_type: { $ref: '#/components/schemas/DeviceType' }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        location: { type: [string, 'null'], maxLength: 200 }
+        hardware_version: { type: [string, 'null'], maxLength: 50 }
+        firmware_version: { type: [string, 'null'], maxLength: 50 }
+        update_channel: { type: string, default: stable, maxLength: 32 }
+        config: { type: object, additionalProperties: true }
+    DeviceHeartbeat:
+      type: object
+      additionalProperties: false
+      required: [uptime_seconds, firmware_version, reported_at]
+      properties:
+        uptime_seconds: { type: integer, minimum: 0 }
+        signal_strength: { type: [integer, 'null'], minimum: -150, maximum: 0 }
+        firmware_version: { type: string, minLength: 1, maxLength: 50 }
+        storage_status: { type: object, additionalProperties: true }
+        last_error: { type: [string, 'null'], maxLength: 1000 }
+        reported_at: { type: string, format: date-time }
+    DeviceRegistrationResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessEnvelope'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                device: { type: object, additionalProperties: true }
+                credential:
+                  type: object
+                  required: [token, scheme]
+                  properties:
+                    token: { type: string, description: Returned once; store in device secure storage. }
+                    scheme: { type: string, const: Device }
+    DeviceHeartbeatResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessEnvelope'
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [accepted, received_at]
+              properties:
+                accepted: { type: boolean, const: true }
+                received_at: { type: string, format: date-time }
+    DeviceConfigResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessEnvelope'
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [device_id, school_id, device_code, device_type, config]
+              properties:
+                device_id: { type: string, format: uuid }
+                school_id: { type: string, format: uuid }
+                device_code: { type: string }
+                device_type: { $ref: '#/components/schemas/DeviceType' }
+                config: { type: object, additionalProperties: true }
+                update_channel: { type: string }
+                firmware_version: { type: [string, 'null'] }
