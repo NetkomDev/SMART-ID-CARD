@@ -1,0 +1,11 @@
+import "./style.css";
+type Visit = { event_id: string; card_uid: string; occurred_at: string; local_sequence: number; metadata: Record<string, unknown> };
+const API=(import.meta.env.VITE_API_BASE_URL as string|undefined)??"/api/v1", KEY="aksis.library.queue", SEQ="aksis.library.sequence";
+const form=document.querySelector<HTMLFormElement>("#scan")!, card=document.querySelector<HTMLInputElement>("#card")!, status=document.querySelector<HTMLOutputElement>("#status")!, queued=document.querySelector("#queued")!;
+const queue=():Visit[]=>{try{return JSON.parse(localStorage.getItem(KEY)??"[]") as Visit[]}catch{return[]}};
+const save=(items:Visit[])=>{localStorage.setItem(KEY,JSON.stringify(items));queued.textContent=String(items.length)};
+const headers=()=>({"content-type":"application/json","x-device-id":localStorage.getItem("aksis.library.device")??"",authorization:`Device ${localStorage.getItem("aksis.library.secret")??""}`});
+function nextSequence(){const value=Number(localStorage.getItem(SEQ)??"0")+1;localStorage.setItem(SEQ,String(value));return value}
+async function sync(){const items=queue();if(!items.length)return;const response=await fetch(`${API}/device/library/visits/sync`,{method:"POST",headers:headers(),body:JSON.stringify({events:items})});if(!response.ok)throw new Error("Sinkronisasi tertunda");save([]);status.value=`${items.length} kunjungan tersinkronisasi`}
+form.onsubmit=async event=>{event.preventDefault();const visit:Visit={event_id:crypto.randomUUID(),card_uid:card.value.trim(),occurred_at:new Date().toISOString(),local_sequence:nextSequence(),metadata:{terminal:"library-pwa"}};try{const response=await fetch(`${API}/device/library/visits`,{method:"POST",headers:headers(),body:JSON.stringify(visit)});if(!response.ok)throw new Error();status.value="Kunjungan tercatat"}catch{save([...queue(),visit]);status.value="Offline — kunjungan masuk antrean"}card.value="";card.focus()};
+document.querySelector<HTMLButtonElement>("#sync")!.onclick=()=>void sync().catch(()=>status.value="Belum dapat terhubung");save(queue());window.addEventListener("online",()=>void sync().catch(()=>undefined));if("serviceWorker"in navigator&&import.meta.env.PROD)void navigator.serviceWorker.register("/sw.js");
