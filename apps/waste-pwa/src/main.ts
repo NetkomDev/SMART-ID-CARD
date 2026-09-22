@@ -1,6 +1,10 @@
 import "./style.css";
+import {
+  calculateWasteMeasurement,
+  type WasteType,
+  type WasteUnit
+} from "./waste-calculation.js";
 
-const KG_PER_KANTONG = 0.5;
 const form = document.querySelector<HTMLFormElement>("#form")!;
 const totalOutput = document.querySelector<HTMLOutputElement>("#total")!;
 const weightInput = document.querySelector<HTMLInputElement>("#weight-input")!;
@@ -10,22 +14,24 @@ if ("serviceWorker" in navigator && import.meta.env.PROD) {
   void navigator.serviceWorker.register("/sw.js");
 }
 
-function weightInKg(): number {
-  const value = Number(weightInput.value);
-  const kilograms = unitSelect.value === "KTG" ? value * KG_PER_KANTONG : value;
-  return Math.round(kilograms * 1000) / 1000;
+function currentMeasurement() {
+  const wasteType = form.elements.namedItem("waste_type") as HTMLSelectElement;
+  return calculateWasteMeasurement(
+    Number(weightInput.value),
+    unitSelect.value as WasteUnit,
+    wasteType.value as WasteType
+  );
 }
 
 function updateTotal(): void {
-  totalOutput.value = `Total ${weightInKg().toFixed(3)} kg`;
+  totalOutput.value = `Total ${currentMeasurement().total_kg.toFixed(3)} kg`;
 }
 
 form.addEventListener("input", updateTotal);
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   const data = new FormData(form);
-  const kilograms = weightInKg();
-  const isOrganic = data.get("waste_type") === "ORGANIC";
+  const measurement = currentMeasurement();
   const token = sessionStorage.getItem("aksis.waste.token");
   const school = sessionStorage.getItem("aksis.waste.school");
   const response = await fetch("/api/v1/waste/transactions", {
@@ -39,9 +45,11 @@ form.addEventListener("submit", async (event) => {
       event_id: data.get("event"),
       class_id: data.get("class"),
       student_id: data.get("student"),
-      organic_kg: isOrganic ? kilograms : 0,
-      inorganic_kg: isOrganic ? 0 : kilograms,
-      source: unitSelect.value === "KTG" ? "MANUAL" : "SCALE"
+      // total_kg is calculated for display and verification; PostgreSQL stores
+      // it as a generated column from these two normalized kilogram fields.
+      organic_kg: measurement.organic_kg,
+      inorganic_kg: measurement.inorganic_kg,
+      source: measurement.source
     })
   });
   document.querySelector("#message")!.textContent = response.ok
