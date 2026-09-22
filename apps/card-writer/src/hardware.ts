@@ -1,0 +1,3 @@
+export type CardPayload={rfid:string;qr:string};export interface CardHardwareAdapter{write(payload:CardPayload):Promise<void>;readBack():Promise<CardPayload>}
+export class SimulatorAdapter implements CardHardwareAdapter{private value:CardPayload|null=null;async write(payload:CardPayload){this.value={...payload}}async readBack(){if(!this.value)throw new Error("NO_CARD");return{...this.value}}}
+export function verifyCard(expected:CardPayload,observed:CardPayload){return{rfid_verified:expected.rfid===observed.rfid,qr_verified:expected.qr===observed.qr,success:expected.rfid===observed.rfid&&expected.qr===observed.qr}}

@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
   title: AKSIS Core API
-  version: 1.10.0
+  version: 1.11.0
   description: >-
-    Integrated Phase 03-13 REST contract covering authentication and tenant
+    Integrated Phase 03-14 REST contract covering authentication and tenant
     context, schools/classes/students, academic periods and student history,
     card lifecycle, and secure device provisioning/runtime operations.
   x-aksis-phases:
@@ -29,6 +29,8 @@ info:
       resources: [LED Content, Gateway State, Heartbeat, Acknowledgement]
     - phase: 13
       resources: [Command Center, Today Aggregate]
+    - phase: 14
+      resources: [Card Writer Jobs, Station Lease, Read-back Verification]
 servers:
   - url: http://localhost:3000/api/v1
     description: Local development
@@ -47,6 +49,7 @@ tags:
   - name: Library
   - name: LED Gateway
   - name: Dashboard
+  - name: Card Writer
 security:
   - bearerAuth: []
     schoolId: []
@@ -823,6 +826,36 @@ paths:
       responses:
         '200': { description: Attendance, late, waste, library, and extracurricular aggregate, content: { application/json: { schema: { $ref: '#/components/schemas/DashboardTodayResponse' } } } }
         '403': { $ref: '#/components/responses/Forbidden' }
+  /card-writer/jobs:
+    get:
+      tags: [Card Writer]
+      operationId: listCardWriteJobs
+      responses: { '200': { description: Tenant job queue }, '403': { $ref: '#/components/responses/Forbidden' } }
+    post:
+      tags: [Card Writer]
+      operationId: createCardWriteJob
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CardWriteJobInput' } } } }
+      responses: { '200': { description: Idempotent existing job }, '201': { description: Job queued } }
+  /card-writer/jobs/{id}/cancel:
+    post:
+      tags: [Card Writer]
+      operationId: cancelCardWriteJob
+      parameters: [{ $ref: '#/components/parameters/ResourceId' }]
+      responses: { '200': { description: Job cancelled }, '409': { $ref: '#/components/responses/Conflict' } }
+  /device/card-writer/jobs/claim:
+    post:
+      tags: [Card Writer]
+      operationId: claimCardWriteJob
+      security: [{ deviceAuth: [], deviceId: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, properties: { lease_seconds: { type: integer, minimum: 30, maximum: 600, default: 120 } } } } } }
+      responses: { '200': { description: Leased job or empty queue }, '401': { $ref: '#/components/responses/DeviceAuthRequired' } }
+  /device/card-writer/jobs/complete:
+    post:
+      tags: [Card Writer]
+      operationId: completeCardWriteJob
+      security: [{ deviceAuth: [], deviceId: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CardWriteCompletionInput' } } } }
+      responses: { '200': { description: Verified result, retry, or hard failure }, '401': { $ref: '#/components/responses/DeviceAuthRequired' } }
 components:
   securitySchemes:
     bearerAuth:
@@ -909,6 +942,23 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorEnvelope' }
   schemas:
+    CardWriteJobInput:
+      type: object
+      required: [card_id, idempotency_key]
+      properties:
+        card_id: { type: string, format: uuid }
+        idempotency_key: { type: string, format: uuid }
+        max_attempts: { type: integer, minimum: 1, maximum: 10, default: 3 }
+    CardWriteCompletionInput:
+      type: object
+      required: [job_id, lease_token, observed_rfid, observed_qr]
+      properties:
+        job_id: { type: string, format: uuid }
+        lease_token: { type: string, format: uuid }
+        observed_rfid: { type: string, minLength: 1, maxLength: 64 }
+        observed_qr: { type: string, minLength: 1, maxLength: 128 }
+        retryable: { type: boolean, default: false }
+        error_code: { type: [string, 'null'], maxLength: 80 }
     DashboardTodayResponse:
       allOf:
         - $ref: '#/components/schemas/SuccessEnvelope'

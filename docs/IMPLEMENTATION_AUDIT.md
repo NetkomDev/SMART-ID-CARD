@@ -11,8 +11,8 @@ Roadmap mendefinisikan 15 fase dengan Definition of Done (DoD) lintas fase yang 
 | Status | Jumlah | Fase |
 | --- | ---: | --- |
 | Done | 0 | — |
-| Partial / In progress | 13 | 01–13 |
-| Not started | 2 | 14–15 |
+| Partial / In progress | 14 | 01–14 |
+| Not started | 1 | 15 |
 
 Fondasi produk sudah cukup luas: lima migrasi SQL, Core API dengan 31 path OpenAPI, tiga PWA, dan 33 unit/contract test. Namun belum ada bukti migrasi dijalankan pada PostgreSQL/Supabase kosong, test RLS/tenant isolation riil, test integrasi database, E2E browser, firmware, hardware-in-the-loop, infrastruktur observability, backup/restore drill, atau production-readiness review. Karena itu, fase 01–09 belum memenuhi DoD roadmap secara penuh.
 
@@ -186,9 +186,9 @@ Migrasi tenant-safe, state selection berprioritas, override window dengan auto-e
 
 Snapshot cache tenant harian, server-side aggregate untuk attendance/late/waste/library/extracurricular, endpoint `/dashboard/today`, permission `dashboard.read`, polling/invalidation refetch, dan UI fresh/stale/degraded telah tersedia. Exit criteria masih memerlukan PostgreSQL reconciliation test, load test jam masuk sekolah, serta pengukuran freshness SLO pada staging.
 
-### Phase 14 — Card Writer: **Not started**
+### Phase 14 — Card Writer: **Partial / In progress**
 
-Card CRUD yang ada hanya mengelola identitas/status kartu. Tidak ada writer job queue, lease/attempt/retry, station workflow, RFID/QR read-back, immutable write log, concurrency/crash recovery, atau hardware test.
+Job queue tenant-safe, lease/attempt/retry, station device authentication, server-selected identity, RFID/QR read-back verification, hard mismatch failure, immutable write log, API, validation, dan station UI telah tersedia. Exit criteria masih memerlukan PostgreSQL concurrency/crash-recovery integration test dan hardware test terhadap writer RFID/QR aktual.
 
 ### Phase 15 — Reporting + Audit + Monitoring: **Not started**
 
@@ -196,7 +196,7 @@ Pino HTTP log dasar tersedia, tetapi fase ini memerlukan reporting/export lintas
 
 ## Audit kontrak OpenAPI
 
-`docs/openapi.yaml` memuat 48 path untuk fitur Phase 03–13, termasuk cached Command Center aggregate. Tidak ditemukan path Phase 14–15.
+`docs/openapi.yaml` memuat 53 path untuk fitur Phase 03–14, termasuk Card Writer jobs dan station runtime. Tidak ditemukan path Phase 15.
 
 Kekurangan proses kontrak:
 

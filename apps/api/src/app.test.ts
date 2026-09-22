@@ -40,7 +40,8 @@ describe("Core API envelope", () => {
     ["Phase 10 extracurriculars", "/api/v1/extracurriculars"],
     ["Phase 11 library summary", "/api/v1/library/summary"],
     ["Phase 12 LED content", "/api/v1/led/content"],
-    ["Phase 13 dashboard today", "/api/v1/dashboard/today"]
+    ["Phase 13 dashboard today", "/api/v1/dashboard/today"],
+    ["Phase 14 card writer jobs", "/api/v1/card-writer/jobs"]
   ])("protects the integrated human tenant boundary for %s", async (_name, path) => {
     const response = await request(createApp()).get(path);
     expect(response.status).toBe(401);
@@ -91,6 +92,12 @@ describe("Core API envelope", () => {
 
   it("requires device credentials for Phase 12 LED state", async () => {
     const response = await request(createApp()).get("/api/v1/device/led/state");
+    expect(response.status).toBe(401);
+    expect(response.body.error.code).toBe("DEVICE_AUTH_INVALID");
+  });
+
+  it("requires device credentials for Phase 14 station claim", async () => {
+    const response = await request(createApp()).post("/api/v1/device/card-writer/jobs/claim").send({ lease_seconds: 120 });
     expect(response.status).toBe(401);
     expect(response.body.error.code).toBe("DEVICE_AUTH_INVALID");
   });
