@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#214b38" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <title>AKSIS Bank Sampah</title>
+  </head>
+  <body>
+    <main>
+      <header><b>♻ AKSIS</b><span>Bank Sampah</span></header>
+      <section>
+        <small>TRANSAKSI BARU</small>
+        <h1>Catat setoran siswa</h1>
+        <p>Masukkan hasil timbang dalam kilogram atau jumlah kantong.</p>
+        <form id="form">
+          <label>Event ID<input name="event" required /></label>
+          <label>Kelas ID<input name="class" required /></label>
+          <label>Siswa ID<input name="student" required /></label>
+          <label>Jenis sampah
+            <select id="waste-type" name="waste_type">
+              <option value="ORGANIC">Organik</option>
+              <option value="INORGANIC">Anorganik</option>
+            </select>
+          </label>
+          <label>Jumlah setoran
+            <div class="input-group">
+              <input id="weight-input" name="weight" type="number" min="0.001" step="0.001" value="0.500" required />
+              <select id="unit-select" name="unit" aria-label="Satuan berat">
+                <option value="KG" selected>KG</option>
+                <option value="KTG">KTG</option>
+              </select>
+            </div>
+          </label>
+          <output id="total">Total 0.500 kg</output>
+          <button>Simpan transaksi</button>
+          <p id="message" aria-live="polite"></p>
+        </form>
+      </section>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

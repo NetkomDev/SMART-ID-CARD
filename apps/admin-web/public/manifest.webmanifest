@@ -1,0 +1,13 @@
+{
+  "name": "AKSIS Admin Sekolah",
+  "short_name": "AKSIS",
+  "description": "Portal administrasi sekolah AKSIS",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f6f1",
+  "theme_color": "#172d28",
+  "lang": "id",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
