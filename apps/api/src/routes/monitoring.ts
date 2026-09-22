@@ -1,0 +1,1 @@
+import{Router}from"express";import{prometheusMetrics}from"../lib/metrics.js";import{requirePermission}from"../middleware/tenant.js";const router=Router();router.get("/metrics",requirePermission("monitoring.read"),(_req,res)=>res.type("text/plain; version=0.0.4").send(prometheusMetrics()));export{router as monitoringRouter};

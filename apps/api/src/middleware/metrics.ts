@@ -1,0 +1,1 @@
+import type{RequestHandler}from"express";import{recordMetric}from"../lib/metrics.js";export const collectMetrics:RequestHandler=(_req,res,next)=>{const start=performance.now();res.on("finish",()=>recordMetric(res.statusCode,performance.now()-start));next()};
