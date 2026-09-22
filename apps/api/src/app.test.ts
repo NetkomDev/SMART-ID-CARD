@@ -52,6 +52,27 @@ describe("Core API envelope", () => {
     expect(response.body.error.code).toBe("AUTH_REQUIRED");
   });
 
+  it.each([
+    ["real-time tap", "/api/v1/device/attendance", {
+      event_id: "0199b4dc-3ea3-7d25-b493-0b998dbafabe",
+      card_uid: "04AABBCCDD",
+      occurred_at: "2026-09-22T06:30:00+07:00",
+      local_sequence: 1
+    }],
+    ["offline sync", "/api/v1/device/attendance/sync", {
+      events: [{
+        event_id: "0199b4dc-3ea3-7d25-b493-0b998dbafabe",
+        card_uid: "04AABBCCDD",
+        occurred_at: "2026-09-22T06:30:00+07:00",
+        local_sequence: 1
+      }]
+    }]
+  ])("requires device credentials for Phase 06 %s", async (_name, path, body) => {
+    const response = await request(createApp()).post(path).send(body);
+    expect(response.status).toBe(401);
+    expect(response.body.error.code).toBe("DEVICE_AUTH_INVALID");
+  });
+
   it("validates login input before calling Supabase", async () => {
     const response = await request(createApp()).post("/api/v1/auth/login").send({ email: "bad", password: "short" });
     expect(response.status).toBe(422);

@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
   title: AKSIS Core API
-  version: 1.2.0
+  version: 1.3.0
   description: >-
-    Integrated Phase 03-05 REST contract covering authentication and tenant
+    Integrated Phase 03-06 REST contract covering authentication and tenant
     context, schools/classes/students, academic periods and student history,
     card lifecycle, and secure device provisioning/runtime operations.
   x-aksis-phases:
@@ -13,6 +13,8 @@ info:
       resources: [Academic Years, Student History, Cards]
     - phase: 5
       resources: [Devices]
+    - phase: 6
+      resources: [Gate Attendance, Offline Sync]
 servers:
   - url: http://localhost:3000/api/v1
     description: Local development
@@ -24,6 +26,7 @@ tags:
   - name: Academic Years
   - name: Cards
   - name: Devices
+  - name: Gate Attendance
 security:
   - bearerAuth: []
     schoolId: []
@@ -511,6 +514,61 @@ paths:
         '200': { description: Device configuration, content: { application/json: { schema: { $ref: '#/components/schemas/DeviceConfigResponse' } } } }
         '401': { $ref: '#/components/responses/AuthInvalid' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /device/attendance:
+    post:
+      tags: [Gate Attendance]
+      operationId: recordGateAttendance
+      summary: Process a real-time student card tap
+      description: >-
+        Authenticates a GATE device, resolves an active card/student in the
+        device tenant, applies the device-specific or school-default gate rule,
+        and records an idempotent attendance event.
+      security: [{ deviceAuth: [], deviceId: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GateAttendanceEvent' }
+      responses:
+        '200':
+          description: Idempotent replay or duplicate scan; no new attendance row was created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GateAttendanceResponse' }
+        '201':
+          description: New attendance transaction created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GateAttendanceResponse' }
+        '401': { $ref: '#/components/responses/AuthInvalid' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /device/attendance/sync:
+    post:
+      tags: [Gate Attendance]
+      operationId: syncGateAttendance
+      summary: Idempotently ingest an ordered offline event batch
+      description: >-
+        Accepts 1-500 locally queued events. Events are processed by
+        `local_sequence`; each event receives an acknowledgement so the gate can
+        mark only successful queue entries as SYNCED. Authentication or invalid
+        device mode rejects the complete request.
+      security: [{ deviceAuth: [], deviceId: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GateAttendanceBatch' }
+      responses:
+        '200':
+          description: Per-event synchronization results
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GateAttendanceBatchResponse' }
+        '401': { $ref: '#/components/responses/AuthInvalid' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
 components:
   securitySchemes:
     bearerAuth:
@@ -615,7 +673,7 @@ components:
           properties:
             code:
               type: string
-              enum: [AUTH_REQUIRED, AUTH_INVALID, INVALID_CREDENTIALS, SESSION_REFRESH_FAILED, FORBIDDEN, TENANT_REQUIRED, SCHOOL_NOT_FOUND, ACADEMIC_YEAR_NOT_FOUND, CLASS_NOT_FOUND, STUDENT_NOT_FOUND, CARD_NOT_FOUND, DEVICE_NOT_REGISTERED, DEVICE_AUTH_INVALID, RESOURCE_NOT_FOUND, INVALID_JSON, PAYLOAD_TOO_LARGE, VALIDATION_ERROR, CONFLICT, RATE_LIMITED, ROUTE_NOT_FOUND, DATABASE_ERROR, SERVER_UNAVAILABLE, INTERNAL_ERROR]
+              enum: [AUTH_REQUIRED, AUTH_INVALID, INVALID_CREDENTIALS, SESSION_REFRESH_FAILED, FORBIDDEN, TENANT_REQUIRED, SCHOOL_NOT_FOUND, ACADEMIC_YEAR_NOT_FOUND, CLASS_NOT_FOUND, STUDENT_NOT_FOUND, CARD_NOT_FOUND, DEVICE_NOT_REGISTERED, DEVICE_AUTH_INVALID, DEVICE_NOT_GATE, ATTENDANCE_DISABLED, CARD_BLOCKED, STUDENT_INACTIVE, GATE_RULE_VIOLATION, RESOURCE_NOT_FOUND, INVALID_JSON, PAYLOAD_TOO_LARGE, VALIDATION_ERROR, CONFLICT, RATE_LIMITED, ROUTE_NOT_FOUND, DATABASE_ERROR, SERVER_UNAVAILABLE, INTERNAL_ERROR]
             message: { type: string }
             details: {}
         request_id: { type: string }
@@ -948,3 +1006,73 @@ components:
                 config: { type: object, additionalProperties: true }
                 update_channel: { type: string }
                 firmware_version: { type: [string, 'null'] }
+    GateAttendanceEvent:
+      type: object
+      additionalProperties: false
+      required: [event_id, card_uid, occurred_at, local_sequence]
+      properties:
+        event_id: { type: string, format: uuid, description: Client-generated idempotency key. }
+        card_uid: { type: string, minLength: 1, maxLength: 64 }
+        occurred_at: { type: string, format: date-time, description: RTC/NTP timestamp including UTC offset. }
+        local_sequence: { type: integer, minimum: 0 }
+        metadata: { type: object, additionalProperties: true, default: {} }
+    GateAttendanceBatch:
+      type: object
+      additionalProperties: false
+      required: [events]
+      properties:
+        events:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items: { $ref: '#/components/schemas/GateAttendanceEvent' }
+    GateAttendanceResult:
+      type: object
+      required: [event_id, attendance_id, direction, student_id, is_late, duplicate, occurred_at_server]
+      properties:
+        event_id: { type: string, format: uuid }
+        attendance_id: { type: string, format: uuid }
+        direction: { type: string, enum: [CHECK_IN, CHECK_OUT] }
+        student_id: { type: string, format: uuid }
+        student_name: { type: string }
+        class_id: { type: [string, 'null'], format: uuid }
+        is_late: { type: boolean }
+        duplicate: { type: boolean }
+        duplicate_reason: { type: string, enum: [EVENT_ID, SCAN_WINDOW, ATTENDANCE_STATE] }
+        occurred_at_server: { type: string, format: date-time }
+    GateAttendanceResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessEnvelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/GateAttendanceResult' }
+    GateAttendanceSyncItem:
+      oneOf:
+        - type: object
+          required: [success, event_id, result]
+          properties:
+            success: { type: boolean, const: true }
+            event_id: { type: string, format: uuid }
+            result: { $ref: '#/components/schemas/GateAttendanceResult' }
+        - type: object
+          required: [success, event_id, error_code, message]
+          properties:
+            success: { type: boolean, const: false }
+            event_id: { type: string, format: uuid }
+            error_code:
+              type: string
+              enum: [CARD_NOT_FOUND, CARD_BLOCKED, STUDENT_INACTIVE, GATE_RULE_VIOLATION, VALIDATION_ERROR, SERVER_UNAVAILABLE]
+            message: { type: string }
+    GateAttendanceBatchResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessEnvelope'
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [results, processed]
+              properties:
+                results:
+                  type: array
+                  items: { $ref: '#/components/schemas/GateAttendanceSyncItem' }
+                processed: { type: integer, minimum: 1, maximum: 500 }

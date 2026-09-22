@@ -1,6 +1,6 @@
 # AKSIS Core API
 
-Node.js/Express implementation of the integrated Phase 03–05 `/api/v1` contract. Database calls use the Supabase anonymous key plus the caller's bearer token so PostgreSQL RLS remains the final authorization boundary. Never configure a service-role key in this application.
+Node.js/Express implementation of the integrated Phase 03–06 `/api/v1` contract. Database calls use the Supabase anonymous key plus the caller's bearer token so PostgreSQL RLS remains the final authorization boundary. Never configure a service-role key in this application.
 
 ## Run locally
 
@@ -25,6 +25,7 @@ Device registration uses human tenant authentication and returns a random creden
 | 04 | Cards | `/cards` | Bearer token + tenant + `card.read`/`card.manage` |
 | 05 | Device provisioning | `/devices/register` | Bearer token + tenant + `device.manage` |
 | 05 | Device runtime | `/devices/heartbeat`, `/devices/config` | `Device` token + `X-Device-Id` |
+| 06 | Gate attendance | `/device/attendance`, `/device/attendance/sync` | `Device` token + `X-Device-Id`; tenant derived by database |
 
 All tenant-aware human routes use the same authentication and tenant context middleware. Device runtime routes intentionally bypass human JWT middleware and authenticate inside tenant-safe database RPCs. The canonical request/response contract is `docs/openapi.yaml`.
 

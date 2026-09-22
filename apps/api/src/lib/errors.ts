@@ -17,6 +17,12 @@ export type ErrorCode =
   // Phase 05: device provisioning and runtime authentication.
   | "DEVICE_NOT_REGISTERED"
   | "DEVICE_AUTH_INVALID"
+  // Phase 06: gate eligibility, card/student state, and rule validation.
+  | "DEVICE_NOT_GATE"
+  | "ATTENDANCE_DISABLED"
+  | "CARD_BLOCKED"
+  | "STUDENT_INACTIVE"
+  | "GATE_RULE_VIOLATION"
   | "RESOURCE_NOT_FOUND"
   | "INVALID_JSON"
   | "PAYLOAD_TOO_LARGE"
@@ -46,6 +52,24 @@ export function fromDatabaseError(error: PostgrestError): ApiError {
   }
   if (error.code === "P0002") {
     return new ApiError(404, "RESOURCE_NOT_FOUND", "Referenced resource was not found");
+  }
+  if (error.code === "AG002") {
+    return new ApiError(403, "DEVICE_NOT_GATE", "Device is not registered for gate attendance");
+  }
+  if (error.code === "AG003") {
+    return new ApiError(403, "ATTENDANCE_DISABLED", "Gate attendance is disabled for this device");
+  }
+  if (error.code === "AG004") {
+    return new ApiError(404, "CARD_NOT_FOUND", "Card was not found for this school");
+  }
+  if (error.code === "AG005") {
+    return new ApiError(422, "CARD_BLOCKED", "Card is blocked, inactive, or expired");
+  }
+  if (error.code === "AG006") {
+    return new ApiError(422, "STUDENT_INACTIVE", "Student is inactive");
+  }
+  if (error.code === "AG007") {
+    return new ApiError(422, "GATE_RULE_VIOLATION", "Attendance event violates gate rules");
   }
   if (error.code === "42501") {
     return new ApiError(403, "FORBIDDEN", "Database policy denied this operation");

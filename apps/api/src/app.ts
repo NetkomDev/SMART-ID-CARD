@@ -15,6 +15,7 @@ import { academicYearsRouter } from "./routes/academic-years.js";
 import { cardsRouter } from "./routes/cards.js";
 import { classesRouter } from "./routes/classes.js";
 import { devicesRouter } from "./routes/devices.js";
+import { gateAttendanceRouter } from "./routes/gate-attendance.js";
 import { schoolsRouter } from "./routes/schools.js";
 import { studentHistoryRouter } from "./routes/student-history.js";
 import { studentsRouter } from "./routes/students.js";
@@ -54,6 +55,7 @@ export function createApp() {
   // Phase 05 uses two security boundaries in one router. Registration applies
   // human middleware locally; runtime calls authenticate with a device token.
   app.use("/api/v1/devices", devicesRouter);
+  app.use("/api/v1/device", gateAttendanceRouter);
 
   // Shared human authentication + tenant context for Phase 03-04 resources.
   app.use("/api/v1", requireAuth, requireTenant);

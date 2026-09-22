@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
-import { Router, type Request } from "express";
-import { z } from "zod";
+import { Router } from "express";
+import { readDeviceCredentials } from "../lib/device-credentials.js";
 import { ApiError, fromDatabaseError } from "../lib/errors.js";
 import { sendData } from "../lib/responses.js";
 import { createPublicClient } from "../lib/supabase.js";
@@ -11,15 +11,6 @@ import { validate } from "../middleware/validate.js";
 import { heartbeatSchema, registerDeviceSchema } from "../schemas/device.js";
 
 const router = Router();
-
-function deviceCredentials(req: Request): { deviceId: string; secret: string } {
-  const parsedId = z.uuid().safeParse(req.header("x-device-id"));
-  const match = req.header("authorization")?.match(/^Device\s+(.+)$/i);
-  if (!parsedId.success || !match?.[1]) {
-    throw new ApiError(401, "DEVICE_AUTH_INVALID", "X-Device-Id and Device authorization token are required");
-  }
-  return { deviceId: parsedId.data, secret: match[1] };
-}
 
 router.post("/register", requireAuth, requireTenant, requirePermission("device.manage"),
   validate({ body: registerDeviceSchema }), asyncHandler(async (req, res) => {
@@ -42,7 +33,7 @@ router.post("/register", requireAuth, requireTenant, requirePermission("device.m
   }));
 
 router.post("/heartbeat", validate({ body: heartbeatSchema }), asyncHandler(async (req, res) => {
-  const credentials = deviceCredentials(req);
+  const credentials = readDeviceCredentials(req);
   const { data, error } = await createPublicClient().rpc("record_device_heartbeat", {
     target_device_id: credentials.deviceId,
     device_secret: credentials.secret,
@@ -59,7 +50,7 @@ router.post("/heartbeat", validate({ body: heartbeatSchema }), asyncHandler(asyn
 }));
 
 router.get("/config", asyncHandler(async (req, res) => {
-  const credentials = deviceCredentials(req);
+  const credentials = readDeviceCredentials(req);
   const { data, error } = await createPublicClient().rpc("get_device_config", {
     target_device_id: credentials.deviceId,
     device_secret: credentials.secret

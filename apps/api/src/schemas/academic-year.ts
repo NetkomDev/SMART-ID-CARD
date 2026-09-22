@@ -6,7 +6,7 @@ const academicYearFields = {
   end_date: z.iso.date()
 };
 
-const validDateRange = (value: { start_date?: string; end_date?: string }) =>
+const validDateRange = (value: { start_date?: string | undefined; end_date?: string | undefined }) =>
   !value.start_date || !value.end_date || value.end_date >= value.start_date;
 
 export const createAcademicYearSchema = z.object(academicYearFields).strict()
