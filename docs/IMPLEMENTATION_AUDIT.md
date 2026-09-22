@@ -1,8 +1,8 @@
 # Audit Implementasi terhadap Technical Execution Roadmap
 
 **Tanggal audit:** 22 September 2026  
-**Baseline:** commit `2dec180` (`Introduce AKSIS Core API, Admin/Parent/Waste PWAs, OpenAPI and DB migrations`)  
-**Ruang lingkup:** pemeriksaan statis seluruh berkas yang dilacak Git serta eksekusi typecheck dan unit/contract test lokal.
+**Baseline:** commit `4613b85` (`Introduce AKSIS Core API, Supabase migrations, multiple PWAs, and tooling`)<br>
+**Ruang lingkup:** seluruh source, migrasi, API, kontrak, UI, test, dan dokumen operasional yang dilacak Git; verifikasi dilakukan secara statis serta melalui typecheck, unit/contract test, build produksi, dan parse YAML lokal.
 
 ## Ringkasan eksekutif
 
@@ -14,7 +14,7 @@ Roadmap mendefinisikan 15 fase dengan Definition of Done (DoD) lintas fase yang 
 | Partial / In progress | 15 | 01–15 |
 | Not started | 0 | — |
 
-Fondasi produk sudah cukup luas: lima migrasi SQL, Core API dengan 31 path OpenAPI, tiga PWA, dan 33 unit/contract test. Namun belum ada bukti migrasi dijalankan pada PostgreSQL/Supabase kosong, test RLS/tenant isolation riil, test integrasi database, E2E browser, firmware, hardware-in-the-loop, infrastruktur observability, backup/restore drill, atau production-readiness review. Karena itu, fase 01–09 belum memenuhi DoD roadmap secara penuh.
+Fondasi produk mencakup **11 migrasi SQL, 37 tabel aplikasi, 62 policy RLS, 55 path OpenAPI, sembilan frontend/edge app, serta 77 unit/contract test dalam 14 test file**. Seluruh tabel yang ditemukan secara statis mempunyai `ENABLE ROW LEVEL SECURITY`. Walaupun permukaan awal Phase 01–15 sudah ada, tidak satu pun fase dinyatakan **Done** karena exit criteria roadmap mensyaratkan bukti PostgreSQL/RLS, E2E, hardware-in-the-loop, observability deployment, security review, serta drill operasional yang belum tersedia.
 
 ## Metode dan inventaris
 
@@ -27,11 +27,53 @@ Audit dilakukan dengan:
 
 Artefak utama yang ditemukan:
 
-- Migrasi: fondasi tenancy/RBAC; academic/cards/devices; gate attendance; parent access; dan waste.
-- API: auth, school, class, student, academic year, student history, card, device, gate attendance, attendance read model, parent, dan waste.
-- Middleware: human auth, tenant/permission context, request validation, error handler, correlation ID, rate limit, CORS, Helmet, dan structured HTTP logging.
-- PWA: `admin-web`, `parent-pwa`, dan `waste-pwa` dengan manifest/service worker masing-masing.
-- Test otomatis: enam test file, seluruhnya unit/HTTP contract ringan; tidak ditemukan suite `supabase/tests`, `tests/integration`, `tests/e2e`, `tests/security`, atau `tests/hardware-in-loop`.
+- Database: 11 forward migrations, 37 tabel, 62 policy, fungsi security-definer, composite FK tenant, dan satu SQL integration suite Phase 11.
+- API: 21 route/middleware/lib context untuk human, parent, operator, dan device runtime; seluruh business route berada di bawah `/api/v1`.
+- Frontend/edge: `admin-web`, `parent-pwa`, `waste-pwa`, `extracurricular-pwa`, `library-terminal`, `led-gateway`, `command-center`, `card-writer`, dan `operations-console`.
+- Contract: OpenAPI 3.1.0 versi 1.12.0 berhasil diparse sebagai YAML dan berisi 55 path Phase 03–15.
+- Test: 14 test file/77 test lulus, tetapi sebagian besar merupakan schema/unit/auth-boundary test; SQL Phase 11 tersedia namun belum dapat dieksekusi tanpa database disposable.
+
+## Temuan lintas arsitektur
+
+### Kekuatan
+
+1. **Tenant boundary berlapis.** API menggunakan user-scoped Supabase client, middleware membership/permission, filter `school_id`, RLS, dan composite FK; service-role key tidak diterima oleh aplikasi browser.
+2. **Device boundary eksplisit.** Gate, library, LED, dan card station memakai `Authorization: Device`, token hash, device type/status, expiry/revocation, serta RPC security-definer dengan `search_path` tetap.
+3. **Contract-first cukup konsisten.** Zod, error envelope, correlation ID, OpenAPI, dan route composition tersedia untuk seluruh domain.
+4. **Offline/idempotency primitives tersedia.** Gate dan library memakai event UUID/local sequence; extracurricular, waste, dan job tertentu mempunyai uniqueness/idempotency constraint.
+5. **Operability baseline tersedia.** JSON logging, redaction, process metrics, audit append-only, SLO/error budget, incident/restore/privacy runbook sudah terdokumentasi.
+
+### Risiko dan gap prioritas
+
+| Prioritas | Temuan | Dampak | Tindakan wajib |
+| --- | --- | --- | --- |
+| P0 | 11 migrasi belum terbukti dapat diterapkan berurutan pada Supabase kosong; SQL Phase 11 belum dijalankan | Syntax/signature/RLS defect baru diketahui saat deployment | Tambah Supabase local CI, `db reset`, dan jalankan matrix dua tenant untuk semua domain |
+| P0 | Belum ada seed permission/role standar untuk permission baru (`library.*`, `led.*`, `dashboard.read`, `card.write`, `audit.read`, dll.) | API dapat selalu 403 pada tenant baru | Seed katalog permission dan role assignment secara idempotent/transaksional |
+| P0 | Device secret untuk library, LED, dan card writer disimpan di `localStorage` | XSS/local-user dapat mengekstrak credential perangkat | Gunakan OS keystore/TPM/secure element atau provisioning native; jangan gunakan browser storage untuk produksi |
+| P0 | Firmware Gate Phase 06 belum ada; hanya server ingestion | Exit criteria offline/power-loss/queue/hardware tidak dapat dibuktikan | Implementasikan firmware/reference device dan fault-injection/HIL suite |
+| P1 | Tidak ada CI workflow, lockfile dependency, OpenAPI semantic lint, atau route/spec drift test | Build tidak reproducible dan kontrak dapat menyimpang | Commit lockfile, CI matrix, OpenAPI validator, generated SDK, contract drift check |
+| P1 | Root `npm run typecheck` hanya memeriksa API | Type error frontend dapat lolos quality gate | Tambah project references atau `typecheck:all` untuk sembilan app |
+| P1 | Tidak ada browser E2E/accessibility/security test | Role UX, logout cache, dan horizontal escalation tidak tervalidasi | Playwright + axe dengan dua tenant dan seluruh persona |
+| P1 | Reporting mengambil maksimum 10.000 row ke proses API untuk CSV | Memory/latency buruk dan ekspor terpotong tanpa cursor/job | Gunakan streaming cursor atau asynchronous export job/object storage |
+| P1 | Metrics bersifat in-memory satu proses dan audit middleware hanya metadata, bukan before/after mutation | Restart menghapus metrics; audit belum memenuhi traceability penuh | Export OpenTelemetry/Prometheus backend dan audit transaction/outbox before-after |
+| P1 | Command Center membangun HTML menggunakan nilai API tanpa escape helper | Data tenant yang terkontaminasi dapat memicu DOM XSS | Render dengan DOM/textContent atau escape seluruh nilai dinamis |
+| P2 | Banyak modul baru ditulis satu baris/minified dan domain logic berada langsung di route | Review, coverage, dan maintenance sulit | Format/lint otomatis dan ekstrak service/repository/domain modules |
+| P2 | Tidak ada `supabase/config.toml`, `seed.sql`, struktur `infra/`, atau deployment manifests | Environment parity dan recovery tidak reproducible | Tambah local stack, IaC, secret management, monitoring, dan runbook executable |
+
+### Kesesuaian struktur dengan blueprint
+
+| Area blueprint | Kondisi repositori | Penilaian |
+| --- | --- | --- |
+| `apps/api` dan frontend per persona | Tersedia dan terpisah per deployment/persona | Sesuai baseline |
+| `services/*` bounded contexts | Belum ada; business query dan orchestration masih langsung di Express route/RPC | Belum sesuai target modular |
+| `packages/api-contract`, `domain-events`, `authz`, `validation`, `observability` | Belum ada; kontrak dan helper tersebar per app | Gap arsitektur |
+| `firmware/gate`, `firmware/library-terminal`, shared device primitives | Tidak ada firmware; terminal browser bukan pengganti firmware/secure client produksi | Gap kritis Phase 06/11 |
+| `supabase/migrations` | 11 migrasi tersedia | Sesuai baseline, belum terbukti di database |
+| `supabase/tests` | Hanya integration SQL Phase 11 | Coverage tidak memadai |
+| `tests/contract`, `integration`, `e2e`, `security`, `hardware-in-loop` | Direktori/suite terpisah tidak tersedia | Gap quality engineering |
+| `infra/environments`, `monitoring`, `runbooks` | Hanya runbook Markdown; IaC dan konfigurasi monitoring tidak ada | Gap operasional |
+
+Keputusan arsitektur yang direkomendasikan adalah mempertahankan satu deployment API untuk saat ini, tetapi memecah route yang membesar menjadi application service dan tenant-aware repository per bounded context. Jangan membuat microservice baru sebelum transactional boundary, event outbox, observability, dan database test stabil.
 
 ## Status per fase
 
@@ -46,7 +88,7 @@ Artefak utama yang ditemukan:
 
 - Tidak ada konfigurasi Supabase local/CI, seed non-production, atau automation yang membuktikan migrasi dapat diterapkan pada database kosong dan setelah reset.
 - Tidak ada test database yang membuktikan FK lintas sekolah ditolak dan constraint/index bekerja pada PostgreSQL nyata.
-- Tidak ada artefak backup, PITR, rollback plan, atau restore drill di `infra/`/runbook.
+- Runbook backup/restore awal sudah tersedia, tetapi belum ada konfigurasi provider/IaC, rollback plan yang executable, maupun bukti restore/PITR drill.
 
 **Rekomendasi:** tambahkan `supabase/config.toml`, seed idempotent, CI `supabase db reset`, pgTAP untuk seluruh constraint tenant/lifecycle, dan runbook backup/restore dengan hasil drill.
 
@@ -76,8 +118,8 @@ Artefak utama yang ditemukan:
 **Belum memenuhi exit criteria**
 
 - `/readiness` terpisah tidak tersedia; `/health` tidak memeriksa dependency database.
-- Belum ada repository abstraction tenant-aware, audit hook, atau idempotency store generik seperti yang diminta roadmap.
-- Belum ada generated TypeScript SDK, OpenAPI lint/validation di CI, real-database integration test, SLO awal, atau metrics/tracing.
+- Belum ada repository abstraction tenant-aware atau idempotency store generik; audit hook sudah ada tetapi belum menangkap before/after data secara transaksional.
+- Belum ada generated TypeScript SDK, OpenAPI lint/validation di CI, real-database integration test, atau distributed tracing. Process metrics dan SLO awal sudah tersedia tetapi belum dikirim ke backend observability terpusat.
 
 **Rekomendasi:** validasi OpenAPI pada CI, hasilkan client typed, tambah readiness/dependency checks, audit/idempotency primitives, dan integration test yang menjalankan seluruh route terhadap database dua tenant.
 
@@ -136,7 +178,7 @@ Artefak utama yang ditemukan:
 
 - Mayoritas workflow masih berupa read/list sederhana; import siswa, form CRUD lengkap, card/device lifecycle, dan entry module lain belum lengkap.
 - Tidak ada E2E per role, automated accessibility audit, bundle/performance budget, atau test cache lintas tenant/logout.
-- Typecheck root hanya mencakup API, sehingga TypeScript ketiga PWA tidak diperiksa oleh `npm run typecheck`.
+- Typecheck root hanya mencakup API, sehingga TypeScript sembilan frontend/edge app tidak diperiksa oleh `npm run typecheck`.
 
 **Rekomendasi:** perluas script typecheck ke seluruh app, tambah Playwright + axe, implementasikan workflow operator end-to-end, dan verifikasi purge cache/session saat logout atau tenant berpindah.
 
@@ -176,7 +218,7 @@ Migrasi tenant-safe, RLS, kegiatan, sesi, anggota, presensi, outbox event, API, 
 
 ### Phase 11 — Library: **Partial / In progress**
 
-Terminal PWA, device-authenticated API, `library_visits`, idempotent realtime/offline ingestion, antrean retry lokal, summary per kelas, dan outbox `library.visit.created` telah tersedia. Composite FK dan RPC mengikat visit ke tenant perangkat. Exit criteria masih memerlukan penerapan migrasi, RLS/integration test dua tenant, fault test antrean browser, dan rekonsiliasi summary terhadap PostgreSQL nyata.
+Terminal PWA, device-authenticated API, `library_visits`, idempotent realtime/offline ingestion, antrean retry lokal, summary per kelas, dan outbox `library.visit.created` telah tersedia. Composite FK dan RPC mengikat visit ke tenant perangkat. SQL integration suite dua tenant sudah ditulis, tetapi belum dapat dijalankan di environment audit; exit criteria masih memerlukan eksekusi suite, fault test antrean browser, dan rekonsiliasi summary terhadap PostgreSQL nyata.
 
 ### Phase 12 — LED Gateway: **Partial / In progress**
 
@@ -209,20 +251,23 @@ Kekurangan proses kontrak:
 | Perintah | Hasil | Catatan |
 | --- | --- | --- |
 | `npm run typecheck` | Pass | `tsc -p apps/api/tsconfig.json --noEmit`; hanya API yang tercakup. |
-| `npm test` | Pass | 6 test files, 33 tests lulus. |
-| `npm run build && npm run build:admin && npm run build:parent && npm run build:waste` | Pass | API dan ketiga PWA menghasilkan build production. |
-| `npx tsc -p apps/<app>/tsconfig.json --noEmit` | Pass | Dijalankan terpisah untuk `admin-web`, `parent-pwa`, dan `waste-pwa`. |
+| `npm test` | Pass | 14 test files, 77 tests lulus. |
+| Seluruh script `build*` | Pass | API dan sembilan frontend/edge app menghasilkan build production. |
+| Parse `docs/openapi.yaml` dengan Ruby YAML | Pass | OpenAPI 3.1.0 versi 1.12.0, 55 path; ini validasi sintaks YAML, bukan semantic OpenAPI lint. |
+| Pemeriksaan tabel/RLS statis | Pass | 37 dari 37 tabel mempunyai `ENABLE ROW LEVEL SECURITY`; ditemukan 62 policy. |
+| `npm run test:db:library` | Blocked | Membutuhkan `DATABASE_URL`, `psql`, dan database disposable; runner tidak melakukan silent skip. |
 
 Test yang lulus memberi keyakinan pada type safety API, schema validation, error/auth boundary dasar, dan permission helper. Test tersebut **belum** memberi bukti bahwa migrasi SQL valid di PostgreSQL, RLS mengisolasi tenant, seluruh OpenAPI valid, atau PWA/hardware memenuhi exit criteria.
 
 ## Urutan remediasi yang direkomendasikan
 
-1. **P0 — Security/database proof:** Supabase local CI, migration reset, seed RBAC, pgTAP RLS dua tenant, FK/lifecycle tests, dan secret/deployment review.
-2. **P0 — Contract correctness:** OpenAPI lint + generated SDK + API/database integration tests; tambahkan readiness, audit trail, dan idempotency primitive.
-3. **P1 — Tutup workflow Phase 04–09:** academic import, device revoke/rotate/OTA, firmware Gate, Admin E2E, Parent revoke, dan Waste secure token/idempotency/outbox.
-4. **P1 — Quality gates:** typecheck/build semua PWA, Playwright/axe, cache privacy, load/fault tests, observability, backup/restore runbook.
-5. **P2 — Fase baru:** mulai Phase 10 hanya setelah fondasi dan exit criteria keamanan fase sebelumnya terukur; lanjutkan dependency order Library → LED → Command Center → Card Writer → production readiness.
+1. **P0 — Buktikan database/security:** Supabase local CI, migration reset, seed RBAC, pgTAP/RLS dua tenant, signature RPC, FK/lifecycle/idempotency/concurrency test.
+2. **P0 — Hilangkan penyimpanan device secret di browser:** pindahkan terminal/gateway/station produksi ke runtime native dengan OS keystore/TPM dan rotation/revocation teruji.
+3. **P0 — Selesaikan Gate firmware:** queue ≥2.000, cache bertanda versi, clock, backoff, watchdog, power-loss recovery, dan HIL.
+4. **P1 — Tutup workflow bisnis:** import akademik validate-preview-confirm, device rotate/revoke/OTA, Parent unlink/revoke, Waste secure class token/scale/outbox, serta UI CRUD operator lengkap.
+5. **P1 — Quality gate repository:** lockfile, CI, typecheck seluruh app, lint/format, OpenAPI semantic validation + generated SDK, Playwright/axe, dan security regression.
+6. **P1 — Production evidence:** centralized observability, report reconciliation, load/soak/fault test, penetration test, backup restore/DR drill, privacy/export review, dan sign-off.
 
 ## Kesimpulan
 
-Repositori telah mengimplementasikan vertical slice yang berarti untuk Phase 01–09, tetapi status release roadmap lebih rendah daripada status keberadaan kode. Baseline yang aman adalah **9 fase partial dan 6 fase not started**. Fokus berikutnya sebaiknya bukan menambah permukaan fitur baru, melainkan membuktikan tenant isolation/database behavior, menutup workflow yang hilang, dan mengotomasi acceptance criteria agar istilah **Done** mempunyai bukti yang reproducible.
+Repositori telah menyediakan initial vertical slice untuk **seluruh Phase 01–15**, tetapi belum merupakan sistem production-ready. Baseline yang dapat dipertanggungjawabkan adalah **0 Done, 15 Partial, 0 Not started**. Fokus berikutnya harus bergeser dari penambahan surface area menuju pembuktian: migrasi/RLS nyata, secure device storage, firmware/hardware behavior, E2E multi-role, observability terpusat, dan drill operasional. Status **Done** hanya boleh diberikan setelah exit criteria terkait mempunyai hasil otomatis atau bukti sign-off yang reproducible.
