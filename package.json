@@ -1,0 +1,41 @@
+{
+  "name": "aksis-platform",
+  "private": true,
+  "version": "0.3.0",
+  "description": "AKSIS multi-school platform",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev": "tsx watch apps/api/src/server.ts",
+    "dev:admin": "vite --config apps/admin-web/vite.config.ts",
+    "build": "tsc -p apps/api/tsconfig.json",
+    "build:admin": "vite build --config apps/admin-web/vite.config.ts",
+    "start": "node apps/api/dist/server.js",
+    "typecheck": "tsc -p apps/api/tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.57.4",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.1.0",
+    "helmet": "^8.1.0",
+    "pino": "^9.9.4",
+    "pino-http": "^10.5.0",
+    "zod": "^4.1.8"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.5.2",
+    "@types/supertest": "^6.0.3",
+    "supertest": "^7.1.4",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2",
+    "vite": "^7.3.6",
+    "vitest": "^3.2.4"
+  }
+}
