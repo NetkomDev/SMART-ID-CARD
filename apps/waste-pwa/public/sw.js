@@ -1,0 +1,1 @@
+const C="aksis-waste-v1";self.addEventListener("install",e=>e.waitUntil(caches.open(C).then(c=>c.addAll(["/","/index.html","/manifest.webmanifest"]))));self.addEventListener("fetch",e=>{if(new URL(e.request.url).pathname.startsWith("/api/"))return;e.respondWith(fetch(e.request).catch(()=>caches.match(e.request).then(r=>r||caches.match("/"))))});
