@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
   title: AKSIS Core API
-  version: 1.9.0
+  version: 1.10.0
   description: >-
-    Integrated Phase 03-12 REST contract covering authentication and tenant
+    Integrated Phase 03-13 REST contract covering authentication and tenant
     context, schools/classes/students, academic periods and student history,
     card lifecycle, and secure device provisioning/runtime operations.
   x-aksis-phases:
@@ -27,6 +27,8 @@ info:
       resources: [Library Visits, Offline Sync, Class Summary]
     - phase: 12
       resources: [LED Content, Gateway State, Heartbeat, Acknowledgement]
+    - phase: 13
+      resources: [Command Center, Today Aggregate]
 servers:
   - url: http://localhost:3000/api/v1
     description: Local development
@@ -44,6 +46,7 @@ tags:
   - name: Extracurriculars
   - name: Library
   - name: LED Gateway
+  - name: Dashboard
 security:
   - bearerAuth: []
     schoolId: []
@@ -811,6 +814,15 @@ paths:
       security: [{ deviceAuth: [], deviceId: [] }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/LedAcknowledgementInput' } } } }
       responses: { '201': { description: Controller result acknowledged }, '401': { $ref: '#/components/responses/DeviceAuthRequired' } }
+  /dashboard/today:
+    get:
+      tags: [Dashboard]
+      operationId: getDashboardToday
+      summary: Return a cached tenant aggregate for today's operational metrics
+      description: Requires `dashboard.read`; stale cache entries are refreshed server-side.
+      responses:
+        '200': { description: Attendance, late, waste, library, and extracurricular aggregate, content: { application/json: { schema: { $ref: '#/components/schemas/DashboardTodayResponse' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
 components:
   securitySchemes:
     bearerAuth:
@@ -897,6 +909,24 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorEnvelope' }
   schemas:
+    DashboardTodayResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessEnvelope'
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [school_id, date, timezone, metrics, generated_at, stale_after, is_stale]
+              properties:
+                school_id: { type: string, format: uuid }
+                date: { type: string, format: date }
+                timezone: { type: string }
+                generated_at: { type: string, format: date-time }
+                stale_after: { type: string, format: date-time }
+                is_stale: { type: boolean }
+                metrics:
+                  type: object
+                  additionalProperties: true
     LedContentInput:
       type: object
       required: [priority, body]

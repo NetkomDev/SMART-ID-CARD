@@ -11,8 +11,8 @@ Roadmap mendefinisikan 15 fase dengan Definition of Done (DoD) lintas fase yang 
 | Status | Jumlah | Fase |
 | --- | ---: | --- |
 | Done | 0 | — |
-| Partial / In progress | 12 | 01–12 |
-| Not started | 3 | 13–15 |
+| Partial / In progress | 13 | 01–13 |
+| Not started | 2 | 14–15 |
 
 Fondasi produk sudah cukup luas: lima migrasi SQL, Core API dengan 31 path OpenAPI, tiga PWA, dan 33 unit/contract test. Namun belum ada bukti migrasi dijalankan pada PostgreSQL/Supabase kosong, test RLS/tenant isolation riil, test integrasi database, E2E browser, firmware, hardware-in-the-loop, infrastruktur observability, backup/restore drill, atau production-readiness review. Karena itu, fase 01–09 belum memenuhi DoD roadmap secara penuh.
 
@@ -182,9 +182,9 @@ Terminal PWA, device-authenticated API, `library_visits`, idempotent realtime/of
 
 Migrasi tenant-safe, state selection berprioritas, override window dengan auto-expiry, heartbeat, acknowledgement, device-authenticated API, cache/fallback gateway, adapter Huidu, UI, validasi, dan OpenAPI telah tersedia. Exit criteria masih memerlukan PostgreSQL/RLS integration test, event replay test, dan hardware-in-the-loop terhadap controller Huidu aktual.
 
-### Phase 13 — Command Center: **Not started**
+### Phase 13 — Command Center: **Partial / In progress**
 
-Tidak ada app command center, endpoint `/dashboard/today`, materialized aggregate/cache, realtime invalidation, freshness SLO, load test, atau degraded-state UI.
+Snapshot cache tenant harian, server-side aggregate untuk attendance/late/waste/library/extracurricular, endpoint `/dashboard/today`, permission `dashboard.read`, polling/invalidation refetch, dan UI fresh/stale/degraded telah tersedia. Exit criteria masih memerlukan PostgreSQL reconciliation test, load test jam masuk sekolah, serta pengukuran freshness SLO pada staging.
 
 ### Phase 14 — Card Writer: **Not started**
 
@@ -196,7 +196,7 @@ Pino HTTP log dasar tersedia, tetapi fase ini memerlukan reporting/export lintas
 
 ## Audit kontrak OpenAPI
 
-`docs/openapi.yaml` memuat 47 path untuk fitur Phase 03–12, termasuk LED content, gateway state, heartbeat, dan acknowledgement. Tidak ditemukan path Phase 13–15.
+`docs/openapi.yaml` memuat 48 path untuk fitur Phase 03–13, termasuk cached Command Center aggregate. Tidak ditemukan path Phase 14–15.
 
 Kekurangan proses kontrak:
 

@@ -25,6 +25,7 @@ import { wasteRouter } from "./routes/waste.js";
 import { extracurricularsRouter } from "./routes/extracurriculars.js";
 import { libraryDeviceRouter, libraryRouter } from "./routes/library.js";
 import { ledDeviceRouter, ledRouter } from "./routes/led.js";
+import { dashboardRouter } from "./routes/dashboard.js";
 
 /**
  * Conflict-resolution invariant: all Phase 03-05 routers are composed here.
@@ -84,6 +85,7 @@ export function createApp() {
   app.use("/api/v1/extracurriculars", extracurricularsRouter);
   app.use("/api/v1/library", libraryRouter);
   app.use("/api/v1/led", ledRouter);
+  app.use("/api/v1/dashboard", dashboardRouter);
   app.use(notFound);
   app.use(errorHandler);
   return app;
