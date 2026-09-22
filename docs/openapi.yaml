@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
   title: AKSIS Core API
-  version: 1.7.0
+  version: 1.8.0
   description: >-
-    Integrated Phase 03-10 REST contract covering authentication and tenant
+    Integrated Phase 03-11 REST contract covering authentication and tenant
     context, schools/classes/students, academic periods and student history,
     card lifecycle, and secure device provisioning/runtime operations.
   x-aksis-phases:
@@ -23,6 +23,8 @@ info:
       resources: [Waste Transactions, Ranking, Summary]
     - phase: 10
       resources: [Extracurriculars, Sessions, Members, Attendance]
+    - phase: 11
+      resources: [Library Visits, Offline Sync, Class Summary]
 servers:
   - url: http://localhost:3000/api/v1
     description: Local development
@@ -38,6 +40,7 @@ tags:
   - name: Parents
   - name: Waste
   - name: Extracurriculars
+  - name: Library
 security:
   - bearerAuth: []
     schoolId: []
@@ -736,6 +739,31 @@ paths:
       operationId: getExtracurricularSessionSummary
       parameters: [{ $ref: '#/components/parameters/ResourceId' }, { name: sessionId, in: path, required: true, schema: { type: string, format: uuid } }]
       responses: { '200': { description: Present, excused, absent, and total counts } }
+  /device/library/visits:
+    post:
+      tags: [Library]
+      operationId: recordLibraryVisit
+      summary: Record a real-time authenticated terminal visit
+      security: [{ deviceAuth: [], deviceId: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/LibraryVisitInput' } } } }
+      responses: { '200': { description: Idempotent replay }, '201': { description: Visit recorded }, '401': { $ref: '#/components/responses/DeviceAuthRequired' } }
+  /device/library/visits/sync:
+    post:
+      tags: [Library]
+      operationId: syncLibraryVisits
+      summary: Synchronize one to 500 queued terminal visits
+      security: [{ deviceAuth: [], deviceId: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [events], properties: { events: { type: array, minItems: 1, maxItems: 500, items: { $ref: '#/components/schemas/LibraryVisitInput' } } } } } } }
+      responses: { '200': { description: Ordered sync results }, '401': { $ref: '#/components/responses/DeviceAuthRequired' } }
+  /library/summary:
+    get:
+      tags: [Library]
+      operationId: getLibrarySummary
+      summary: Aggregate tenant library visits by class
+      parameters:
+        - { name: occurred_from, in: query, schema: { type: string, format: date-time } }
+        - { name: occurred_to, in: query, schema: { type: string, format: date-time } }
+      responses: { '200': { description: Class visit totals }, '403': { $ref: '#/components/responses/Forbidden' } }
 components:
   securitySchemes:
     bearerAuth:
@@ -822,6 +850,15 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorEnvelope' }
   schemas:
+    LibraryVisitInput:
+      type: object
+      required: [event_id, card_uid, occurred_at, local_sequence]
+      properties:
+        event_id: { type: string, format: uuid }
+        card_uid: { type: string, minLength: 4, maxLength: 64 }
+        occurred_at: { type: string, format: date-time }
+        local_sequence: { type: integer, minimum: 0 }
+        metadata: { type: object, additionalProperties: true, default: {} }
     ExtracurricularInput:
       type: object
       required: [code, name]

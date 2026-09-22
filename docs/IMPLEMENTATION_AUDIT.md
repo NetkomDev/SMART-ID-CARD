@@ -11,8 +11,8 @@ Roadmap mendefinisikan 15 fase dengan Definition of Done (DoD) lintas fase yang 
 | Status | Jumlah | Fase |
 | --- | ---: | --- |
 | Done | 0 | — |
-| Partial / In progress | 10 | 01–10 |
-| Not started | 5 | 11–15 |
+| Partial / In progress | 11 | 01–11 |
+| Not started | 4 | 12–15 |
 
 Fondasi produk sudah cukup luas: lima migrasi SQL, Core API dengan 31 path OpenAPI, tiga PWA, dan 33 unit/contract test. Namun belum ada bukti migrasi dijalankan pada PostgreSQL/Supabase kosong, test RLS/tenant isolation riil, test integrasi database, E2E browser, firmware, hardware-in-the-loop, infrastruktur observability, backup/restore drill, atau production-readiness review. Karena itu, fase 01–09 belum memenuhi DoD roadmap secara penuh.
 
@@ -174,9 +174,9 @@ Artefak utama yang ditemukan:
 
 Migrasi tenant-safe, RLS, kegiatan, sesi, anggota, presensi, outbox event, API, validasi, kontrak OpenAPI, dan PWA awal telah tersedia. Fast enrollment mensyaratkan konfirmasi eksplisit serta idempotency key; constraint database menolak presensi ganda dan relasi member/session lintas kegiatan atau tenant. Exit criteria belum sepenuhnya terbukti karena migration/RLS integration test pada PostgreSQL nyata, aggregate reconciliation, dan E2E PWA belum tersedia.
 
-### Phase 11 — Library: **Not started**
+### Phase 11 — Library: **Partial / In progress**
 
-Enum device telah mengenal `LIBRARY`, tetapi tidak ada `library_visits`, terminal/client, API, offline retry, summary, event, atau test. Enum saja bukan implementasi fase.
+Terminal PWA, device-authenticated API, `library_visits`, idempotent realtime/offline ingestion, antrean retry lokal, summary per kelas, dan outbox `library.visit.created` telah tersedia. Composite FK dan RPC mengikat visit ke tenant perangkat. Exit criteria masih memerlukan penerapan migrasi, RLS/integration test dua tenant, fault test antrean browser, dan rekonsiliasi summary terhadap PostgreSQL nyata.
 
 ### Phase 12 — LED Gateway: **Not started**
 
@@ -196,7 +196,7 @@ Pino HTTP log dasar tersedia, tetapi fase ini memerlukan reporting/export lintas
 
 ## Audit kontrak OpenAPI
 
-`docs/openapi.yaml` memuat 38 path untuk fitur Phase 03–10 yang ada, termasuk kegiatan ekstrakurikuler, sesi, anggota, fast enrollment, presensi, dan summary. Tidak ditemukan path Phase 11–15.
+`docs/openapi.yaml` memuat 41 path untuk fitur Phase 03–11, termasuk realtime/offline library visits dan summary per kelas. Tidak ditemukan path Phase 12–15.
 
 Kekurangan proses kontrak:
 
