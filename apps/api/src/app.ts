@@ -27,6 +27,10 @@ import { libraryDeviceRouter, libraryRouter } from "./routes/library.js";
 import { ledDeviceRouter, ledRouter } from "./routes/led.js";
 import { dashboardRouter } from "./routes/dashboard.js";
 import { cardWriterDeviceRouter, cardWriterRouter } from "./routes/card-writer.js";
+import { reportingRouter } from "./routes/reporting.js";
+import { monitoringRouter } from "./routes/monitoring.js";
+import { auditTrail } from "./middleware/audit.js";
+import { collectMetrics } from "./middleware/metrics.js";
 
 /**
  * Conflict-resolution invariant: all Phase 03-05 routers are composed here.
@@ -38,6 +42,7 @@ export function createApp() {
   app.use(helmet());
   app.use(cors({ origin: config.corsOrigins, credentials: true }));
   app.use(express.json({ limit: "1mb" }));
+  app.use(collectMetrics);
   app.use((req, res, next) => {
     req.requestId = req.header("x-request-id") || randomUUID();
     res.setHeader("x-request-id", req.requestId);
@@ -71,6 +76,7 @@ export function createApp() {
 
   // Shared human authentication + tenant context for Phase 03-04 resources.
   app.use("/api/v1", requireAuth, requireTenant);
+  app.use("/api/v1", auditTrail);
 
   // Phase 03 core tenant resources.
   app.use("/api/v1/schools", schoolsRouter);
@@ -89,6 +95,8 @@ export function createApp() {
   app.use("/api/v1/led", ledRouter);
   app.use("/api/v1/dashboard", dashboardRouter);
   app.use("/api/v1/card-writer", cardWriterRouter);
+  app.use("/api/v1/reports", reportingRouter);
+  app.use("/api/v1/monitoring", monitoringRouter);
   app.use(notFound);
   app.use(errorHandler);
   return app;

@@ -1,0 +1,3 @@
+const started=Date.now();let requests=0,errors=0;const durations:number[]=[];
+export function recordMetric(status:number,durationMs:number){requests++;if(status>=500)errors++;durations.push(durationMs);if(durations.length>1000)durations.shift()}
+export function prometheusMetrics(){const sorted=[...durations].sort((a,b)=>a-b),p95=sorted.length?sorted[Math.min(sorted.length-1,Math.floor(sorted.length*.95))]!:0;return[`# HELP aksis_uptime_seconds Process uptime`,`# TYPE aksis_uptime_seconds gauge`,`aksis_uptime_seconds ${(Date.now()-started)/1000}`,`# HELP aksis_http_requests_total HTTP requests`,`# TYPE aksis_http_requests_total counter`,`aksis_http_requests_total ${requests}`,`aksis_http_errors_total ${errors}`,`aksis_http_duration_p95_ms ${p95}`].join("\n")+"\n"}

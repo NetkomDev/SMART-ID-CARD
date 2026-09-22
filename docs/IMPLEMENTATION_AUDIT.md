@@ -11,8 +11,8 @@ Roadmap mendefinisikan 15 fase dengan Definition of Done (DoD) lintas fase yang 
 | Status | Jumlah | Fase |
 | --- | ---: | --- |
 | Done | 0 | — |
-| Partial / In progress | 14 | 01–14 |
-| Not started | 1 | 15 |
+| Partial / In progress | 15 | 01–15 |
+| Not started | 0 | — |
 
 Fondasi produk sudah cukup luas: lima migrasi SQL, Core API dengan 31 path OpenAPI, tiga PWA, dan 33 unit/contract test. Namun belum ada bukti migrasi dijalankan pada PostgreSQL/Supabase kosong, test RLS/tenant isolation riil, test integrasi database, E2E browser, firmware, hardware-in-the-loop, infrastruktur observability, backup/restore drill, atau production-readiness review. Karena itu, fase 01–09 belum memenuhi DoD roadmap secara penuh.
 
@@ -190,13 +190,13 @@ Snapshot cache tenant harian, server-side aggregate untuk attendance/late/waste/
 
 Job queue tenant-safe, lease/attempt/retry, station device authentication, server-selected identity, RFID/QR read-back verification, hard mismatch failure, immutable write log, API, validation, dan station UI telah tersedia. Exit criteria masih memerlukan PostgreSQL concurrency/crash-recovery integration test dan hardware test terhadap writer RFID/QR aktual.
 
-### Phase 15 — Reporting + Audit + Monitoring: **Not started**
+### Phase 15 — Reporting + Audit + Monitoring: **Partial / In progress**
 
-Pino HTTP log dasar tersedia, tetapi fase ini memerlukan reporting/export lintas domain, audit append-only, retention/privacy, centralized logs, metrics, tracing, alerting, SLO/error budget, runbook, penetration test, DR/restore drill, dan sign-off operasional. Tidak ditemukan artefak yang cukup untuk menyatakan fase dimulai sebagai deliverable terpadu.
+Reporting/CSV tenant-scoped untuk attendance, waste, library, dan extracurricular; audit append-only; konfigurasi retention; metrics terproteksi; correlation logging; Operations UI; serta runbook SLO, incident, privacy, backup/restore, dan sign-off telah tersedia. Exit criteria masih memerlukan deployment observability terpusat, report reconciliation di PostgreSQL, penetration test, restore/DR drill aktual, alert exercise, dan sign-off operasional.
 
 ## Audit kontrak OpenAPI
 
-`docs/openapi.yaml` memuat 53 path untuk fitur Phase 03–14, termasuk Card Writer jobs dan station runtime. Tidak ditemukan path Phase 15.
+`docs/openapi.yaml` memuat 55 path untuk fitur Phase 03–15, termasuk Reporting, Audit, dan Monitoring. Seluruh fase kini memiliki permukaan kontrak awal.
 
 Kekurangan proses kontrak:
 

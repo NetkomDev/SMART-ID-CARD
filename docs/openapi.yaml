@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
   title: AKSIS Core API
-  version: 1.11.0
+  version: 1.12.0
   description: >-
-    Integrated Phase 03-14 REST contract covering authentication and tenant
+    Integrated Phase 03-15 REST contract covering authentication and tenant
     context, schools/classes/students, academic periods and student history,
     card lifecycle, and secure device provisioning/runtime operations.
   x-aksis-phases:
@@ -31,6 +31,8 @@ info:
       resources: [Command Center, Today Aggregate]
     - phase: 14
       resources: [Card Writer Jobs, Station Lease, Read-back Verification]
+    - phase: 15
+      resources: [Reporting, Audit, Monitoring]
 servers:
   - url: http://localhost:3000/api/v1
     description: Local development
@@ -50,6 +52,8 @@ tags:
   - name: LED Gateway
   - name: Dashboard
   - name: Card Writer
+  - name: Reporting
+  - name: Monitoring
 security:
   - bearerAuth: []
     schoolId: []
@@ -856,6 +860,30 @@ paths:
       security: [{ deviceAuth: [], deviceId: [] }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CardWriteCompletionInput' } } } }
       responses: { '200': { description: Verified result, retry, or hard failure }, '401': { $ref: '#/components/responses/DeviceAuthRequired' } }
+  /reports/{domain}:
+    get:
+      tags: [Reporting]
+      operationId: exportTenantReport
+      summary: Export a tenant-scoped operational report
+      parameters:
+        - { name: domain, in: path, required: true, schema: { type: string, enum: [attendance, waste, library, extracurricular] } }
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+        - { name: format, in: query, schema: { type: string, enum: [json, csv], default: json } }
+      responses: { '200': { description: JSON rows or downloadable CSV }, '403': { $ref: '#/components/responses/Forbidden' } }
+  /reports/audit/logs:
+    get:
+      tags: [Reporting]
+      operationId: listAuditLogs
+      summary: List append-only privileged action records
+      parameters: [{ $ref: '#/components/parameters/Page' }, { $ref: '#/components/parameters/PageSize' }]
+      responses: { '200': { description: Paginated audit records }, '403': { $ref: '#/components/responses/Forbidden' } }
+  /monitoring/metrics:
+    get:
+      tags: [Monitoring]
+      operationId: getPrometheusMetrics
+      summary: Retrieve protected process metrics
+      responses: { '200': { description: Prometheus text exposition }, '403': { $ref: '#/components/responses/Forbidden' } }
 components:
   securitySchemes:
     bearerAuth:
