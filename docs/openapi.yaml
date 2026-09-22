@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
   title: AKSIS Core API
-  version: 1.8.0
+  version: 1.9.0
   description: >-
-    Integrated Phase 03-11 REST contract covering authentication and tenant
+    Integrated Phase 03-12 REST contract covering authentication and tenant
     context, schools/classes/students, academic periods and student history,
     card lifecycle, and secure device provisioning/runtime operations.
   x-aksis-phases:
@@ -25,6 +25,8 @@ info:
       resources: [Extracurriculars, Sessions, Members, Attendance]
     - phase: 11
       resources: [Library Visits, Offline Sync, Class Summary]
+    - phase: 12
+      resources: [LED Content, Gateway State, Heartbeat, Acknowledgement]
 servers:
   - url: http://localhost:3000/api/v1
     description: Local development
@@ -41,6 +43,7 @@ tags:
   - name: Waste
   - name: Extracurriculars
   - name: Library
+  - name: LED Gateway
 security:
   - bearerAuth: []
     schoolId: []
@@ -764,6 +767,50 @@ paths:
         - { name: occurred_from, in: query, schema: { type: string, format: date-time } }
         - { name: occurred_to, in: query, schema: { type: string, format: date-time } }
       responses: { '200': { description: Class visit totals }, '403': { $ref: '#/components/responses/Forbidden' } }
+  /led/content:
+    get:
+      tags: [LED Gateway]
+      operationId: listLedContent
+      summary: List tenant LED content and override windows
+      responses: { '200': { description: Content list }, '403': { $ref: '#/components/responses/Forbidden' } }
+    post:
+      tags: [LED Gateway]
+      operationId: createLedContent
+      summary: Schedule LED content or an override
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/LedContentInput' } } } }
+      responses: { '201': { description: Content scheduled }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /led/content/{id}:
+    patch:
+      tags: [LED Gateway]
+      operationId: updateLedContent
+      parameters: [{ $ref: '#/components/parameters/ResourceId' }]
+      responses: { '200': { description: Content updated }, '404': { $ref: '#/components/responses/NotFound' } }
+  /led/gateways:
+    get:
+      tags: [LED Gateway]
+      operationId: listLedGatewayHealth
+      summary: List tenant gateway heartbeats and controller state
+      responses: { '200': { description: Gateway health records } }
+  /device/led/state:
+    get:
+      tags: [LED Gateway]
+      operationId: getLedGatewayState
+      security: [{ deviceAuth: [], deviceId: [] }]
+      responses: { '200': { description: Highest-priority active content or fallback }, '401': { $ref: '#/components/responses/DeviceAuthRequired' } }
+  /device/led/heartbeat:
+    post:
+      tags: [LED Gateway]
+      operationId: recordLedGatewayHeartbeat
+      security: [{ deviceAuth: [], deviceId: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/LedHeartbeatInput' } } } }
+      responses: { '201': { description: Heartbeat recorded }, '401': { $ref: '#/components/responses/DeviceAuthRequired' } }
+  /device/led/acknowledgements:
+    post:
+      tags: [LED Gateway]
+      operationId: acknowledgeLedContent
+      security: [{ deviceAuth: [], deviceId: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/LedAcknowledgementInput' } } } }
+      responses: { '201': { description: Controller result acknowledged }, '401': { $ref: '#/components/responses/DeviceAuthRequired' } }
 components:
   securitySchemes:
     bearerAuth:
@@ -850,6 +897,32 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorEnvelope' }
   schemas:
+    LedContentInput:
+      type: object
+      required: [priority, body]
+      properties:
+        priority: { type: string, enum: [RUNNING_TEXT, NORMAL_DASHBOARD, ACHIEVEMENT, ADMIN_OVERRIDE, EMERGENCY] }
+        title: { type: [string, 'null'], maxLength: 160 }
+        body: { type: string, minLength: 1, maxLength: 4000 }
+        starts_at: { type: string, format: date-time }
+        ends_at: { type: [string, 'null'], format: date-time }
+    LedHeartbeatInput:
+      type: object
+      required: [firmware_version, controller_online, reported_at]
+      properties:
+        firmware_version: { type: string, maxLength: 50 }
+        controller_online: { type: boolean }
+        cached_content_id: { type: [string, 'null'], format: uuid }
+        last_error: { type: [string, 'null'], maxLength: 1000 }
+        reported_at: { type: string, format: date-time }
+    LedAcknowledgementInput:
+      type: object
+      required: [content_id, content_version, success]
+      properties:
+        content_id: { type: string, format: uuid }
+        content_version: { type: integer, minimum: 1 }
+        success: { type: boolean }
+        error_code: { type: [string, 'null'], maxLength: 80 }
     LibraryVisitInput:
       type: object
       required: [event_id, card_uid, occurred_at, local_sequence]

@@ -24,6 +24,7 @@ import { studentsRouter } from "./routes/students.js";
 import { wasteRouter } from "./routes/waste.js";
 import { extracurricularsRouter } from "./routes/extracurriculars.js";
 import { libraryDeviceRouter, libraryRouter } from "./routes/library.js";
+import { ledDeviceRouter, ledRouter } from "./routes/led.js";
 
 /**
  * Conflict-resolution invariant: all Phase 03-05 routers are composed here.
@@ -62,6 +63,7 @@ export function createApp() {
   app.use("/api/v1/devices", devicesRouter);
   app.use("/api/v1/device", gateAttendanceRouter);
   app.use("/api/v1/device/library", libraryDeviceRouter);
+  app.use("/api/v1/device/led", ledDeviceRouter);
   app.use("/api/v1/parent", parentsRouter);
 
   // Shared human authentication + tenant context for Phase 03-04 resources.
@@ -81,6 +83,7 @@ export function createApp() {
   app.use("/api/v1/waste", wasteRouter);
   app.use("/api/v1/extracurriculars", extracurricularsRouter);
   app.use("/api/v1/library", libraryRouter);
+  app.use("/api/v1/led", ledRouter);
   app.use(notFound);
   app.use(errorHandler);
   return app;

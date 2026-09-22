@@ -11,8 +11,8 @@ Roadmap mendefinisikan 15 fase dengan Definition of Done (DoD) lintas fase yang 
 | Status | Jumlah | Fase |
 | --- | ---: | --- |
 | Done | 0 | — |
-| Partial / In progress | 11 | 01–11 |
-| Not started | 4 | 12–15 |
+| Partial / In progress | 12 | 01–12 |
+| Not started | 3 | 13–15 |
 
 Fondasi produk sudah cukup luas: lima migrasi SQL, Core API dengan 31 path OpenAPI, tiga PWA, dan 33 unit/contract test. Namun belum ada bukti migrasi dijalankan pada PostgreSQL/Supabase kosong, test RLS/tenant isolation riil, test integrasi database, E2E browser, firmware, hardware-in-the-loop, infrastruktur observability, backup/restore drill, atau production-readiness review. Karena itu, fase 01–09 belum memenuhi DoD roadmap secara penuh.
 
@@ -178,9 +178,9 @@ Migrasi tenant-safe, RLS, kegiatan, sesi, anggota, presensi, outbox event, API, 
 
 Terminal PWA, device-authenticated API, `library_visits`, idempotent realtime/offline ingestion, antrean retry lokal, summary per kelas, dan outbox `library.visit.created` telah tersedia. Composite FK dan RPC mengikat visit ke tenant perangkat. Exit criteria masih memerlukan penerapan migrasi, RLS/integration test dua tenant, fault test antrean browser, dan rekonsiliasi summary terhadap PostgreSQL nyata.
 
-### Phase 12 — LED Gateway: **Not started**
+### Phase 12 — LED Gateway: **Partial / In progress**
 
-Enum device telah mengenal `LED`, tetapi tidak ada gateway, Huidu adapter, priority state machine, override window/acknowledgement, heartbeat khusus, atau hardware-in-the-loop test.
+Migrasi tenant-safe, state selection berprioritas, override window dengan auto-expiry, heartbeat, acknowledgement, device-authenticated API, cache/fallback gateway, adapter Huidu, UI, validasi, dan OpenAPI telah tersedia. Exit criteria masih memerlukan PostgreSQL/RLS integration test, event replay test, dan hardware-in-the-loop terhadap controller Huidu aktual.
 
 ### Phase 13 — Command Center: **Not started**
 
@@ -196,7 +196,7 @@ Pino HTTP log dasar tersedia, tetapi fase ini memerlukan reporting/export lintas
 
 ## Audit kontrak OpenAPI
 
-`docs/openapi.yaml` memuat 41 path untuk fitur Phase 03–11, termasuk realtime/offline library visits dan summary per kelas. Tidak ditemukan path Phase 12–15.
+`docs/openapi.yaml` memuat 47 path untuk fitur Phase 03–12, termasuk LED content, gateway state, heartbeat, dan acknowledgement. Tidak ditemukan path Phase 13–15.
 
 Kekurangan proses kontrak:
 
