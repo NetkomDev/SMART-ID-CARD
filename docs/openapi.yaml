@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
   title: AKSIS Core API
-  version: 1.4.0
+  version: 1.5.0
   description: >-
-    Integrated Phase 03-07 REST contract covering authentication and tenant
+    Integrated Phase 03-08 REST contract covering authentication and tenant
     context, schools/classes/students, academic periods and student history,
     card lifecycle, and secure device provisioning/runtime operations.
   x-aksis-phases:
@@ -17,6 +17,8 @@ info:
       resources: [Gate Attendance, Offline Sync]
     - phase: 7
       resources: [Admin Context, Attendance Read Model, Device Inventory]
+    - phase: 8
+      resources: [Parent Linking, Children, Parent Timeline]
 servers:
   - url: http://localhost:3000/api/v1
     description: Local development
@@ -29,6 +31,7 @@ tags:
   - name: Cards
   - name: Devices
   - name: Gate Attendance
+  - name: Parents
 security:
   - bearerAuth: []
     schoolId: []
@@ -610,6 +613,47 @@ paths:
         '200': { description: Paginated attendance read model, content: { application/json: { schema: { $ref: '#/components/schemas/AttendanceListResponse' } } } }
         '401': { $ref: '#/components/responses/AuthRequired' }
         '403': { $ref: '#/components/responses/Forbidden' }
+  /parent/link:
+    post:
+      tags: [Parents]
+      operationId: claimParentLink
+      summary: Claim a one-time school-issued child link
+      security: [{ bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [token, full_name], properties: { token: { type: string, minLength: 32 }, full_name: { type: string }, phone: { type: [string, 'null'] } } } } } }
+      responses:
+        '201': { description: Child relationship activated }
+        '401': { $ref: '#/components/responses/AuthRequired' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /parent/children:
+    get:
+      tags: [Parents]
+      operationId: listParentChildren
+      summary: List only children actively linked to the authenticated parent
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Linked children }
+        '401': { $ref: '#/components/responses/AuthRequired' }
+  /parent/children/{id}/today:
+    get:
+      tags: [Parents]
+      operationId: getParentChildToday
+      summary: Get today's timeline for an actively linked child
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/ResourceId' }]
+      responses:
+        '200': { description: Child timeline in school timezone }
+        '401': { $ref: '#/components/responses/AuthRequired' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /parent/link-tokens:
+    post:
+      tags: [Parents]
+      operationId: createParentLinkToken
+      summary: Issue a one-time parent link token
+      description: Requires `parent.manage` in the selected school.
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [student_id, relationship], properties: { student_id: { type: string, format: uuid }, relationship: { type: string, enum: [FATHER, MOTHER, GUARDIAN, OTHER] }, expires_in_hours: { type: integer, minimum: 1, maximum: 168, default: 24 } } } } } }
+      responses:
+        '201': { description: Token returned once }
+        '403': { $ref: '#/components/responses/Forbidden' }
 components:
   securitySchemes:
     bearerAuth:
@@ -714,7 +758,7 @@ components:
           properties:
             code:
               type: string
-              enum: [AUTH_REQUIRED, AUTH_INVALID, INVALID_CREDENTIALS, SESSION_REFRESH_FAILED, FORBIDDEN, TENANT_REQUIRED, SCHOOL_NOT_FOUND, ACADEMIC_YEAR_NOT_FOUND, CLASS_NOT_FOUND, STUDENT_NOT_FOUND, CARD_NOT_FOUND, DEVICE_NOT_REGISTERED, DEVICE_AUTH_INVALID, DEVICE_NOT_GATE, ATTENDANCE_DISABLED, CARD_BLOCKED, STUDENT_INACTIVE, GATE_RULE_VIOLATION, RESOURCE_NOT_FOUND, INVALID_JSON, PAYLOAD_TOO_LARGE, VALIDATION_ERROR, CONFLICT, RATE_LIMITED, ROUTE_NOT_FOUND, DATABASE_ERROR, SERVER_UNAVAILABLE, INTERNAL_ERROR]
+              enum: [AUTH_REQUIRED, AUTH_INVALID, INVALID_CREDENTIALS, SESSION_REFRESH_FAILED, FORBIDDEN, TENANT_REQUIRED, SCHOOL_NOT_FOUND, ACADEMIC_YEAR_NOT_FOUND, CLASS_NOT_FOUND, STUDENT_NOT_FOUND, CARD_NOT_FOUND, DEVICE_NOT_REGISTERED, DEVICE_AUTH_INVALID, DEVICE_NOT_GATE, ATTENDANCE_DISABLED, CARD_BLOCKED, STUDENT_INACTIVE, GATE_RULE_VIOLATION, PARENT_LINK_INVALID, CHILD_NOT_LINKED, RESOURCE_NOT_FOUND, INVALID_JSON, PAYLOAD_TOO_LARGE, VALIDATION_ERROR, CONFLICT, RATE_LIMITED, ROUTE_NOT_FOUND, DATABASE_ERROR, SERVER_UNAVAILABLE, INTERNAL_ERROR]
             message: { type: string }
             details: {}
         request_id: { type: string }

@@ -76,6 +76,14 @@ describe("Core API envelope", () => {
     expect(response.body.error.code).toBe("DEVICE_AUTH_INVALID");
   });
 
+  it.each(["/api/v1/parent/children", "/api/v1/parent/children/0199b4dc-3ea3-7d25-b493-0b998dbafabe/today"])(
+    "protects parent relationship endpoint %s with authentication", async (path) => {
+      const response = await request(createApp()).get(path);
+      expect(response.status).toBe(401);
+      expect(response.body.error.code).toBe("AUTH_REQUIRED");
+    }
+  );
+
   it("validates login input before calling Supabase", async () => {
     const response = await request(createApp()).post("/api/v1/auth/login").send({ email: "bad", password: "short" });
     expect(response.status).toBe(422);

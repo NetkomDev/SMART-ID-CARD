@@ -18,6 +18,7 @@ import { classesRouter } from "./routes/classes.js";
 import { devicesRouter } from "./routes/devices.js";
 import { gateAttendanceRouter } from "./routes/gate-attendance.js";
 import { schoolsRouter } from "./routes/schools.js";
+import { parentsRouter } from "./routes/parents.js";
 import { studentHistoryRouter } from "./routes/student-history.js";
 import { studentsRouter } from "./routes/students.js";
 
@@ -57,6 +58,7 @@ export function createApp() {
   // human middleware locally; runtime calls authenticate with a device token.
   app.use("/api/v1/devices", devicesRouter);
   app.use("/api/v1/device", gateAttendanceRouter);
+  app.use("/api/v1/parent", parentsRouter);
 
   // Shared human authentication + tenant context for Phase 03-04 resources.
   app.use("/api/v1", requireAuth, requireTenant);
