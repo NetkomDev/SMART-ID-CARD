@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
   title: AKSIS Core API
-  version: 1.5.0
+  version: 1.6.0
   description: >-
-    Integrated Phase 03-08 REST contract covering authentication and tenant
+    Integrated Phase 03-09 REST contract covering authentication and tenant
     context, schools/classes/students, academic periods and student history,
     card lifecycle, and secure device provisioning/runtime operations.
   x-aksis-phases:
@@ -19,6 +19,8 @@ info:
       resources: [Admin Context, Attendance Read Model, Device Inventory]
     - phase: 8
       resources: [Parent Linking, Children, Parent Timeline]
+    - phase: 9
+      resources: [Waste Transactions, Ranking, Summary]
 servers:
   - url: http://localhost:3000/api/v1
     description: Local development
@@ -32,6 +34,7 @@ tags:
   - name: Devices
   - name: Gate Attendance
   - name: Parents
+  - name: Waste
 security:
   - bearerAuth: []
     schoolId: []
@@ -654,6 +657,24 @@ paths:
       responses:
         '201': { description: Token returned once }
         '403': { $ref: '#/components/responses/Forbidden' }
+  /waste/transactions:
+    post:
+      tags: [Waste]
+      operationId: createWasteTransaction
+      summary: Record an idempotent student waste deposit
+      responses: { '201': { description: Transaction committed }, '403': { $ref: '#/components/responses/Forbidden' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /waste/ranking:
+    get:
+      tags: [Waste]
+      operationId: getWasteRanking
+      summary: Get class ranking
+      responses: { '200': { description: Ranking reconciled from transactions } }
+  /waste/summary:
+    get:
+      tags: [Waste]
+      operationId: getWasteSummary
+      summary: Get tenant waste totals
+      responses: { '200': { description: Organic, inorganic, and total kilograms } }
 components:
   securitySchemes:
     bearerAuth:
