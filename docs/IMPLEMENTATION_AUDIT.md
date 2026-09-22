@@ -11,8 +11,8 @@ Roadmap mendefinisikan 15 fase dengan Definition of Done (DoD) lintas fase yang 
 | Status | Jumlah | Fase |
 | --- | ---: | --- |
 | Done | 0 | — |
-| Partial / In progress | 9 | 01–09 |
-| Not started | 6 | 10–15 |
+| Partial / In progress | 10 | 01–10 |
+| Not started | 5 | 11–15 |
 
 Fondasi produk sudah cukup luas: lima migrasi SQL, Core API dengan 31 path OpenAPI, tiga PWA, dan 33 unit/contract test. Namun belum ada bukti migrasi dijalankan pada PostgreSQL/Supabase kosong, test RLS/tenant isolation riil, test integrasi database, E2E browser, firmware, hardware-in-the-loop, infrastruktur observability, backup/restore drill, atau production-readiness review. Karena itu, fase 01–09 belum memenuhi DoD roadmap secara penuh.
 
@@ -170,9 +170,9 @@ Artefak utama yang ditemukan:
 
 **Rekomendasi:** implementasikan token kelas berumur pendek, scan resolver, idempotency key + outbox event, database aggregate/view, adapter scale dengan manual fallback, dan integration reconciliation test.
 
-### Phase 10 — Extracurricular PWA: **Not started**
+### Phase 10 — Extracurricular PWA: **Partial / In progress**
 
-Tidak ditemukan app, migrasi, API, schema, OpenAPI path, event, atau test extracurricular. Tambahkan model sessions/members/attendance tenant-safe, enrollment idempotent dengan konfirmasi, PWA, dan test duplicate/cross-tenant/aggregate.
+Migrasi tenant-safe, RLS, kegiatan, sesi, anggota, presensi, outbox event, API, validasi, kontrak OpenAPI, dan PWA awal telah tersedia. Fast enrollment mensyaratkan konfirmasi eksplisit serta idempotency key; constraint database menolak presensi ganda dan relasi member/session lintas kegiatan atau tenant. Exit criteria belum sepenuhnya terbukti karena migration/RLS integration test pada PostgreSQL nyata, aggregate reconciliation, dan E2E PWA belum tersedia.
 
 ### Phase 11 — Library: **Not started**
 
@@ -196,7 +196,7 @@ Pino HTTP log dasar tersedia, tetapi fase ini memerlukan reporting/export lintas
 
 ## Audit kontrak OpenAPI
 
-`docs/openapi.yaml` memuat 31 path untuk fitur Phase 03–09 yang ada: auth, school/context, classes, students/history, academic years, cards, devices, device attendance/sync, attendance query, parent, dan waste. Tidak ditemukan path Phase 10–15.
+`docs/openapi.yaml` memuat 38 path untuk fitur Phase 03–10 yang ada, termasuk kegiatan ekstrakurikuler, sesi, anggota, fast enrollment, presensi, dan summary. Tidak ditemukan path Phase 11–15.
 
 Kekurangan proses kontrak:
 

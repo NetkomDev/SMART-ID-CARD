@@ -22,6 +22,7 @@ import { parentsRouter } from "./routes/parents.js";
 import { studentHistoryRouter } from "./routes/student-history.js";
 import { studentsRouter } from "./routes/students.js";
 import { wasteRouter } from "./routes/waste.js";
+import { extracurricularsRouter } from "./routes/extracurriculars.js";
 
 /**
  * Conflict-resolution invariant: all Phase 03-05 routers are composed here.
@@ -76,6 +77,7 @@ export function createApp() {
   app.use("/api/v1/cards", cardsRouter);
   app.use("/api/v1/attendance", attendanceRouter);
   app.use("/api/v1/waste", wasteRouter);
+  app.use("/api/v1/extracurriculars", extracurricularsRouter);
   app.use(notFound);
   app.use(errorHandler);
   return app;

@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
   title: AKSIS Core API
-  version: 1.6.0
+  version: 1.7.0
   description: >-
-    Integrated Phase 03-09 REST contract covering authentication and tenant
+    Integrated Phase 03-10 REST contract covering authentication and tenant
     context, schools/classes/students, academic periods and student history,
     card lifecycle, and secure device provisioning/runtime operations.
   x-aksis-phases:
@@ -21,6 +21,8 @@ info:
       resources: [Parent Linking, Children, Parent Timeline]
     - phase: 9
       resources: [Waste Transactions, Ranking, Summary]
+    - phase: 10
+      resources: [Extracurriculars, Sessions, Members, Attendance]
 servers:
   - url: http://localhost:3000/api/v1
     description: Local development
@@ -35,6 +37,7 @@ tags:
   - name: Gate Attendance
   - name: Parents
   - name: Waste
+  - name: Extracurriculars
 security:
   - bearerAuth: []
     schoolId: []
@@ -675,6 +678,64 @@ paths:
       operationId: getWasteSummary
       summary: Get tenant waste totals
       responses: { '200': { description: Organic, inorganic, and total kilograms } }
+  /extracurriculars:
+    get:
+      tags: [Extracurriculars]
+      operationId: listExtracurriculars
+      summary: List tenant extracurricular activities
+      responses: { '200': { description: Activities }, '403': { $ref: '#/components/responses/Forbidden' } }
+    post:
+      tags: [Extracurriculars]
+      operationId: createExtracurricular
+      summary: Create an extracurricular activity
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ExtracurricularInput' } } } }
+      responses: { '201': { description: Created }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /extracurriculars/{id}:
+    patch:
+      tags: [Extracurriculars]
+      operationId: updateExtracurricular
+      parameters: [{ $ref: '#/components/parameters/ResourceId' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ExtracurricularInput' } } } }
+      responses: { '200': { description: Updated }, '404': { $ref: '#/components/responses/NotFound' } }
+  /extracurriculars/{id}/sessions:
+    get:
+      tags: [Extracurriculars]
+      operationId: listExtracurricularSessions
+      parameters: [{ $ref: '#/components/parameters/ResourceId' }]
+      responses: { '200': { description: Sessions ordered by start time } }
+    post:
+      tags: [Extracurriculars]
+      operationId: createExtracurricularSession
+      parameters: [{ $ref: '#/components/parameters/ResourceId' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ExtracurricularSessionInput' } } } }
+      responses: { '201': { description: Session created }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /extracurriculars/{id}/members:
+    get:
+      tags: [Extracurriculars]
+      operationId: listExtracurricularMembers
+      parameters: [{ $ref: '#/components/parameters/ResourceId' }]
+      responses: { '200': { description: Active and inactive memberships with student identity } }
+  /extracurriculars/{id}/members/fast-enroll:
+    post:
+      tags: [Extracurriculars]
+      operationId: fastEnrollExtracurricularMember
+      description: Explicit confirmation and idempotency key are mandatory.
+      parameters: [{ $ref: '#/components/parameters/ResourceId' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/FastEnrollmentInput' } } } }
+      responses: { '200': { description: Existing idempotent result }, '201': { description: Member enrolled }, '409': { $ref: '#/components/responses/Conflict' } }
+  /extracurriculars/{id}/sessions/{sessionId}/attendance:
+    post:
+      tags: [Extracurriculars]
+      operationId: recordExtracurricularAttendance
+      parameters: [{ $ref: '#/components/parameters/ResourceId' }, { name: sessionId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ExtracurricularAttendanceInput' } } } }
+      responses: { '201': { description: Attendance recorded }, '409': { $ref: '#/components/responses/Conflict' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /extracurriculars/{id}/sessions/{sessionId}/summary:
+    get:
+      tags: [Extracurriculars]
+      operationId: getExtracurricularSessionSummary
+      parameters: [{ $ref: '#/components/parameters/ResourceId' }, { name: sessionId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { '200': { description: Present, excused, absent, and total counts } }
 components:
   securitySchemes:
     bearerAuth:
@@ -761,6 +822,34 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorEnvelope' }
   schemas:
+    ExtracurricularInput:
+      type: object
+      required: [code, name]
+      properties:
+        code: { type: string, minLength: 1, maxLength: 32, pattern: '^[A-Za-z0-9_-]+$' }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: [string, 'null'], maxLength: 1000 }
+    ExtracurricularSessionInput:
+      type: object
+      required: [name, starts_at, ends_at]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        starts_at: { type: string, format: date-time }
+        ends_at: { type: string, format: date-time }
+    FastEnrollmentInput:
+      type: object
+      required: [student_id, idempotency_key, confirmed]
+      properties:
+        student_id: { type: string, format: uuid }
+        idempotency_key: { type: string, format: uuid }
+        confirmed: { type: boolean, const: true }
+    ExtracurricularAttendanceInput:
+      type: object
+      required: [student_id, status]
+      properties:
+        student_id: { type: string, format: uuid }
+        status: { type: string, enum: [PRESENT, EXCUSED, ABSENT] }
+        notes: { type: [string, 'null'], maxLength: 500 }
     SuccessEnvelope:
       type: object
       required: [success, data]

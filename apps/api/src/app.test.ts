@@ -36,7 +36,8 @@ describe("Core API envelope", () => {
     ["Phase 04 cards", "/api/v1/cards"],
     ["Phase 07 admin context", "/api/v1/schools/current/context"],
     ["Phase 07 attendance read model", "/api/v1/attendance"],
-    ["Phase 07 device inventory", "/api/v1/devices"]
+    ["Phase 07 device inventory", "/api/v1/devices"],
+    ["Phase 10 extracurriculars", "/api/v1/extracurriculars"]
   ])("protects the integrated human tenant boundary for %s", async (_name, path) => {
     const response = await request(createApp()).get(path);
     expect(response.status).toBe(401);
