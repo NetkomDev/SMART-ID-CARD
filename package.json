@@ -18,6 +18,7 @@
     "dev:card-writer": "vite --config apps/card-writer/vite.config.ts",
     "dev:operations": "vite --config apps/operations-console/vite.config.ts",
     "build": "tsc -p apps/api/tsconfig.json",
+    "vercel-build": "npm run build:admin && npm run build:parent && npm run build:waste && npm run build:extracurricular && npm run build:library && mkdir -p dist && cp -r apps/admin-web/dist/* dist/ && mkdir -p dist/parent && cp -r apps/parent-pwa/dist/* dist/parent/ && mkdir -p dist/waste && cp -r apps/waste-pwa/dist/* dist/waste/ && mkdir -p dist/extracurricular && cp -r apps/extracurricular-pwa/dist/* dist/extracurricular/ && mkdir -p dist/library && cp -r apps/library-terminal/dist/* dist/library/",
     "build:admin": "vite build --config apps/admin-web/vite.config.ts",
     "build:parent": "vite build --config apps/parent-pwa/vite.config.ts",
     "build:waste": "vite build --config apps/waste-pwa/vite.config.ts",
