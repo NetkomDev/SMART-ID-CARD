@@ -3,7 +3,7 @@
   "buildCommand": "npm run vercel-build",
   "outputDirectory": "dist",
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/index.js" },
+    { "source": "/api/(.*)", "destination": "/api" },
     { "source": "/parent/(.*)", "destination": "/parent/index.html" },
     { "source": "/waste/(.*)", "destination": "/waste/index.html" },
     { "source": "/extracurricular/(.*)", "destination": "/extracurricular/index.html" },
