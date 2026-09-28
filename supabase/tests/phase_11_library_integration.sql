@@ -43,9 +43,9 @@ insert into public.students(id,school_id,student_number,full_name) values
 insert into public.student_class_history(school_id,student_id,class_id,academic_year_id,start_date,is_current) values
   ('20000000-0000-4000-8000-000000000001','80000000-0000-4000-8000-000000000001','70000000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000001','2026-07-01',true),
   ('20000000-0000-4000-8000-000000000002','80000000-0000-4000-8000-000000000002','70000000-0000-4000-8000-000000000002','60000000-0000-4000-8000-000000000002','2026-07-01',true);
-insert into public.student_cards(school_id,student_id,card_uid,card_serial,qr_key,status,issued_at) values
-  ('20000000-0000-4000-8000-000000000001','80000000-0000-4000-8000-000000000001','CARD-A','SERIAL-A','QR-A','ACTIVE',now()),
-  ('20000000-0000-4000-8000-000000000002','80000000-0000-4000-8000-000000000002','CARD-B','SERIAL-B','QR-B','ACTIVE',now());
+insert into public.student_cards(school_id,student_id,card_uid,card_serial,qr_key,status,issued_at,production_status) values
+  ('20000000-0000-4000-8000-000000000001','80000000-0000-4000-8000-000000000001','CARD-A','SERIAL-A','QR-A','ACTIVE',now(),'VERIFIED'),
+  ('20000000-0000-4000-8000-000000000002','80000000-0000-4000-8000-000000000002','CARD-B','SERIAL-B','QR-B','ACTIVE',now(),'VERIFIED');
 insert into public.devices(id,school_id,device_code,device_type,name,status) values
   ('90000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000001','LIB-A','LIBRARY','Library A','ACTIVE'),
   ('90000000-0000-4000-8000-000000000002','20000000-0000-4000-8000-000000000002','LIB-B','LIBRARY','Library B','ACTIVE');

@@ -16,6 +16,11 @@ export const requireAuth: RequestHandler = asyncHandler(async (req, _res, next) 
     throw new ApiError(401, "AUTH_INVALID", "Access token is invalid or expired");
   }
 
-  req.auth = { accessToken, user: data.user, client: createUserClient(accessToken) };
+  const client = createUserClient(accessToken);
+  if (data.user.app_metadata?.portal_access) {
+    const { data: active, error: portalError } = await client.rpc("portal_session_active");
+    if (portalError || !active) throw new ApiError(401, "PORTAL_ACCESS_INVALID", "Akses portal telah dinonaktifkan admin.");
+  }
+  req.auth = { accessToken, user: data.user, client };
   next();
 });

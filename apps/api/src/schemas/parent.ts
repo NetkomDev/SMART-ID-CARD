@@ -1,9 +1,9 @@
 import { z } from "zod";
 
 export const claimParentLinkSchema = z.object({
-  token: z.string().min(32).max(256),
-  full_name: z.string().trim().min(1).max(200),
-  phone: z.string().trim().max(32).nullable().optional()
+  nisn: z.string().trim().min(1).max(50),
+  dob: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Format tanggal lahir harus YYYY-MM-DD"),
+  full_name: z.string().trim().min(1).max(200)
 }).strict();
 
 export const createParentTokenSchema = z.object({

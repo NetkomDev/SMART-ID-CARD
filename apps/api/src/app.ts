@@ -17,6 +17,8 @@ import { cardsRouter } from "./routes/cards.js";
 import { classesRouter } from "./routes/classes.js";
 import { devicesRouter } from "./routes/devices.js";
 import { gateAttendanceRouter } from "./routes/gate-attendance.js";
+import { cardProductionRouter } from "./routes/card-production.js";
+import { platformRouter } from "./routes/platform.js";
 import { schoolsRouter } from "./routes/schools.js";
 import { parentsRouter } from "./routes/parents.js";
 import { studentHistoryRouter } from "./routes/student-history.js";
@@ -73,6 +75,9 @@ export function createApp() {
   app.use("/api/v1/device/led", ledDeviceRouter);
   app.use("/api/v1/device/card-writer", cardWriterDeviceRouter);
   app.use("/api/v1/parent", parentsRouter);
+
+  app.use("/api/v1/platform/production", cardProductionRouter);
+  app.use("/api/v1/platform", platformRouter);
 
   // Shared human authentication + tenant context for Phase 03-04 resources.
   app.use("/api/v1", requireAuth, requireTenant);

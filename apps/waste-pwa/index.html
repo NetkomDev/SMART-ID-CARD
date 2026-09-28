@@ -1,41 +1,103 @@
 <!doctype html>
 <html lang="id">
-  <head>
+  <head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><meta name="apple-mobile-web-app-capable" content="yes"><link rel="apple-touch-icon" href="/icon-192.png">
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <meta name="theme-color" content="#214b38" />
+    <meta name="theme-color" content="#102f43" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <title>AKSIS Bank Sampah</title>
   </head>
   <body>
-    <main>
-      <header><b>♻ AKSIS</b><span>Bank Sampah</span></header>
-      <section>
-        <small>TRANSAKSI BARU</small>
-        <h1>Catat setoran siswa</h1>
-        <p>Masukkan hasil timbang dalam kilogram atau jumlah kantong.</p>
-        <form id="form">
-          <label>Event ID<input name="event" required /></label>
-          <label>Kelas ID<input name="class" required /></label>
-          <label>Siswa ID<input name="student" required /></label>
-          <label>Jenis sampah
+    <header>
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <img src="/logo.png" alt="AKSIS Logo" style="height: 32px; width: auto; object-fit: contain; filter: drop-shadow(0px 0px 4px rgba(255, 255, 255, 0.8));">
+        <div style="display: flex; flex-direction: column; justify-content: center; text-align: left;">
+          <b style="line-height: 1;">AKSIS</b>
+          <span id="header-subtitle" style="font-size: 0.75rem; margin-top: 0.2rem;">Bank Sampah</span>
+        </div>
+      </div>
+    </header>
+    
+    <main id="app-container">
+      <!-- State 1: Error / Missing Class -->
+      <section id="view-error" style="display:none; text-align:center;">
+        <h1 style="color: var(--danger); margin-bottom: 0.5rem;">Akses Ditolak</h1>
+        <p id="error-msg">Silakan scan QR Kelas terlebih dahulu dari Dashboard Admin untuk mengakses Bank Sampah.</p>
+      </section>
+
+      <!-- State 2: Login -->
+      <section id="view-login" style="display:none;">
+        <small>AKSES QR SEKOLAH</small>
+        <h1>Piket Bank Sampah</h1>
+        <p>Pindai QR dari admin sekolah. Akses akan tersimpan otomatis di perangkat Anda.</p>
+        <form id="form-login">
+          <p id="login-error" role="status" style="font-weight: 500;"></p>
+          <button type="submit">Coba lagi</button>
+        </form>
+      </section>
+
+      <!-- State 3: Dashboard / Scanner -->
+      <section id="view-scan" style="display:none; text-align:center;">
+        <small id="class-name-label">KELAS</small>
+        <h1>Pindai Identitas Siswa</h1>
+        <p>Pindai QR kartu siswa untuk mencatat setoran. Jika kamera tidak tersedia, masukkan nomor siswa.</p>
+        
+        <div class="scanner-box">
+          <div id="qr-reader" style="width: 100%; margin-bottom: 1rem; border-radius: 12px; overflow: hidden; display: none;"></div>
+          <button id="btn-toggle-camera" type="button" class="btn-secondary" style="margin-bottom: 1rem; width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            Buka Kamera Scanner
+          </button>
+          
+          <form id="form-scan" style="margin:0;">
+            <input aria-label="QR kartu atau nomor siswa" type="text" id="scan-input" placeholder="QR / nomor siswa" style="width:100%; text-align:center; font-size: 1.15rem; font-weight:700; padding: 1rem; background: rgba(255,255,255,0.8);" autocomplete="off" />
+          </form>
+          <p style="margin-top:1.25rem; font-size: 0.85rem; font-weight: 600; color: var(--primary);">Menunggu pindai identitas...</p>
+        </div>
+        
+        <p id="scan-error" style="color: var(--danger); font-weight: 600; margin-bottom: 2rem;"></p>
+        <button id="btn-logout" class="btn-secondary">Keluar / Ganti Kelas</button>
+      </section>
+
+      <!-- State 4: Input Setoran -->
+      <section id="view-input" style="display:none;">
+        <button id="btn-cancel-input" class="btn-text" style="margin-bottom: 1.5rem;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          Kembali
+        </button>
+        <small>INPUT SETORAN</small>
+        <div class="student-card">
+          <h1 id="input-student-name">Nama Siswa</h1>
+          <p id="input-student-nisn">NISN: -</p>
+        </div>
+        
+        <form id="form-input">
+          <label>Jenis Sampah
             <select id="waste-type" name="waste_type">
               <option value="ORGANIC">Organik</option>
               <option value="INORGANIC">Anorganik</option>
             </select>
           </label>
-          <label>Jumlah setoran
+          <label>Jumlah Setoran
             <div class="input-group">
               <input id="weight-input" name="weight" type="number" min="0.001" step="0.001" value="0.500" required />
               <select id="unit-select" name="unit" aria-label="Satuan berat">
-                <option value="KG" selected>KG</option>
-                <option value="KTG">KTG</option>
+                <option value="KG" selected>KG (Input manual)</option>
+                <option value="KTG">KTG (Manual)</option>
               </select>
             </div>
           </label>
           <output id="total">Total 0.500 kg</output>
-          <button>Simpan transaksi</button>
-          <p id="message" aria-live="polite"></p>
+          <button type="submit" style="margin-top:0.5rem;">Simpan Transaksi</button>
+          <p id="input-error" style="color: var(--danger); font-weight: 600; text-align: center;"></p>
         </form>
+      </section>
+      
+      <!-- State 5: Success -->
+      <section id="view-success" style="display:none; text-align:center;">
+        <div class="success-icon">✓</div>
+        <h1 style="color: var(--primary); margin-bottom: 0.5rem;">Berhasil!</h1>
+        <p>Setoran sampah berhasil dicatat ke sistem.</p>
+        <button id="btn-next-scan" style="margin-top: 2.5rem; width: 100%;">Lanjut Pindai</button>
       </section>
     </main>
     <script type="module" src="/src/main.ts"></script>

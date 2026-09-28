@@ -32,6 +32,13 @@ router.patch("/:id", requirePermission("extracurricular.manage"), validate({ par
   sendData(res, data);
 }));
 
+router.get("/:id/sessions", requirePermission("extracurricular.read"), validate({ params: idParamsSchema }), asyncHandler(async (req, res) => {
+  const { data, error } = await req.auth!.client.from("extracurricular_sessions").select("id,name,starts_at,ends_at,status")
+    .eq("school_id", req.tenant!.schoolId).eq("extracurricular_id", req.params.id).order("starts_at", { ascending: false });
+  if (error) throw fromDatabaseError(error);
+  sendData(res, data ?? []);
+}));
+
 router.post("/:id/sessions", requirePermission("extracurricular.manage"), validate({ params: idParamsSchema, body: createSessionSchema }), asyncHandler(async (req, res) => {
   const { data, error } = await req.auth!.client.from("extracurricular_sessions").insert({
     ...req.body, school_id: req.tenant!.schoolId, extracurricular_id: req.params.id, created_by: req.auth!.user.id
@@ -40,12 +47,7 @@ router.post("/:id/sessions", requirePermission("extracurricular.manage"), valida
   sendData(res, data, 201);
 }));
 
-router.get("/:id/sessions", requirePermission("extracurricular.read"), validate({ params: idParamsSchema }), asyncHandler(async (req, res) => {
-  const { data, error } = await req.auth!.client.from("extracurricular_sessions").select("*")
-    .eq("school_id", req.tenant!.schoolId).eq("extracurricular_id", req.params.id).order("starts_at", { ascending: false });
-  if (error) throw fromDatabaseError(error);
-  sendData(res, data ?? []);
-}));
+
 
 router.get("/:id/members", requirePermission("extracurricular.read"), validate({ params: idParamsSchema }), asyncHandler(async (req, res) => {
   const { data, error } = await req.auth!.client.from("extracurricular_members")

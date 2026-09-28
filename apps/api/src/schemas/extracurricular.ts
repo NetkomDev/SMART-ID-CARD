@@ -3,7 +3,8 @@ import { z } from "zod";
 export const createExtracurricularSchema = z.object({
   code: z.string().trim().min(1).max(32).regex(/^[A-Za-z0-9_-]+$/),
   name: z.string().trim().min(1).max(120),
-  description: z.string().trim().max(1000).nullable().optional()
+  description: z.string().trim().max(1000).nullable().optional(),
+  is_active: z.boolean().optional()
 }).strict();
 
 export const updateExtracurricularSchema = createExtracurricularSchema.partial().refine(

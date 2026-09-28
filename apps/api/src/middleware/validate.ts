@@ -11,8 +11,8 @@ export const validate = (schemas: RequestSchemas): RequestHandler => (req, _res,
       next(new ApiError(422, "VALIDATION_ERROR", `Invalid request ${source}`, result.error.flatten()));
       return;
     }
-    // Express 5 exposes req.query through a getter, so preserve its validated values in place.
-    if (source === "query") Object.assign(req.query, result.data);
+    // Express 5 reparses its query getter; install the validated/coerced value once.
+    if (source === "query") Object.defineProperty(req, "query", { value: result.data, configurable: true, writable: true });
     else req[source] = result.data;
   }
   next();

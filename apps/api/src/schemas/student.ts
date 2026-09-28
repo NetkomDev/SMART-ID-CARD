@@ -5,7 +5,7 @@ const studentFields = {
   student_number: z.string().trim().min(1).max(50),
   full_name: z.string().trim().min(1).max(200),
   gender: z.enum(["MALE", "FEMALE", "OTHER", "UNDISCLOSED"]).optional(),
-  date_of_birth: z.iso.date().nullable().optional(),
+  date_of_birth: z.iso.date(),
   is_active: z.boolean().optional()
 };
 

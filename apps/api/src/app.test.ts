@@ -100,7 +100,7 @@ describe("Core API envelope", () => {
   });
 
   it("requires device credentials for Phase 14 station claim", async () => {
-    const response = await request(createApp()).post("/api/v1/device/card-writer/jobs/claim").send({ lease_seconds: 120 });
+    const response = await request(createApp()).post("/api/v1/device/card-writer/jobs/claim").send({ lease_seconds: 120, qr_key: "a".repeat(48), card_uid: "AABBCCDD" });
     expect(response.status).toBe(401);
     expect(response.body.error.code).toBe("DEVICE_AUTH_INVALID");
   });

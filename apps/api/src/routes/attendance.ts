@@ -27,4 +27,34 @@ router.get("/", requirePermission("attendance.read"), validate({ query: attendan
     sendData(res, data ?? [], 200, { page, page_size: pageSize, total: count ?? 0 });
   }));
 
+router.get("/summary", requirePermission("attendance.read"), asyncHandler(async (req, res) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const startOfDay = today.toISOString();
+  
+  today.setHours(23, 59, 59, 999);
+  const endOfDay = today.toISOString();
+
+  const { count: totalPresent, error: presentError } = await req.auth!.client.from("attendance_logs")
+    .select("id", { count: "exact", head: true })
+    .eq("school_id", req.tenant!.schoolId)
+    .eq("direction", "CHECK_IN")
+    .gte("occurred_at_local", startOfDay)
+    .lte("occurred_at_local", endOfDay);
+  
+  if (presentError) throw fromDatabaseError(presentError);
+
+  const { count: totalLate, error: lateError } = await req.auth!.client.from("attendance_logs")
+    .select("id", { count: "exact", head: true })
+    .eq("school_id", req.tenant!.schoolId)
+    .eq("direction", "CHECK_IN")
+    .eq("is_late", true)
+    .gte("occurred_at_local", startOfDay)
+    .lte("occurred_at_local", endOfDay);
+
+  if (lateError) throw fromDatabaseError(lateError);
+
+  sendData(res, { total_present: totalPresent ?? 0, total_late: totalLate ?? 0 });
+}));
+
 export { router as attendanceRouter };

@@ -25,8 +25,42 @@ router.get("/", requireAuth, requireTenant, requirePermission("device.read"),
     if (search) query = query.or(`name.ilike.%${search}%,device_code.ilike.%${search}%`);
     const { data, error, count } = await query;
     if (error) throw fromDatabaseError(error);
-    sendData(res, data ?? [], 200, { page, page_size: pageSize, total: count ?? 0 });
+    const devices = (data ?? []).map(d => ({
+      ...d,
+      online: d.status === "ACTIVE" && !!d.last_seen_at && Date.now() - new Date(d.last_seen_at).getTime() < 120000
+    }));
+    sendData(res, devices, 200, { page, page_size: pageSize, total: count ?? 0 });
   }));
+
+router.get("/summary", requireAuth, requireTenant, requirePermission("device.read"), asyncHandler(async (req, res) => {
+  const { count: totalCount, error: totalError } = await req.auth!.client.from("devices")
+    .select("id", { count: "exact", head: true })
+    .eq("school_id", req.tenant!.schoolId)
+    .is("deleted_at", null);
+  if (totalError) throw fromDatabaseError(totalError);
+
+  const { count: activeCount, error: activeError } = await req.auth!.client.from("devices")
+    .select("id", { count: "exact", head: true })
+    .eq("school_id", req.tenant!.schoolId)
+    .eq("status", "ACTIVE")
+    .gte("last_seen_at", new Date(Date.now() - 120_000).toISOString())
+    .is("deleted_at", null);
+  if (activeError) throw fromDatabaseError(activeError);
+
+  const { count: maintenanceCount, error: maintenanceError } = await req.auth!.client.from("devices")
+    .select("id", { count: "exact", head: true })
+    .eq("school_id", req.tenant!.schoolId)
+    .eq("status", "MAINTENANCE")
+    .is("deleted_at", null);
+  if (maintenanceError) throw fromDatabaseError(maintenanceError);
+
+  sendData(res, { 
+    total: totalCount ?? 0, 
+    active: activeCount ?? 0, 
+    maintenance: maintenanceCount ?? 0,
+    inactive: (totalCount ?? 0) - (activeCount ?? 0) - (maintenanceCount ?? 0)
+  });
+}));
 
 router.post("/register", requireAuth, requireTenant, requirePermission("device.manage"),
   validate({ body: registerDeviceSchema }), asyncHandler(async (req, res) => {

@@ -21,6 +21,23 @@ router.get("/", validate({ query: paginationSchema }), asyncHandler(async (req, 
   sendData(res, data ?? [], 200, { page, page_size: pageSize, total: count ?? 0 });
 }));
 
+router.get("/summary", asyncHandler(async (req, res) => {
+  const { data: classes, error: classError } = await req.auth!.client.from("classes")
+    .select("id, name, grade_level").eq("school_id", req.tenant!.schoolId).is("deleted_at", null).order("name");
+  if (classError) throw fromDatabaseError(classError);
+
+  const { data: counts, error: countError } = await req.auth!.client.from("student_class_history")
+    .select("class_id").eq("school_id", req.tenant!.schoolId).eq("is_current", true);
+  if (countError) throw fromDatabaseError(countError);
+
+  const countMap = new Map<string, number>();
+  for (const row of counts ?? []) {
+    countMap.set(row.class_id, (countMap.get(row.class_id) ?? 0) + 1);
+  }
+
+  sendData(res, (classes ?? []).map(c => ({ ...c, student_count: countMap.get(c.id) ?? 0 })));
+}));
+
 router.get("/:id", validate({ params: idParamsSchema }), asyncHandler(async (req, res) => {
   const { data, error } = await req.auth!.client.from("classes").select(selection)
     .eq("school_id", req.tenant!.schoolId).eq("id", req.params.id).is("deleted_at", null).maybeSingle();

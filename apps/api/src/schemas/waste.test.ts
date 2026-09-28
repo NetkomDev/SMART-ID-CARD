@@ -37,12 +37,12 @@ describe("waste contract", () => {
     });
   });
 
-  it("keeps kilogram input as scale-sourced inorganic weight", () => {
+  it("keeps kilogram input as manually-sourced inorganic weight", () => {
     expect(calculateWasteMeasurement(1.234, "KG", "INORGANIC")).toEqual({
       organic_kg: 0,
       inorganic_kg: 1.234,
       total_kg: 1.234,
-      source: "SCALE"
+      source: "MANUAL"
     });
   });
 });

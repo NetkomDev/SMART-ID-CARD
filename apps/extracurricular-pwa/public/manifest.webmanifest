@@ -1,1 +1,26 @@
-{"name":"AKSIS Ekstrakurikuler","short_name":"Ekskul","start_url":"/","display":"standalone","theme_color":"#243b67","background_color":"#f4f6fb"}
+{
+  "id": "./",
+  "name": "AKSIS Ekstrakurikuler",
+  "short_name": "Ekstrakurikuler",
+  "description": "Portal Ekstrakurikuler sekolah AKSIS",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f2f6f8",
+  "theme_color": "#102f43",
+  "lang": "id",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

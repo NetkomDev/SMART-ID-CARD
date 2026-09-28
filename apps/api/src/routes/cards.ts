@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { Router } from "express";
 import { ApiError, fromDatabaseError } from "../lib/errors.js";
 import { sendData } from "../lib/responses.js";
@@ -8,7 +9,7 @@ import { cardListQuerySchema, createCardSchema, updateCardSchema } from "../sche
 import { idParamsSchema } from "../schemas/common.js";
 
 const router = Router();
-const selection = "id, school_id, student_id, card_uid, card_serial, qr_key, status, issued_at, revoked_at, expires_at, created_at, updated_at";
+const selection = "id, school_id, student_id, card_uid, card_serial, qr_key, status, issued_at, revoked_at, expires_at, created_at, updated_at, students(full_name, student_number)";
 
 router.get("/", requirePermission("card.read"), validate({ query: cardListQuerySchema }), asyncHandler(async (req, res) => {
   const { page, page_size: pageSize, student_id: studentId, status } = req.query as unknown as {
@@ -24,6 +25,30 @@ router.get("/", requirePermission("card.read"), validate({ query: cardListQueryS
   sendData(res, data ?? [], 200, { page, page_size: pageSize, total: count ?? 0 });
 }));
 
+router.get("/summary", requirePermission("card.read"), asyncHandler(async (req, res) => {
+  const { count: activeCount, error: activeError } = await req.auth!.client.from("student_cards")
+    .select("id", { count: "exact", head: true })
+    .eq("school_id", req.tenant!.schoolId)
+    .eq("status", "ACTIVE");
+  
+  if (activeError) throw fromDatabaseError(activeError);
+
+  const { count: blockedCount, error: blockedError } = await req.auth!.client.from("student_cards")
+    .select("id", { count: "exact", head: true })
+    .eq("school_id", req.tenant!.schoolId)
+    .in("status", ["BLOCKED", "LOST"]);
+
+  if (blockedError) throw fromDatabaseError(blockedError);
+
+  sendData(res, { active: activeCount ?? 0, blocked: blockedCount ?? 0 });
+}));
+
+router.post("/resolve", requirePermission("student.read"), validate({ body: z.object({ qr_key: z.string().trim().min(16).max(128) }).strict() }), asyncHandler(async (req, res) => {
+  const { data, error } = await req.auth!.client.rpc("resolve_student_card", { p_school: req.tenant!.schoolId, p_qr: req.body.qr_key });
+  if (error) throw fromDatabaseError(error);
+  sendData(res, data);
+}));
+
 router.get("/:id", requirePermission("card.read"), validate({ params: idParamsSchema }), asyncHandler(async (req, res) => {
   const { data, error } = await req.auth!.client.from("student_cards").select(selection)
     .eq("school_id", req.tenant!.schoolId).eq("id", req.params.id).maybeSingle();
@@ -32,36 +57,20 @@ router.get("/:id", requirePermission("card.read"), validate({ params: idParamsSc
   sendData(res, data);
 }));
 
-router.post("/", requirePermission("card.manage"), validate({ body: createCardSchema }), asyncHandler(async (req, res) => {
-  const status = req.body.status ?? "ACTIVE";
-  const { data, error } = await req.auth!.client.from("student_cards").insert({
-    ...req.body,
-    school_id: req.tenant!.schoolId,
-    status,
-    issued_at: req.body.issued_at ?? new Date().toISOString(),
-    revoked_at: status === "ACTIVE" ? null : new Date().toISOString()
-  }).select(selection).single();
-  if (error) throw fromDatabaseError(error);
-  sendData(res, data, 201);
-}));
+router.post("/", requirePermission("card.manage"), (_req, _res, next) => next(new ApiError(409, "CONFLICT", "Issue cards through printed production batches")));
 
 router.patch("/:id", requirePermission("card.manage"), validate({ params: idParamsSchema, body: updateCardSchema }), asyncHandler(async (req, res) => {
-  const { data, error } = await req.auth!.client.from("student_cards").update({
-    ...req.body,
-    revoked_at: req.body.status === "ACTIVE" ? null : new Date().toISOString()
-  }).eq("school_id", req.tenant!.schoolId).eq("id", req.params.id).select(selection).maybeSingle();
+  const found = await req.auth!.client.from("student_cards").select("id").eq("school_id", req.tenant!.schoolId).eq("id", req.params.id).maybeSingle();
+  if (found.error) throw fromDatabaseError(found.error);
+  if (!found.data) throw new ApiError(404, "CARD_NOT_FOUND", "Card was not found in this school");
+  const { data, error } = await req.auth!.client.rpc("set_card_status", {
+    p_card: req.params.id, p_status: req.body.status, p_reason: req.body.reason, p_expires: req.body.expires_at ?? null
+  });
   if (error) throw fromDatabaseError(error);
   if (!data) throw new ApiError(404, "CARD_NOT_FOUND", "Card was not found");
   sendData(res, data);
 }));
 
-router.delete("/:id", requirePermission("card.manage"), validate({ params: idParamsSchema }), asyncHandler(async (req, res) => {
-  const { data, error } = await req.auth!.client.from("student_cards")
-    .update({ status: "BLOCKED", revoked_at: new Date().toISOString() })
-    .eq("school_id", req.tenant!.schoolId).eq("id", req.params.id).select("id").maybeSingle();
-  if (error) throw fromDatabaseError(error);
-  if (!data) throw new ApiError(404, "CARD_NOT_FOUND", "Card was not found");
-  res.status(204).send();
-}));
+router.delete("/:id", requirePermission("card.manage"), (_req, _res, next) => next(new ApiError(409, "CONFLICT", "Block the card using PATCH with a reason")));
 
 export { router as cardsRouter };

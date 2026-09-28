@@ -44,3 +44,13 @@ libraryRouter.get("/summary", requirePermission("library.read"), validate({ quer
   }
   sendData(res, [...groups.values()].sort((a, b) => b.total - a.total));
 }));
+
+// Staff PWA uses its own user-scoped permission; device routes remain unchanged.
+libraryRouter.post("/visits", requirePermission("library.visit"), validate({ body: libraryVisitSchema }), asyncHandler(async (req, res) => {
+  const { data, error } = await req.auth!.client.rpc("record_portal_library_visit", {
+    target_school_id: req.tenant!.schoolId, p_event_id: req.body.event_id, p_card_uid: req.body.card_uid,
+    p_occurred_at: req.body.occurred_at, p_local_sequence: req.body.local_sequence
+  });
+  if (error) throw fromDatabaseError(error);
+  sendData(res, data, data?.duplicate ? 200 : 201);
+}));

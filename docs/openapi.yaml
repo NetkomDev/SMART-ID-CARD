@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: AKSIS Core API
-  version: 1.12.0
+  version: 1.13.0
   description: >-
     Integrated Phase 03-15 REST contract covering authentication and tenant
     context, schools/classes/students, academic periods and student history,
@@ -472,14 +472,10 @@ paths:
     post:
       tags: [Cards]
       operationId: createCard
-      summary: Issue a student card
-      description: Requires `card.manage`; opaque `qr_key` must contain no PII.
-      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CardWrite' } } } }
+      deprecated: true
+      summary: Rejected; create and release a printed production batch instead
       responses:
-        '201': { description: Issued card, content: { application/json: { schema: { $ref: '#/components/schemas/CardResponse' } } } }
-        '403': { $ref: '#/components/responses/Forbidden' }
         '409': { $ref: '#/components/responses/Conflict' }
-        '422': { $ref: '#/components/responses/ValidationError' }
   /cards/{id}:
     parameters: [{ $ref: '#/components/parameters/ResourceId' }]
     get:
@@ -503,11 +499,10 @@ paths:
     delete:
       tags: [Cards]
       operationId: blockCard
-      summary: Block a card without deleting its history
+      deprecated: true
+      summary: Rejected; use PATCH with status and reason
       responses:
-        '204': { description: Card blocked }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /devices/register:
     post:
       tags: [Devices]
@@ -821,6 +816,49 @@ paths:
       security: [{ deviceAuth: [], deviceId: [] }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/LedAcknowledgementInput' } } } }
       responses: { '201': { description: Controller result acknowledged }, '401': { $ref: '#/components/responses/DeviceAuthRequired' } }
+  /dashboard/rankings:
+    get:
+      tags: [Dashboard]
+      operationId: getDashboardRankings
+      summary: Today's earliest students and top waste/library classes in the school timezone
+      description: Requires dashboard.read, attendance.read, waste.read and library.read. Returns up to five distinct students by first CHECK_IN and three contributing classes per category. Waste is summed in kilograms; library counts visits. Equal totals share competition ranks. Tenant data is fully paginated before aggregation.
+      responses:
+        '200':
+          description: Daily competition standings
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          school_id: { type: string, format: uuid }
+                          date: { type: string, format: date }
+                          timezone: { type: string }
+                          generated_at: { type: string, format: date-time }
+                          arrivals:
+                            type: array
+                            maxItems: 5
+                            items:
+                              type: object
+                              properties:
+                                student_id: { type: string, format: uuid }
+                                name: { type: string }
+                                class_name: { type: string }
+                                at: { type: string, format: date-time }
+                                rank: { type: integer, minimum: 1 }
+                          waste:
+                            type: array
+                            maxItems: 3
+                            items: { $ref: '#/components/schemas/DashboardClassRank' }
+                          library:
+                            type: array
+                            maxItems: 3
+                            items: { $ref: '#/components/schemas/DashboardClassRank' }
+        '403': { $ref: '#/components/responses/Forbidden' }
   /dashboard/today:
     get:
       tags: [Dashboard]
@@ -838,21 +876,24 @@ paths:
     post:
       tags: [Card Writer]
       operationId: createCardWriteJob
-      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CardWriteJobInput' } } } }
-      responses: { '200': { description: Idempotent existing job }, '201': { description: Job queued } }
+      deprecated: true
+      summary: Rejected; release a printed batch through platform production
+      responses: { '409': { $ref: '#/components/responses/Conflict' } }
   /card-writer/jobs/{id}/cancel:
     post:
       tags: [Card Writer]
       operationId: cancelCardWriteJob
+      deprecated: true
+      summary: Rejected; use the platform job action with a reason
       parameters: [{ $ref: '#/components/parameters/ResourceId' }]
-      responses: { '200': { description: Job cancelled }, '409': { $ref: '#/components/responses/Conflict' } }
+      responses: { '409': { $ref: '#/components/responses/Conflict' } }
   /device/card-writer/jobs/claim:
     post:
       tags: [Card Writer]
       operationId: claimCardWriteJob
       security: [{ deviceAuth: [], deviceId: [] }]
-      requestBody: { required: true, content: { application/json: { schema: { type: object, properties: { lease_seconds: { type: integer, minimum: 30, maximum: 600, default: 120 } } } } } }
-      responses: { '200': { description: Leased job or empty queue }, '401': { $ref: '#/components/responses/DeviceAuthRequired' } }
+      requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: false, required: [qr_key, card_uid], properties: { qr_key: { type: string, minLength: 16, maxLength: 128 }, card_uid: { type: string, pattern: "^[0-9A-Fa-f]{8,20}$" }, lease_seconds: { type: integer, minimum: 30, maximum: 600, default: 120 } } } } } }
+      responses: { '200': { description: Job selected by scanned QR and physical UID; unprinted or ineligible cards are rejected }, '401': { $ref: '#/components/responses/DeviceAuthRequired' } }
   /device/card-writer/jobs/complete:
     post:
       tags: [Card Writer]
@@ -884,6 +925,280 @@ paths:
       operationId: getPrometheusMetrics
       summary: Retrieve protected process metrics
       responses: { '200': { description: Prometheus text exposition }, '403': { $ref: '#/components/responses/Forbidden' } }
+
+  /auth/qr/generate:
+    post:
+      summary: Issue a school-scoped portal QR (active school administrator only)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [school_id, role_code]
+              additionalProperties: false
+              properties:
+                school_id: { type: string, format: uuid }
+                role_code: { type: string, enum: [WASTE_STAFF, LIBRARY_STAFF, TEACHER, PARENT] }
+                metadata:
+                  type: object
+                  description: class_id is required for Waste; student_id for Parent. Other portals accept an empty object.
+                  additionalProperties: false
+                  properties:
+                    class_id: { type: string, format: uuid }
+                    student_id: { type: string, format: uuid }
+      responses:
+        '201': { description: QR ID, one-time-displayed raw token, role and scope }
+        '403': { description: Not an active administrator of this school }
+        '503': { description: Portal backend or database not configured }
+  /auth/qr/login:
+    post:
+      summary: Exchange a QR secret for a persistent renewable portal session
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, role_code]
+              additionalProperties: false
+              properties:
+                token: { type: string, pattern: '^[a-f0-9]{64}$' }
+                role_code: { type: string, enum: [WASTE_STAFF, LIBRARY_STAFF, TEACHER, PARENT] }
+      responses:
+        '200': { description: Supabase session and verified portal context }
+        '401': { description: Invalid, revoked, expired or wrong-portal QR }
+  /auth/qr/context:
+    get:
+      summary: Validate current portal access and obtain school and class/child scope
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Active portal context }
+        '401': { description: Access is no longer active }
+  /auth/qr:
+    get:
+      summary: List the latest 200 school portal grants without secrets
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: school_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Portal grant metadata }
+        '403': { description: School administrator required }
+  /auth/qr/{id}:
+    delete:
+      summary: Revoke a portal QR and its membership/parent link
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204': { description: Access revoked }
+        '403': { description: School administrator required }
+  /library/visits:
+    post:
+      summary: Record a visit from the authenticated library PWA without a device credential
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: X-School-Id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [event_id, card_uid, occurred_at, local_sequence]
+              properties:
+                event_id: { type: string, format: uuid }
+                card_uid: { type: string, minLength: 4, maxLength: 64 }
+                occurred_at: { type: string, format: date-time }
+                local_sequence: { type: integer, minimum: 0 }
+                metadata: { type: object }
+      responses:
+        '201': { description: Visit recorded }
+        '200': { description: Duplicate event acknowledged }
+        '403': { description: Active library.visit permission required }
+
+  /platform/stats:
+    get:
+      tags: [Platform]
+      operationId: platformStats
+      summary: "Aggregate platform metrics; requires trusted platform authority"
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: Success envelope }, '403': { $ref: '#/components/responses/Forbidden' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /platform/schools:
+    get:
+      tags: [Platform]
+      operationId: platformSchools
+      summary: "List all non-deleted schools"
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: Success envelope }, '403': { $ref: '#/components/responses/Forbidden' }, '422': { $ref: '#/components/responses/ValidationError' } }
+    post:
+      tags: [Platform]
+      operationId: platformProvisionSchool
+      summary: "Atomically provision school and administrator; same operation key resumes an interrupted request"
+      security: [{ bearerAuth: [] }]
+      requestBody: {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["code", "name", "timezone", "idempotency_key"], "properties": {"code": {"type": "string", "pattern": "^[A-Z0-9][A-Z0-9_-]{1,49}$"}, "name": {"type": "string"}, "timezone": {"type": "string", "enum": ["Asia/Jakarta", "Asia/Makassar", "Asia/Jayapura"]}, "idempotency_key": {"type": "string", "format": "uuid"}}}}}}
+      responses: { '201': { description: Success envelope }, '403': { $ref: '#/components/responses/Forbidden' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /platform/schools/{id}:
+    parameters: [{ $ref: '#/components/parameters/ResourceId' }]
+    patch:
+      tags: [Platform]
+      operationId: platformUpdateSchool
+      summary: "Update school profile and status"
+      security: [{ bearerAuth: [] }]
+      requestBody: {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["name", "timezone", "status"], "properties": {"name": {"type": "string"}, "timezone": {"type": "string", "enum": ["Asia/Jakarta", "Asia/Makassar", "Asia/Jayapura"]}, "status": {"type": "string", "enum": ["ACTIVE", "SUSPENDED", "INACTIVE"]}}}}}}
+      responses: { '200': { description: Success envelope }, '403': { $ref: '#/components/responses/Forbidden' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /platform/schools/{id}/admin:
+    parameters: [{ $ref: '#/components/parameters/ResourceId' }]
+    post:
+      tags: [Platform]
+      operationId: platformProvisionAdmin
+      summary: "Provision an administrator in the target school"
+      security: [{ bearerAuth: [] }]
+      requestBody: {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["email", "password", "full_name", "idempotency_key"], "properties": {"email": {"type": "string", "format": "email"}, "password": {"type": "string", "minLength": 12, "maxLength": 128}, "full_name": {"type": "string"}, "idempotency_key": {"type": "string", "format": "uuid"}}}}}}
+      responses: { '201': { description: Success envelope }, '403': { $ref: '#/components/responses/Forbidden' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /platform/iam:
+    get:
+      tags: [Platform]
+      operationId: platformMemberships
+      summary: "Paginated memberships with actual roles and permissions"
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: Success envelope }, '403': { $ref: '#/components/responses/Forbidden' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /platform/iam/{id}:
+    parameters: [{ $ref: '#/components/parameters/ResourceId' }]
+    patch:
+      tags: [Platform]
+      operationId: platformUpdateMembership
+      summary: "Update membership; cannot remove last active school administrator"
+      security: [{ bearerAuth: [] }]
+      requestBody: {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["status", "roles"], "properties": {"status": {"type": "string", "enum": ["ACTIVE", "SUSPENDED", "REVOKED"]}, "roles": {"type": "array", "minItems": 1, "items": {"type": "string", "enum": ["SCHOOL_ADMIN", "TEACHER", "EXTRA_TEACHER", "LIBRARY_STAFF", "WASTE_STAFF", "PARENT"]}}}}}}}
+      responses: { '200': { description: Success envelope }, '403': { $ref: '#/components/responses/Forbidden' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /platform/devices:
+    get:
+      tags: [Platform]
+      operationId: platformDevices
+      summary: "Paginated device status; online uses a two-minute heartbeat window"
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: Success envelope }, '403': { $ref: '#/components/responses/Forbidden' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /platform/devices/{id}:
+    parameters: [{ $ref: '#/components/parameters/ResourceId' }]
+    patch:
+      tags: [Platform]
+      operationId: platformDeviceStatus
+      summary: "Set administrative device status"
+      security: [{ bearerAuth: [] }]
+      requestBody: {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["status"], "properties": {"status": {"type": "string", "enum": ["ACTIVE", "DISABLED", "MAINTENANCE", "RETIRED"]}}}}}}
+      responses: { '200': { description: Success envelope }, '403': { $ref: '#/components/responses/Forbidden' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /platform/devices/{id}/credential:
+    parameters: [{ $ref: '#/components/parameters/ResourceId' }]
+    post:
+      tags: [Platform]
+      operationId: platformRotateDeviceCredential
+      summary: "Revoke old credentials and return new token once"
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: Success envelope }, '403': { $ref: '#/components/responses/Forbidden' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /platform/audit:
+    get:
+      tags: [Platform]
+      operationId: platformAudit
+      summary: "Paginated cross-school domain audit trail"
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: Success envelope }, '403': { $ref: '#/components/responses/Forbidden' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /platform/production/candidates:
+    get:
+      tags: [Platform]
+      operationId: cardProductionCandidates
+      summary: "Paginated active students; school_id required; class_id and search optional"
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: Success envelope }, '403': { $ref: '#/components/responses/Forbidden' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /platform/production/classes:
+    get:
+      tags: [Platform]
+      operationId: cardProductionClasses
+      summary: "Active classes with academic years; school_id required"
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: Success envelope }, '403': { $ref: '#/components/responses/Forbidden' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /platform/production/batches:
+    get:
+      tags: [Platform]
+      operationId: cardProductionBatches
+      summary: "Paginated print batches"
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: Success envelope }, '403': { $ref: '#/components/responses/Forbidden' }, '422': { $ref: '#/components/responses/ValidationError' } }
+    post:
+      tags: [Platform]
+      operationId: createCardProductionBatch
+      summary: "Create inactive card identities and immutable print snapshots"
+      security: [{ bearerAuth: [] }]
+      requestBody: {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["id", "school_id", "student_ids"], "properties": {"id": {"type": "string", "format": "uuid"}, "school_id": {"type": "string", "format": "uuid"}, "student_ids": {"type": "array", "minItems": 1, "maxItems": 200, "items": {"type": "string", "format": "uuid"}}, "class_id": {"type": ["string", "null"], "format": "uuid"}, "replaces_card_id": {"type": ["string", "null"], "format": "uuid"}}}}}}
+      responses: { '201': { description: Success envelope }, '403': { $ref: '#/components/responses/Forbidden' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /platform/production/batches/{id}:
+    parameters: [{ $ref: '#/components/parameters/ResourceId' }]
+    get:
+      tags: [Platform]
+      operationId: cardProductionBatchCards
+      summary: "Cards, opaque QR and snapshots for a batch"
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: Success envelope }, '403': { $ref: '#/components/responses/Forbidden' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /platform/production/batches/{id}/action:
+    parameters: [{ $ref: '#/components/parameters/ResourceId' }]
+    post:
+      tags: [Platform]
+      operationId: cardProductionBatchAction
+      summary: "Record physical print, reprint or release after QC"
+      security: [{ bearerAuth: [] }]
+      requestBody: {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["event_id", "action", "reason"], "properties": {"event_id": {"type": "string", "format": "uuid"}, "action": {"type": "string", "enum": ["PRINTED", "REPRINTED", "RELEASED"]}, "reason": {"type": "string", "minLength": 3, "maxLength": 500}}}}}}
+      responses: { '200': { description: Success envelope }, '403': { $ref: '#/components/responses/Forbidden' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /platform/production/jobs:
+    get:
+      tags: [Platform]
+      operationId: cardProductionJobs
+      summary: "Reconcile expired leases and return paginated jobs and attempt logs"
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: Success envelope }, '403': { $ref: '#/components/responses/Forbidden' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /platform/production/jobs/{id}/action:
+    parameters: [{ $ref: '#/components/parameters/ResourceId' }]
+    post:
+      tags: [Platform]
+      operationId: cardProductionJobAction
+      summary: "Explicit retry or cancellation with audit reason"
+      security: [{ bearerAuth: [] }]
+      requestBody: {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["action", "reason"], "properties": {"action": {"type": "string", "enum": ["RETRY", "CANCEL"]}, "reason": {"type": "string", "minLength": 3, "maxLength": 500}}}}}}
+      responses: { '200': { description: Success envelope }, '403': { $ref: '#/components/responses/Forbidden' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /platform/production/cards:
+    get:
+      tags: [Platform]
+      operationId: platformCards
+      summary: "Paginated lifecycle registry; optional school_id, status and student-name search"
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: Success envelope }, '403': { $ref: '#/components/responses/Forbidden' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /platform/production/cards/{id}:
+    parameters: [{ $ref: '#/components/parameters/ResourceId' }]
+    patch:
+      tags: [Platform]
+      operationId: platformCardStatus
+      summary: "Change status with production and replacement checks"
+      security: [{ bearerAuth: [] }]
+      requestBody: {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["status", "reason"], "properties": {"status": {"type": "string", "enum": ["ACTIVE", "LOST", "BLOCKED", "EXPIRED"]}, "reason": {"type": "string", "minLength": 3, "maxLength": 500}}}}}}
+      responses: { '200': { description: Success envelope }, '403': { $ref: '#/components/responses/Forbidden' }, '422': { $ref: '#/components/responses/ValidationError' } }
+  /cards/resolve:
+    post:
+      tags: [Platform]
+      operationId: resolveStudentCard
+      summary: "Resolve active card QR within authenticated school, permission and portal scope"
+      requestBody: {"required": true, "content": {"application/json": {"schema": {"type": "object", "additionalProperties": false, "required": ["qr_key"], "properties": {"qr_key": {"type": "string", "minLength": 16, "maxLength": 128}}}}}}
+      responses: { '200': { description: Success envelope }, '403': { $ref: '#/components/responses/Forbidden' }, '422': { $ref: '#/components/responses/ValidationError' } }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -924,6 +1239,11 @@ components:
       in: query
       schema: { type: string, minLength: 1, maxLength: 100, pattern: '^[\p{L}\p{N}\s.-]+$' }
   responses:
+    DeviceAuthRequired:
+      description: Missing, expired, revoked, or invalid device credentials
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
     AuthRequired:
       description: Missing, expired, or invalid bearer token
       content:
@@ -979,14 +1299,22 @@ components:
         max_attempts: { type: integer, minimum: 1, maximum: 10, default: 3 }
     CardWriteCompletionInput:
       type: object
-      required: [job_id, lease_token, observed_rfid, observed_qr]
+      required: [job_id, lease_token, observed_uid, observed_rfid, observed_qr]
       properties:
         job_id: { type: string, format: uuid }
         lease_token: { type: string, format: uuid }
-        observed_rfid: { type: string, minLength: 1, maxLength: 64 }
-        observed_qr: { type: string, minLength: 1, maxLength: 128 }
+        observed_uid: { type: string, maxLength: 64 }
+        observed_rfid: { type: string, maxLength: 64, description: "Application memory payload AKS1:<qr_key>; not the chip UID." }
+        observed_qr: { type: string, maxLength: 128 }
         retryable: { type: boolean, default: false }
         error_code: { type: [string, 'null'], maxLength: 80 }
+    DashboardClassRank:
+      type: object
+      properties:
+        class_id: { type: string, format: uuid }
+        name: { type: string }
+        value: { type: number, minimum: 0 }
+        rank: { type: integer, minimum: 1 }
     DashboardTodayResponse:
       allOf:
         - $ref: '#/components/schemas/SuccessEnvelope'
@@ -1315,7 +1643,8 @@ components:
         id: { type: string, format: uuid }
         school_id: { type: string, format: uuid }
         student_id: { type: string, format: uuid }
-        card_uid: { type: string }
+        card_uid: { type: [string, "null"] }
+        production_status: { type: string, enum: [LEGACY, DRAFT, PRINTED, READY_TO_WRITE, WRITING, VERIFIED, FAILED, CANCELLED] }
         card_serial: { type: string }
         qr_key: { type: string, description: Opaque random identifier containing no PII. }
         status: { $ref: '#/components/schemas/CardStatus' }
@@ -1337,8 +1666,9 @@ components:
     CardUpdate:
       type: object
       additionalProperties: false
-      required: [status]
+      required: [status, reason]
       properties:
+        reason: { type: string, minLength: 3, maxLength: 500 }
         status: { $ref: '#/components/schemas/CardStatus' }
         expires_at: { type: [string, 'null'], format: date-time }
     CardResponse:

@@ -12,12 +12,11 @@ import { claimParentLinkSchema, createParentTokenSchema } from "../schemas/paren
 const router = Router();
 
 router.post("/link", requireAuth, validate({ body: claimParentLinkSchema }), asyncHandler(async (req, res) => {
-  const { data, error } = await req.auth!.client.rpc("claim_parent_link", {
-    link_token: req.body.token, profile_name: req.body.full_name, profile_phone: req.body.phone ?? null
+  const { data, error } = await req.auth!.client.rpc("link_student_to_parent_portal", {
+    p_nisn: req.body.nisn, p_dob: req.body.dob, p_parent_name: req.body.full_name
   });
-  if (error?.code === "AP001") throw new ApiError(422, "PARENT_LINK_INVALID", "Link token is invalid or expired");
   if (error) throw fromDatabaseError(error);
-  sendData(res, { link_id: data }, 201);
+  sendData(res, { link_id: data.student_id }, 201);
 }));
 
 router.get("/children", requireAuth, asyncHandler(async (req, res) => {

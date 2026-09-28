@@ -15,12 +15,13 @@ const cardFields = {
 export const createCardSchema = z.object(cardFields).strict();
 export const updateCardSchema = z.object({
   status: cardStatusSchema,
+  reason: z.string().trim().min(3).max(500),
   expires_at: z.iso.datetime({ offset: true }).nullable().optional()
 }).strict();
 
 export const cardListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
-  page_size: z.coerce.number().int().min(1).max(100).default(20),
+  page_size: z.coerce.number().int().min(1).max(500).default(20),
   student_id: z.uuid().optional(),
   status: cardStatusSchema.optional()
 }).strict();

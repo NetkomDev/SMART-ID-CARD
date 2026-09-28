@@ -6,6 +6,7 @@ const environmentSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
   SUPABASE_URL: z.url(),
   SUPABASE_ANON_KEY: z.string().min(1),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).default(""),
   CORS_ORIGINS: z.string().default("http://localhost:5173"),
   LOG_LEVEL: z.string().default("info"),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),

@@ -1,1 +1,26 @@
-{"name":"AKSIS Library Terminal","short_name":"Library","start_url":"/","display":"standalone","theme_color":"#174d5b","background_color":"#eef5f6"}
+{
+  "id": "./",
+  "name": "AKSIS Perpustakaan",
+  "short_name": "Perpustakaan",
+  "description": "Portal Perpustakaan sekolah AKSIS",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f2f6f8",
+  "theme_color": "#102f43",
+  "lang": "id",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

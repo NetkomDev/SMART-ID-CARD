@@ -2,6 +2,9 @@ import type { PostgrestError } from "@supabase/supabase-js";
 
 export type ErrorCode =
   // Phase 03: authentication, tenant context, and core resources.
+  | "PORTAL_NOT_CONFIGURED"
+  | "PORTAL_CREATE_FAILED"
+  | "PORTAL_ACCESS_INVALID"
   | "AUTH_REQUIRED"
   | "AUTH_INVALID"
   | "INVALID_CREDENTIALS"
@@ -33,6 +36,7 @@ export type ErrorCode =
   | "RATE_LIMITED"
   | "ROUTE_NOT_FOUND"
   | "DATABASE_ERROR"
+  | "DATABASE_NOT_READY"
   | "SERVER_UNAVAILABLE"
   | "INTERNAL_ERROR";
 
@@ -48,7 +52,17 @@ export class ApiError extends Error {
   }
 }
 
+import * as fs from "node:fs";
+
 export function fromDatabaseError(error: PostgrestError): ApiError {
+  try {
+    fs.appendFileSync("/Users/berech/Documents/Smart ID Card/AKSES.CO.ID/db_error.log", new Date().toISOString() + " DB Error: " + JSON.stringify(error) + "\n");
+  } catch (e) {}
+
+  if (error.code === "PGRST202" && error.message.includes("is_platform_admin")) {
+    return new ApiError(503, "DATABASE_NOT_READY", "Konfigurasi database Super Admin belum siap. Pengelola perlu menerapkan migrasi Super Admin dan memperbarui cache API database.");
+  }
+
   if (error.code === "28000") {
     return new ApiError(401, "DEVICE_AUTH_INVALID", "Device credential is invalid or expired");
   }
@@ -81,6 +95,9 @@ export function fromDatabaseError(error: PostgrestError): ApiError {
   }
   if (error.code === "23503" || error.code === "23514") {
     return new ApiError(422, "VALIDATION_ERROR", "Resource violates a data constraint");
+  }
+  if (error.code === "22023" || error.code === "P0001") {
+    return new ApiError(422, "VALIDATION_ERROR", error.message);
   }
   return new ApiError(500, "DATABASE_ERROR", "Database operation failed");
 }

@@ -7,6 +7,8 @@ import { asyncHandler } from "../middleware/async-handler.js";
 import { requireAuth } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 
+import { portalAuthRouter } from "./portal-auth.js";
+
 const router = Router();
 const loginSchema = z.object({ email: z.email(), password: z.string().min(8).max(128) }).strict();
 const refreshSchema = z.object({ refresh_token: z.string().min(1) }).strict();
@@ -21,9 +23,12 @@ router.post("/login", validate({ body: loginSchema }), asyncHandler(async (req, 
   const { data: memberships, error: membershipError } = await userClient
     .from("school_users")
     .select("school_id, schools(id, code, name)")
+    .eq("user_id", data.user.id)
     .eq("status", "ACTIVE")
     .is("deleted_at", null);
   if (membershipError) throw fromDatabaseError(membershipError);
+  const { data: platformAdmin, error: platformError } = await userClient.rpc("is_platform_admin");
+  if (platformError) throw fromDatabaseError(platformError);
 
   sendData(res, {
     user: data.user,
@@ -33,6 +38,7 @@ router.post("/login", validate({ body: loginSchema }), asyncHandler(async (req, 
       expires_at: data.session.expires_at,
       token_type: data.session.token_type
     },
+    platform_admin: platformAdmin === true,
     schools: memberships ?? []
   });
 }));
@@ -48,7 +54,7 @@ router.post("/refresh", validate({ body: refreshSchema }), asyncHandler(async (r
   });
 }));
 
-router.get("/session", requireAuth, (req, res) => sendData(res, { user: req.auth!.user }));
+router.get("/session", requireAuth, asyncHandler(async (req, res) => { const { data, error } = await req.auth!.client.rpc("is_platform_admin"); if (error) throw fromDatabaseError(error); sendData(res, { user: req.auth!.user, platform_admin: data === true }); }));
 
 router.post("/logout", requireAuth, validate({ body: logoutSchema }), asyncHandler(async (req, res) => {
   const client = createPublicClient();
@@ -57,9 +63,11 @@ router.post("/logout", requireAuth, validate({ body: logoutSchema }), asyncHandl
     refresh_token: req.body.refresh_token
   });
   if (sessionError) throw new ApiError(401, "AUTH_INVALID", "Session is invalid or expired");
-  const { error } = await client.auth.signOut({ scope: "global" });
+  const { error } = await client.auth.signOut({ scope: req.auth!.user.app_metadata?.portal_access ? "local" : "global" });
   if (error) throw new ApiError(503, "SERVER_UNAVAILABLE", "Unable to revoke session");
   res.status(204).send();
 }));
+
+router.use("/qr", portalAuthRouter);
 
 export { router as authRouter };

@@ -13,5 +13,8 @@ export default defineConfig({
     port: 4173,
     strictPort: true,
     proxy: { "/api": "http://localhost:3000", "/health": "http://localhost:3000" }
+  },
+  optimizeDeps: {
+    include: ['qrcode']
   }
 });

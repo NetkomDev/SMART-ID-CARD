@@ -24,6 +24,18 @@ export const requireTenant: RequestHandler = asyncHandler(async (req, _res, next
     throw new ApiError(400, "TENANT_REQUIRED", "A valid X-School-Id header is required");
   }
 
+  if (req.auth.user.app_metadata?.platform_role === "SUPER_ADMIN" && !req.auth.user.app_metadata?.portal_access) {
+    const { data: allowed, error: authorityError } = await req.auth.client.rpc("is_platform_admin");
+    if (authorityError) throw fromDatabaseError(authorityError);
+    if (allowed === true) {
+      const { data: school, error: schoolError } = await req.auth.client.from("schools").select("id").eq("id", parsed.data).is("deleted_at", null).maybeSingle();
+      if (schoolError) throw fromDatabaseError(schoolError);
+      if (!school) throw new ApiError(404, "SCHOOL_NOT_FOUND", "School was not found");
+      req.tenant = { schoolId: parsed.data, membershipId: req.auth.user.id, roles: ["SUPER_ADMIN"], permissions: [] };
+      next(); return;
+    }
+  }
+
   const { data: membership, error } = await req.auth.client
     .from("school_users")
     .select("id")
@@ -34,18 +46,28 @@ export const requireTenant: RequestHandler = asyncHandler(async (req, _res, next
     .maybeSingle();
 
   if (error) throw fromDatabaseError(error);
-  if (!membership) throw new ApiError(403, "FORBIDDEN", "No active membership for this school");
+  if (!membership) {
+    console.log("REQUIRE_TENANT_FAILED", {
+      xSchoolId: parsed.data,
+      userId: req.auth.user.id,
+      url: req.originalUrl,
+      method: req.method
+    });
+    throw new ApiError(403, "FORBIDDEN", "No active membership for this school");
+  }
 
   const { data: assignments, error: roleError } = await req.auth.client
     .from("school_user_roles")
     .select("roles(code, role_permissions(permissions(code)))")
     .eq("school_id", parsed.data)
-    .eq("school_user_id", membership.id);
+    .eq("school_user_id", membership.id)
+    .eq("roles.is_active", true).is("roles.deleted_at", null)
+    .eq("roles.role_permissions.permissions.is_active", true).is("roles.role_permissions.permissions.deleted_at", null);
   if (roleError) throw fromDatabaseError(roleError);
 
   const roles = (assignments as RoleRelation[] | null ?? [])
     .map((assignment) => first(assignment.roles)?.code)
-    .filter((code): code is string => Boolean(code));
+    .filter((code): code is string => Boolean(code) && code !== "SUPER_ADMIN");
   const permissions = (assignments as PermissionRelation[] | null ?? []).flatMap((assignment) => {
     const role = first(assignment.roles);
     return role?.role_permissions
@@ -63,8 +85,20 @@ export const requireTenant: RequestHandler = asyncHandler(async (req, _res, next
 });
 
 export const requirePermission = (permission: string): RequestHandler => (req, _res, next) => {
+  if (req.tenant?.roles.includes("SUPER_ADMIN")) {
+    next();
+    return;
+  }
   if (!req.tenant?.permissions.includes(permission)) {
     next(new ApiError(403, "FORBIDDEN", `Permission '${permission}' is required`));
+    return;
+  }
+  next();
+};
+
+export const requireRole = (role: string): RequestHandler => (req, _res, next) => {
+  if (!req.tenant?.roles.includes(role) && !req.tenant?.roles.includes("SUPER_ADMIN")) {
+    next(new ApiError(403, "FORBIDDEN", `Role '${role}' is required`));
     return;
   }
   next();

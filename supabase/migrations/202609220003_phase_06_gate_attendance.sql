@@ -150,7 +150,7 @@ begin
     raise exception 'invalid event clock or sequence' using errcode = 'AG007';
   end if;
 
-  select d, s.timezone into device_row, school_timezone
+  select d.* into device_row
   from public.devices d
   join public.schools s on s.id = d.school_id
   join public.device_credentials dc on dc.device_id = d.id and dc.school_id = d.school_id
@@ -165,6 +165,7 @@ begin
   if not found then
     raise exception 'invalid device credential' using errcode = '28000';
   end if;
+  select timezone into school_timezone from public.schools where id = device_row.school_id;
   if device_row.device_type <> 'GATE' then
     raise exception 'device is not a gate' using errcode = 'AG002';
   end if;

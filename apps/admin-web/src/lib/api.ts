@@ -33,7 +33,7 @@ export async function api<T>(path: string, init: RequestInit = {}, retry = true)
   if (init.body) headers.set("content-type", "application/json");
   if (session) headers.set("authorization", `Bearer ${session.access_token}`);
   const schoolId = getSchoolId();
-  if (schoolId) headers.set("x-school-id", schoolId);
+  if (schoolId && !headers.has("x-school-id")) headers.set("x-school-id", schoolId);
   const response = await fetch(`${API_BASE}${path}`, { ...init, headers });
   if (response.status === 401 && retry && session?.refresh_token && !path.startsWith("/auth/")) {
     try {
@@ -51,5 +51,5 @@ export async function login(email: string, password: string) {
   const response = await fetch(`${API_BASE}/auth/login`, {
     method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, password })
   });
-  return parse<{ session: Session; user: { id: string; email?: string }; schools: Array<{ school_id: string; schools: unknown }> }>(response);
+  return parse<{ platform_admin: boolean; session: Session; user: { id: string; email?: string }; schools: Array<{ school_id: string; schools: unknown }> }>(response);
 }

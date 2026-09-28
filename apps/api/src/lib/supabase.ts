@@ -12,3 +12,9 @@ export const createUserClient = (accessToken: string): SupabaseClient =>
     auth: authOptions,
     global: { headers: { Authorization: `Bearer ${accessToken}` } }
   });
+
+/** Service-role client for admin operations (e.g. creating users). Use sparingly. */
+export const createServiceClient = (): SupabaseClient => {
+  if (!config.SUPABASE_SERVICE_ROLE_KEY) throw new Error("SUPABASE_SERVICE_ROLE_KEY is required for platform provisioning");
+  return createClient(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY, { auth: authOptions });
+};

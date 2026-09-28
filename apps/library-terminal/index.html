@@ -1,1 +1,56 @@
-<!doctype html><html lang="id"><head><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#174d5b"><link rel="manifest" href="/manifest.webmanifest"><title>AKSIS Library Terminal</title></head><body><main><header><b>AKSIS</b><span>Terminal Perpustakaan</span></header><section><h1>Catat kunjungan</h1><p>Tempel kartu siswa atau masukkan UID kartu.</p><form id="scan"><input id="card" autocomplete="off" required minlength="4" maxlength="64" autofocus placeholder="UID kartu"><button>Catat kunjungan</button></form><output id="status" aria-live="polite">Siap memindai</output><p><b id="queued">0</b> kunjungan menunggu sinkronisasi</p><button id="sync">Sinkronkan sekarang</button></section></main><script type="module" src="/src/main.ts"></script></body></html>
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="referrer" content="no-referrer">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#102f43">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <title>AKSIS Library Terminal</title>
+</head>
+<body>
+  <main>
+    <header>
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <img src="/logo.png" alt="AKSIS Logo" style="height: 32px; width: auto; object-fit: contain; filter: drop-shadow(0px 0px 4px rgba(255, 255, 255, 0.8));">
+        <div style="display: flex; flex-direction: column; justify-content: center; text-align: left;">
+          <b style="line-height: 1;">AKSIS</b>
+          <span style="font-size: 0.75rem; margin-top: 0.2rem;">Terminal Perpustakaan</span>
+        </div>
+      </div>
+    </header>
+    <section id="panel" hidden>
+      <small>KUNJUNGAN PERPUSTAKAAN</small>
+      <h1>Catat kunjungan</h1>
+      <p>Pindai QR kartu siswa atau gunakan reader untuk membaca UID kartu.</p>
+      
+      <div class="scanner-box">
+        <div id="qr-reader" style="width: 100%; margin-bottom: 1rem; border-radius: 12px; overflow: hidden; display: none;"></div>
+        <button id="btn-toggle-camera" type="button" class="btn-secondary" style="margin-bottom: 1rem; width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          Buka Kamera Scanner
+        </button>
+        
+        <form id="scan" style="margin:0;">
+          <input aria-label="QR atau UID kartu siswa" type="text" id="card" placeholder="Pindai QR atau baca UID kartu" style="width:100%; text-align:center; font-size: 1.15rem; font-weight:700; padding: 1rem; background: rgba(255,255,255,0.8);" autocomplete="off" required minlength="4" maxlength="64" />
+        </form>
+        <p style="margin-top:1.25rem; font-size: 0.85rem; font-weight: 600; color: var(--primary);">Menunggu pindai identitas...</p>
+      </div>
+      
+      <output id="status" aria-live="polite">Siap memindai</output>
+      
+      <div class="queue-status">
+        <span>Antrean Sinkronisasi:</span>
+        <b id="queued">0</b>
+      </div>
+      <div class="actions-row">
+        <button id="sync">Sinkronkan sekarang</button>
+        <button id="logout" class="btn-secondary">Keluar dari portal</button>
+      </div>
+    </section>
+  </main>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

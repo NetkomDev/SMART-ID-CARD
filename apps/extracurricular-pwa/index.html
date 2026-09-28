@@ -1,1 +1,81 @@
-<!doctype html><html lang="id"><head><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#243b67"><link rel="manifest" href="/manifest.webmanifest"><title>AKSIS Ekskul</title></head><body><div id="app"></div><script type="module" src="/src/main.ts"></script></body></html>
+<!doctype html>
+<html lang="id">
+<head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><meta name="mobile-web-app-capable" content="yes"><link rel="apple-touch-icon" href="/icon-192.png">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#102f43">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/src/style.css">
+  <title>AKSIS Ekskul</title>
+</head>
+<body>
+  <header>
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <img src="/logo.png" alt="AKSIS Logo" style="height: 32px; width: auto; object-fit: contain; filter: drop-shadow(0px 0px 4px rgba(255, 255, 255, 0.8));">
+      <div style="display: flex; flex-direction: column; justify-content: center;">
+        <b style="line-height: 1;">AKSIS</b>
+        <span style="font-size: 0.75rem; margin-top: 0.2rem;">Ekstrakurikuler</span>
+      </div>
+    </div>
+  </header>
+  
+  <main id="app-container">
+    <!-- State 1: Login -->
+    <section id="view-login" style="display:none;">
+      <div id="gate" style="width: 100%;">
+        <small>AKSES QR SEKOLAH</small>
+        <h1>Ekstrakurikuler</h1>
+        <p>Pindai QR dari admin sekolah. Akses akan tersimpan agar berikutnya cukup buka aplikasi dari layar utama.</p>
+        <form id="form-login">
+          <p id="login-error" role="status" style="font-weight: 600;"></p>
+          <button type="submit">Coba lagi</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- State 2: Dashboard (List Ekskul) -->
+    <section id="view-dashboard" style="display:none;">
+      <h1>Pilih Kegiatan</h1>
+      <p>Pilih ekstrakurikuler yang Anda ampu hari ini.</p>
+      <div id="ekskul-list"></div>
+    </section>
+
+    <!-- State 4: Scanner Presensi & Enrollment -->
+    <section id="view-scan" style="display:none;">
+      <button class="back-btn" data-target="dashboard">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;"><path d="m15 18-6-6 6-6"/></svg>
+        Ganti Kegiatan
+      </button>
+      <small id="session-date-label" style="text-transform: uppercase;">12 Sep 2026</small>
+      <h1 id="scan-ekskul-title">Nama Ekskul</h1>
+      <p>Presensi Siswa</p>
+      
+      <div class="scanner-box">
+        <div id="qr-reader" style="width: 100%; margin-bottom: 1rem; border-radius: 12px; overflow: hidden; display: none;"></div>
+        <button id="btn-toggle-camera" type="button" class="btn-secondary" style="margin-bottom: 1rem; width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          Buka Kamera Scanner
+        </button>
+        
+        <form id="form-scan" style="margin:0;">
+          <input aria-label="QR kartu atau nomor siswa" type="text" id="scan-input" placeholder="QR / nomor siswa" style="width:100%; text-align:center; font-size: 1.15rem; font-weight:700; padding: 1rem; background: rgba(255,255,255,0.8);" autocomplete="off" />
+        </form>
+        <p style="margin-top:1.25rem; font-size: 0.85rem; font-weight: 600; color: var(--primary); margin-bottom: 0;">Menunggu pindai identitas...</p>
+      </div>
+      
+      <p id="scan-error" class="error-msg"></p>
+      
+      <div id="enrollment-prompt" style="display:none; background: rgba(255, 193, 7, 0.1); padding: 1.25rem; border-radius: 12px; margin-top: 1.5rem; text-align:left; border: 1px solid rgba(255, 193, 7, 0.4);">
+        <h3 style="margin:0 0 0.5rem 0; color: #997404;">Belum Terdaftar</h3>
+        <p style="font-size: 0.9rem; color: #664d03;">Siswa <strong id="unregistered-student-name"></strong> belum terdaftar di ekskul ini. Ingin daftarkan sekarang?</p>
+        <button id="btn-confirm-enroll" style="background:#ffc107; color:#000; margin-bottom: 0.5rem;">Daftarkan & Hadirkan</button>
+        <button id="btn-cancel-enroll" class="btn-secondary">Batal</button>
+      </div>
+
+      <output id="success-prompt" style="display:none;">
+        <span id="success-student-name">Andi - Hadir</span>
+      </output>
+    </section>
+  </main>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

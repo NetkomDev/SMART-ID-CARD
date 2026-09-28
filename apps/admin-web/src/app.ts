@@ -1,21 +1,53 @@
+import { mountPlatformPage, registerSchoolDevice } from "./platform/pages";
+import { mountCommandCenter } from "./dashboard/command-center";
 import { ApiClientError, api, login } from "./lib/api";
-import { canAccess } from "./lib/permissions";
-import { clearSession, getSchoolId, getSession, setSchoolId, setSession } from "./lib/session";
-import type { Attendance, AuthContext, Card, Device, School, SchoolClass, Student } from "./lib/types";
+import { canAccess, isPlatformRoute } from "./lib/permissions";
+import { clearSession, getSession, setSchoolId, setSession } from "./lib/session";
+import type { AcademicYear, Attendance, AuthContext, Card, Device, Extracurricular, LedContent, School, SchoolClass, Student } from "./lib/types";
+// @ts-ignore
+import QRCode from "qrcode/lib/browser.js";
+
+const savedTheme = localStorage.getItem("aksis-theme") || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+document.documentElement.setAttribute("data-theme", savedTheme);
 
 type AppState = {
   school?: School;
   context?: AuthContext;
   userEmail?: string;
+  allSchools?: School[];
 };
 
 const state: AppState = {};
-const app = document.querySelector<HTMLDivElement>("#app")!;
+let disposeDashboard: (() => void) | undefined;
+function clearDashboard() { disposeDashboard?.(); disposeDashboard = undefined; }
+
+function getApp(): HTMLDivElement {
+  let el = document.querySelector<HTMLDivElement>("#app");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "app";
+    document.body.appendChild(el);
+  }
+  return el;
+}
+
 const navItems = [
-  ["/", "Ringkasan", "⌂"], ["/students", "Siswa", "◎"], ["/student-import", "Import siswa", "↥"],
-  ["/classes", "Kelas", "▦"], ["/attendance", "Kehadiran", "✓"], ["/cards", "Kartu siswa", "▰"],
-  ["/devices", "Perangkat", "⌁"], ["/waste", "Bank sampah", "♻"], ["/library", "Perpustakaan", "▤"],
-  ["/extracurricular", "Ekstrakurikuler", "☆"], ["/led", "LED board", "▱"], ["/reports", "Laporan", "↗"]
+  ["/", "Ringkasan", "⌂"], ["/students", "Siswa & Kelas", "◎"], ["/student-import", "Import siswa", "↥"],
+  ["/attendance", "Kehadiran", "✓"],
+  ["/cards", "Kartu siswa", "▰"], ["/devices", "Perangkat", "⌁"], ["/waste", "Bank sampah", "♻"],
+  ["/library", "Perpustakaan", "▤"], ["/extracurricular", "Ekstrakurikuler", "☆"], ["/led", "LED board", "▱"],
+  ["/reports", "Laporan Wali Kelas", "↗"],
+  ["/academic-years", "Tahun Ajaran", "📅"],
+  ["/pwa-portals", "Portal PWA & QR", "📱"]
+] as const;
+
+const superAdminNavItems = [
+  ["/platform", "Ringkasan Platform", "🌐"],
+  ["/platform-schools", "Daftar Sekolah", "🏢"],
+  ["/platform-iam", "IAM & Hak Akses", "🔐"],
+  ["/platform-devices", "Monitor Perangkat", "📡"],
+  ["/platform-card-jobs", "Produksi Kartu Siswa", "💳"],
+  ["/platform-audit", "Global Audit Logs", "↗"]
 ] as const;
 
 const escapeHtml = (value: unknown) => String(value ?? "").replace(/[&<>'"]/g, (character) => ({
@@ -41,16 +73,17 @@ function emptyState(title: string, description: string): string {
 }
 
 function loginView(): void {
-  app.innerHTML = `<main class="login-page" id="main-content">
+  clearDashboard();
+  getApp().innerHTML = `<main class="login-page" id="main-content">
     <section class="login-story" aria-label="Tentang AKSIS">
-      <div class="brand brand-light"><span class="brand-mark">A</span><span>AKSIS</span></div>
-      <div><p class="eyebrow">Administrasi sekolah, terhubung</p><h1>Satu ruang kerja untuk hari sekolah yang lebih tertata.</h1>
-      <p class="story-copy">Kelola siswa, kehadiran, kartu, dan perangkat dari satu portal yang aman.</p></div>
-      <blockquote>“Data yang jelas membantu sekolah mengambil keputusan yang lebih baik.”</blockquote>
+      <div class="brand brand-light" style="display:flex;align-items:center;gap:0.75rem;"><img src="/logo.png" alt="AKSIS Logo" style="height: 200px; width: auto; object-fit: contain; filter: drop-shadow(0px 0px 4px rgba(255, 255, 255, 0.8));"></div>
+      <div><p class="eyebrow">Ekosistem Sekolah Cerdas</p><h1>Satu pusat kendali untuk seluruh aktivitas sekolah.</h1>
+      <p class="story-copy">Integrasikan sistem absensi IoT, kartu pintar pelajar, hingga bank sampah dalam satu platform digital yang aman dan terhubung.</p></div>
+      <blockquote>“Mengubah operasional harian yang rumit menjadi wawasan data yang memberdayakan sekolah.”</blockquote>
     </section>
     <section class="login-panel">
       <form class="login-form" id="login-form">
-        <div><p class="eyebrow dark">Portal Admin</p><h2>Selamat datang kembali</h2><p>Masuk menggunakan akun sekolah Anda.</p></div>
+        <div><p class="eyebrow dark">Portal Admin</p><h2>Selamat datang kembali</h2><p>Masuk menggunakan akun sekolah atau Super Admin Anda.</p></div>
         <div id="login-error" aria-live="polite"></div>
         <label>Email<input name="email" type="email" autocomplete="username" placeholder="admin@sekolah.sch.id" required /></label>
         <label>Kata sandi<input name="password" type="password" autocomplete="current-password" minlength="8" placeholder="Minimal 8 karakter" required /></label>
@@ -67,12 +100,16 @@ function loginView(): void {
     button.disabled = true; button.textContent = "Memverifikasi…";
     try {
       const result = await login(String(data.get("email")), String(data.get("password")));
-      if (!result.data.schools.length) throw new ApiClientError("FORBIDDEN", "Akun belum terhubung ke sekolah aktif.", 403);
+      if (!result.data.platform_admin && !result.data.schools.length) throw new ApiClientError("FORBIDDEN", "Akun belum terhubung ke sekolah aktif.", 403);
       setSession(result.data.session);
-      setSchoolId(result.data.schools[0]!.school_id);
+      if (result.data.schools[0]) setSchoolId(result.data.schools[0].school_id);
       state.userEmail = result.data.user.email;
       await bootstrap();
-      navigate("/");
+      if (state.context?.roles.includes("SUPER_ADMIN")) {
+        navigate("/platform");
+      } else {
+        navigate("/");
+      }
     } catch (error) {
       document.querySelector("#login-error")!.innerHTML = errorState(error);
     } finally { button.disabled = false; button.textContent = "Masuk ke AKSIS →"; }
@@ -80,29 +117,59 @@ function loginView(): void {
 }
 
 async function bootstrap(): Promise<void> {
-  const [school, context] = await Promise.all([
-    api<School>("/schools/current"), api<AuthContext>("/schools/current/context")
-  ]);
-  state.school = school.data;
-  state.context = context.data;
+  const session = await api<{ platform_admin: boolean; user: { email?: string } }>("/auth/session");
+  state.userEmail = session.data.user.email;
+  if (session.data.platform_admin) {
+    state.allSchools = (await api<School[]>("/platform/schools")).data;
+    state.school = { id: "", code: "PLATFORM", name: "Platform AKSIS" };
+    state.context = { school_id: "", membership_id: "", roles: ["SUPER_ADMIN"], permissions: [] };
+    return;
+  }
+  state.allSchools = undefined;
+  const [school, context] = await Promise.all([api<School>("/schools/current"), api<AuthContext>("/schools/current/context")]);
+  state.school = school.data; state.context = context.data;
 }
 
 function shell(content: string, title: string, subtitle: string): void {
+  clearDashboard();
   const path = location.pathname;
-  const initials = (state.school?.name ?? "AKSIS").split(" ").slice(0, 2).map((part) => part[0]).join("");
-  const visibleNav = navItems.filter(([route]) => canAccess(route, state.context?.permissions ?? []));
-  app.innerHTML = `<div class="app-shell">
+  const isSuperAdmin = state.context?.roles.includes("SUPER_ADMIN");
+  const isPlatformPath = path.startsWith("/platform");
+  const initials = isPlatformPath ? "🌐" : (state.school?.name ?? "AKSIS").split(" ").slice(0, 2).map((part) => part[0]).join("");
+
+  const visibleNav = navItems.filter(([route]) => canAccess(route, state.context?.permissions ?? [], state.context?.roles ?? []));
+
+  let sidebarNavHtml = "";
+  if (isSuperAdmin) {
+    sidebarNavHtml = `
+      <div style="padding:0.6rem 0.75rem 0.2rem;font-size:0.65rem;font-weight:700;letter-spacing:0.1em;color:var(--lime);text-transform:uppercase;">SUPER ADMIN PLATFORM</div>
+      ${superAdminNavItems.map(([route, label, icon]) => `<a href="${route}" data-link class="${path === route ? "active" : ""}"><span>${icon}</span>${label}</a>`).join("")}
+    `;
+  } else {
+    sidebarNavHtml = `
+      <div style="padding:0.8rem 0.75rem 0.2rem;font-size:0.65rem;font-weight:700;letter-spacing:0.1em;color:#8da29b;text-transform:uppercase;">OPERASIONAL SEKOLAH</div>
+      ${visibleNav.map(([route, label, icon]) => `<a href="${route}" data-link class="${path === route ? "active" : ""}"><span>${icon}</span>${label}</a>`).join("")}
+    `;
+  }
+
+  const schoolSwitchHtml = isSuperAdmin ? "" : `
+    <div class="school-switch"><span class="school-avatar">${escapeHtml(initials)}</span><div><small>Sekolah aktif</small><strong>${escapeHtml(state.school?.name)}</strong></div></div>
+  `;
+
+  getApp().innerHTML = `<div class="app-shell">
     <aside class="sidebar" id="sidebar">
-      <div class="brand"><span class="brand-mark">A</span><span>AKSIS</span></div>
-      <nav aria-label="Navigasi utama">${visibleNav.map(([route, label, icon]) => `<a href="${route}" data-link class="${path === route ? "active" : ""}"><span>${icon}</span>${label}</a>`).join("")}</nav>
-      <div class="sidebar-foot"><span class="status-dot"></span><div><strong>Sistem aktif</strong><small>Semua layanan normal</small></div></div>
+      <div class="brand" style="display:flex;align-items:center;gap:0.75rem;"><img src="/logo.png" alt="AKSIS Logo" style="height: 96px; width: auto; object-fit: contain; filter: drop-shadow(0px 0px 4px rgba(255, 255, 255, 0.8));"></div>
+      <nav aria-label="Navigasi utama">
+        ${sidebarNavHtml}
+      </nav>
+      <div class="sidebar-foot"><span class="status-dot"></span><div><strong>Sistem aktif</strong><small>${isSuperAdmin ? "Super Admin Mode" : "Semua layanan normal"}</small></div></div>
     </aside>
     <div class="workspace">
       <header class="topbar"><button class="icon-button menu-button" data-action="menu" aria-label="Buka navigasi">☰</button>
-        <div class="school-switch"><span class="school-avatar">${escapeHtml(initials)}</span><div><small>Sekolah aktif</small><strong>${escapeHtml(state.school?.name)}</strong></div></div>
-        <div class="top-actions"><button class="icon-button" aria-label="Notifikasi">○</button><div class="profile"><span>${escapeHtml(initials)}</span><div><strong>${escapeHtml(state.userEmail ?? "Admin Sekolah")}</strong><small>${escapeHtml(state.context?.roles[0] ?? "SCHOOL_ADMIN")}</small></div></div><button class="icon-button" data-action="logout" aria-label="Keluar">↪</button></div>
+        ${schoolSwitchHtml}
+        <div class="top-actions" style="margin-left: auto;"><button class="theme-toggle" data-action="toggle-theme" aria-label="Ubah Tema" title="Ubah Tema">◐</button><button class="icon-button" aria-label="Notifikasi">○</button><div class="profile"><span>${isSuperAdmin ? "👑" : escapeHtml(initials)}</span><div><strong>${escapeHtml(state.userEmail ?? "Admin")}</strong><small>${escapeHtml(state.context?.roles[0] ?? "SCHOOL_ADMIN")}</small></div></div><button class="icon-button" data-action="logout" aria-label="Keluar">↪</button></div>
       </header>
-      <main class="content" id="main-content"><div class="page-heading"><div><p class="eyebrow dark">${escapeHtml(state.school?.code ?? "SEKOLAH")}</p><h1>${escapeHtml(title)}</h1><p>${escapeHtml(subtitle)}</p></div><span class="date-chip">${new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "long" }).format(new Date())}</span></div>${content}</main>
+      <main class="content" id="main-content"><div class="page-heading"><div><p class="eyebrow dark">${isPlatformPath ? "PLATFORM SUPER ADMIN" : escapeHtml(state.school?.code ?? "SEKOLAH")}</p><h1>${escapeHtml(title)}</h1><p>${escapeHtml(subtitle)}</p></div><span class="date-chip">${new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "long" }).format(new Date())}</span></div>${content}</main>
     </div><div class="sidebar-scrim" data-action="menu"></div></div>`;
   bindShellEvents();
 }
@@ -112,6 +179,12 @@ function bindShellEvents(): void {
     event.preventDefault(); navigate(link.getAttribute("href")!);
   }));
   document.querySelectorAll<HTMLElement>("[data-action='menu']").forEach((button) => button.addEventListener("click", () => document.body.classList.toggle("nav-open")));
+  document.querySelector<HTMLElement>("[data-action='toggle-theme']")?.addEventListener("click", () => {
+    const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+    const newTheme = isDark ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", newTheme);
+    localStorage.setItem("aksis-theme", newTheme);
+  });
   document.querySelector<HTMLElement>("[data-action='logout']")?.addEventListener("click", async () => {
     const session = getSession();
     try {
@@ -126,31 +199,12 @@ function relation<T>(value: T | T[] | null | undefined): T | undefined { return 
 function formatTime(value?: string | null): string { return value ? new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit" }).format(new Date(value)) : "—"; }
 
 async function dashboardPage(): Promise<void> {
-  shell(`<section class="stats-grid">${Array.from({ length: 4 }, () => skeleton(1)).join("")}</section><section class="dashboard-grid"><div class="panel">${skeleton()}</div><div class="panel">${skeleton()}</div></section>`, "Ringkasan sekolah", "Pantau aktivitas utama sekolah hari ini.");
-  try {
-    const allowed = state.context?.permissions ?? [];
-    const [students, classes, cards, devices, attendance] = await Promise.all([
-      allowed.includes("student.read") ? api<Student[]>("/students?page=1&page_size=5") : null,
-      api<SchoolClass[]>("/classes?page=1&page_size=1"),
-      allowed.includes("card.read") ? api<Card[]>("/cards?page=1&page_size=1") : null,
-      allowed.includes("device.read") ? api<Device[]>("/devices?page=1&page_size=8") : null,
-      allowed.includes("attendance.read") ? api<Attendance[]>("/attendance?page=1&page_size=6") : null
-    ]);
-    const online = devices?.data.filter((device) => device.last_seen_at && Date.now() - new Date(device.last_seen_at).getTime() < 5 * 60_000).length ?? 0;
-    const late = attendance?.data.filter((item) => item.is_late).length ?? 0;
-    const stats = [
-      ["Total siswa", students?.meta?.total ?? "—", "Data siswa aktif", "sage"],
-      ["Kehadiran terbaru", attendance?.meta?.total ?? "—", `${late} terlambat pada daftar ini`, "lime"],
-      ["Kelas", classes.meta?.total ?? 0, "Tahun ajaran berjalan", "blue"],
-      ["Perangkat online", `${online}/${devices?.meta?.total ?? 0}`, "Aktif 5 menit terakhir", "sand"]
-    ];
-    const attendanceRows = attendance?.data.map((item) => { const student = relation(item.students); const klass = relation(item.classes); return `<tr><td><strong>${escapeHtml(student?.full_name ?? "Siswa")}</strong><small>${escapeHtml(student?.student_number)}</small></td><td>${escapeHtml(klass?.name ?? "—")}</td><td><span class="status ${item.direction === "CHECK_IN" ? "success" : "neutral"}">${item.direction === "CHECK_IN" ? "Masuk" : "Pulang"}</span></td><td>${formatTime(item.occurred_at_local)}</td></tr>`; }).join("") ?? "";
-    const deviceCards = devices?.data.map((device) => { const isOnline = Boolean(device.last_seen_at && Date.now() - new Date(device.last_seen_at).getTime() < 5 * 60_000); return `<div class="device-row"><span class="device-icon">${device.device_type.slice(0, 1)}</span><div><strong>${escapeHtml(device.name)}</strong><small>${escapeHtml(device.location ?? device.device_code)}</small></div><span class="status ${isOnline ? "success" : "neutral"}">${isOnline ? "Online" : "Offline"}</span></div>`; }).join("") ?? "";
-    shell(`<section class="stats-grid">${stats.map(([label, value, note, color]) => `<article class="stat-card ${color}"><div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong><small>${escapeHtml(note)}</small></div><span class="trend">↗</span></article>`).join("")}</section>
-      <section class="quick-actions"><strong>Aksi cepat</strong><div><a href="/students" data-link>◎ Kelola siswa</a><a href="/student-import" data-link>↥ Import data</a><a href="/cards" data-link>▰ Kelola kartu</a><a href="/devices" data-link>⌁ Cek perangkat</a></div></section>
-      <section class="dashboard-grid"><article class="panel span-2"><div class="panel-head"><div><h2>Aktivitas gerbang</h2><p>Presensi terbaru dari perangkat sekolah</p></div><a href="/attendance" data-link>Lihat semua →</a></div>${attendanceRows ? `<div class="table-wrap"><table><thead><tr><th>Siswa</th><th>Kelas</th><th>Status</th><th>Waktu</th></tr></thead><tbody>${attendanceRows}</tbody></table></div>` : emptyState("Belum ada aktivitas", "Tap kartu akan muncul di sini secara otomatis.")}</article>
-      <article class="panel"><div class="panel-head"><div><h2>Status perangkat</h2><p>Pembaruan 5 menit terakhir</p></div></div>${deviceCards || emptyState("Belum ada perangkat", "Daftarkan perangkat sekolah melalui menu perangkat.")}</article></section>`, "Ringkasan sekolah", "Pantau aktivitas utama sekolah hari ini.");
-  } catch (error) { shell(errorState(error), "Ringkasan sekolah", "Pantau aktivitas utama sekolah hari ini."); }
+  shell('<div id="school-command-center"></div>', "Command Center", "Pantau metrik utama dan aktivitas sekolah hari ini.");
+  // The dashboard supplies its own responsive heading, including the TV toggle.
+  document.querySelector(".page-heading")?.remove();
+  disposeDashboard = mountCommandCenter(document.getElementById("school-command-center")!, {
+    school: state.school!, permissions: state.context?.permissions ?? [], roles: state.context?.roles ?? [], navigate
+  });
 }
 
 function tablePage<T>(options: { title: string; subtitle: string; path: string; columns: string[]; row: (item: T) => string; action?: { label: string; href: string } }): void {
@@ -167,26 +221,975 @@ function tablePage<T>(options: { title: string; subtitle: string; path: string; 
   void load();
 }
 
-function studentsPage(): void { tablePage<Student>({ title: "Data siswa", subtitle: "Kelola identitas siswa tanpa mengubah histori akademik.", path: "/students", action: { label: "↥ Import siswa", href: "/student-import" }, columns: ["Siswa", "NISN", "Gender", "Status"], row: (item) => `<tr><td><strong>${escapeHtml(item.full_name)}</strong><small>${escapeHtml(item.student_number)}</small></td><td>${escapeHtml(item.nisn ?? "—")}</td><td>${escapeHtml(item.gender)}</td><td><span class="status ${item.is_active ? "success" : "neutral"}">${item.is_active ? "Aktif" : "Nonaktif"}</span></td></tr>` }); }
-function classesPage(): void { tablePage<SchoolClass>({ title: "Kelas", subtitle: "Struktur kelas pada tahun ajaran aktif.", path: "/classes", columns: ["Kode", "Nama kelas", "Tingkat", "Status"], row: (item) => `<tr><td>${escapeHtml(item.code)}</td><td><strong>${escapeHtml(item.name)}</strong></td><td>${escapeHtml(item.grade_level ?? "—")}</td><td><span class="status ${item.is_active ? "success" : "neutral"}">${item.is_active ? "Aktif" : "Nonaktif"}</span></td></tr>` }); }
-function cardsPage(): void { tablePage<Card>({ title: "Kartu siswa", subtitle: "Pantau identitas kartu dan status lifecycle-nya.", path: "/cards", columns: ["Nomor seri", "UID", "Status", "Kedaluwarsa"], row: (item) => `<tr><td><strong>${escapeHtml(item.card_serial)}</strong></td><td><code>${escapeHtml(item.card_uid)}</code></td><td><span class="status ${item.status === "ACTIVE" ? "success" : "warning"}">${escapeHtml(item.status)}</span></td><td>${escapeHtml(item.expires_at ? new Date(item.expires_at).toLocaleDateString("id-ID") : "—")}</td></tr>` }); }
-function devicesPage(): void { tablePage<Device>({ title: "Perangkat", subtitle: "Status gate, terminal, LED, dan card station sekolah.", path: "/devices", columns: ["Perangkat", "Tipe", "Firmware", "Status", "Terakhir aktif"], row: (item) => `<tr><td><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.device_code)} · ${escapeHtml(item.location ?? "—")}</small></td><td>${escapeHtml(item.device_type)}</td><td>${escapeHtml(item.firmware_version ?? "—")}</td><td><span class="status ${item.status === "ACTIVE" ? "success" : "warning"}">${escapeHtml(item.status)}</span></td><td>${escapeHtml(item.last_seen_at ? formatTime(item.last_seen_at) : "Belum pernah")}</td></tr>` }); }
-function attendancePage(): void { tablePage<Attendance>({ title: "Kehadiran", subtitle: "Log presensi gerbang yang sudah tervalidasi dan idempotent.", path: "/attendance", columns: ["Siswa", "Kelas", "Arah", "Waktu", "Keterangan"], row: (item) => { const student = relation(item.students); return `<tr><td><strong>${escapeHtml(student?.full_name ?? "Siswa")}</strong><small>${escapeHtml(student?.student_number)}</small></td><td>${escapeHtml(relation(item.classes)?.name ?? "—")}</td><td>${item.direction === "CHECK_IN" ? "Masuk" : "Pulang"}</td><td>${formatTime(item.occurred_at_local)}</td><td><span class="status ${item.is_late ? "warning" : "success"}">${item.is_late ? "Terlambat" : "Tepat waktu"}</span></td></tr>`; } }); }
+async function studentsPage(): Promise<void> {
+  shell(`<section class="dashboard-grid" style="grid-template-columns: 300px 1fr; align-items: start;">
+    <article class="panel">
+      <div class="panel-head"><h2>Master Kelas</h2><button class="button secondary" style="padding:0.3rem 0.6rem;font-size:0.75rem;">+ Tambah</button></div>
+      <div id="classes-data">${skeleton(4)}</div>
+    </article>
+    <article class="panel">
+      <div class="panel-head">
+        <div class="search-box"><span>⌕</span><input id="table-search" type="search" placeholder="Cari nama/NISN/NIS…" aria-label="Cari data" /></div>
+        <div style="display:flex;gap:0.5rem;">
+          <a class="button secondary" data-link href="/class-promotion">↗ Naik Kelas Massal</a>
+          <a class="button primary" data-link href="/student-import">↥ Import Siswa</a>
+        </div>
+      </div>
+      <div id="table-data">${skeleton(6)}</div>
+    </article>
+  </section>`, "Siswa & Kelas", "Kelola daftar siswa dan struktur kelas aktif.");
+
+  api<(SchoolClass & { student_count: number })[]>("/classes/summary").then(res => {
+    document.querySelector("#classes-data")!.innerHTML = res.data.length
+      ? `<div class="table-wrap"><table><thead><tr><th>Nama Kelas</th><th>Siswa/I</th></tr></thead><tbody>${res.data.map(c => `<tr><td><strong>${escapeHtml(c.name)}</strong></td><td>${c.student_count} siswa</td></tr>`).join("")}</tbody></table></div>`
+      : emptyState("Belum ada", "Tambahkan kelas.");
+  }).catch(err => document.querySelector("#classes-data")!.innerHTML = errorState(err));
+
+  const loadStudents = async (search = "") => {
+    try {
+      const response = await api<Student[]>(`/students?page=1&page_size=30${search ? `&search=${encodeURIComponent(search)}` : ""}`);
+      document.querySelector("#table-data")!.innerHTML = response.data.length
+        ? `<div class="table-wrap"><table><thead><tr><th>Nama Lengkap</th><th>NISN</th><th>Tgl Lahir</th><th>Gender</th><th>Status</th></tr></thead><tbody>${response.data.map(item => `<tr><td><strong>${escapeHtml(item.full_name)}</strong><br/><small>${escapeHtml(item.student_number)}</small></td><td>${escapeHtml(item.nisn ?? "—")}</td><td>${escapeHtml(item.date_of_birth ?? "—")}</td><td>${escapeHtml(item.gender)}</td><td><span class="status ${item.is_active ? "success" : "neutral"}">${item.is_active ? "Aktif" : "Nonaktif"}</span></td></tr>`).join("")}</tbody></table></div><div class="table-footer">Menampilkan ${response.data.length} dari ${response.meta?.total ?? response.data.length} data</div>`
+        : emptyState("Data belum tersedia", "Tambahkan data siswa pertama.");
+    } catch (error) { document.querySelector("#table-data")!.innerHTML = errorState(error); }
+  };
+
+  let timer = 0;
+  document.querySelector<HTMLInputElement>("#table-search")?.addEventListener("input", (event) => { window.clearTimeout(timer); timer = window.setTimeout(() => void loadStudents((event.target as HTMLInputElement).value), 300); });
+  void loadStudents();
+}
+
+async function academicYearsPage(): Promise<void> {
+  shell(`<section class="stats-grid">${Array.from({ length: 1 }, () => skeleton(1)).join("")}</section>`, "Tahun Ajaran", "Kelola tahun ajaran dan periode aktif.");
+  try {
+    const res = await api<AcademicYear[]>("/academic-years");
+    const data = res.data ?? [];
+    const activeYear = data.find(y => y.is_active);
+
+    const rows = data.map(item => `<tr>
+      <td><strong>${escapeHtml(item.name)}</strong></td>
+      <td>${escapeHtml(item.start_date)} — ${escapeHtml(item.end_date)}</td>
+      <td>
+        ${item.is_active
+        ? `<span class="status success">Aktif berjalan</span>`
+        : `<button class="button secondary btn-switch-year" data-id="${item.id}" style="padding:0.3rem 0.6rem;font-size:0.75rem;">Jadikan Aktif</button>`}
+      </td>
+    </tr>`).join("");
+
+    shell(`<section class="stats-grid">
+      <article class="stat-card lime"><div><span>Tahun Ajaran Aktif</span><strong>${activeYear ? escapeHtml(activeYear.name) : "Tidak ada"}</strong></div><span class="trend">📅</span></article>
+    </section>
+    <section class="dashboard-grid" style="grid-template-columns: 1fr;">
+      <article class="panel">
+        <div class="panel-head">
+          <div><h2>Daftar Tahun Ajaran</h2><p>Hanya satu periode yang dapat aktif pada satu waktu.</p></div>
+          <button id="btn-add-year" class="button primary">+ Tambah Tahun Ajaran</button>
+        </div>
+        ${rows ? `<div class="table-wrap"><table><thead><tr><th>Tahun Ajaran</th><th>Periode</th><th>Status / Aksi</th></tr></thead><tbody>${rows}</tbody></table></div>` : emptyState("Belum ada data", "Tambahkan tahun ajaran pertama.")}
+      </article>
+    </section>
+    
+    <div id="year-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;overflow-y:auto;padding:2rem;">
+      <div style="background:var(--bg);max-width:500px;margin:auto;border-radius:1rem;padding:2rem;position:relative;">
+        <button id="close-year-modal" style="position:absolute;top:1rem;right:1rem;background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--text);">&times;</button>
+        <h2>Tambah Tahun Ajaran</h2>
+        <p style="margin-bottom:1.5rem;color:var(--text-light);">Tahun ajaran baru akan disimpan dalam keadaan nonaktif.</p>
+        <form id="year-form" class="login-form" style="margin:0;">
+          <div id="year-error" style="display:none;background:var(--red);color:white;padding:0.75rem;border-radius:0.5rem;font-size:0.875rem;margin-bottom:1rem;"></div>
+          
+          <label>Nama Tahun Ajaran<input id="year-name" type="text" placeholder="Cth: 2026/2027" required maxlength="32" /></label>
+          
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+            <label>Tanggal Mulai<input id="year-start" type="date" required /></label>
+            <label>Tanggal Selesai<input id="year-end" type="date" required /></label>
+          </div>
+          
+          <button id="year-submit" class="button primary" type="submit" style="margin-top:1rem;">Simpan</button>
+        </form>
+      </div>
+    </div>`, "Tahun Ajaran", "Kelola tahun ajaran dan periode aktif.");
+
+    setTimeout(() => {
+      const modal = document.getElementById("year-modal") as HTMLDivElement;
+      document.getElementById("btn-add-year")?.addEventListener("click", () => modal.style.display = "flex");
+      document.getElementById("close-year-modal")?.addEventListener("click", () => modal.style.display = "none");
+
+      const form = document.getElementById("year-form") as HTMLFormElement;
+      const errorDiv = document.getElementById("year-error") as HTMLDivElement;
+      const submitBtn = document.getElementById("year-submit") as HTMLButtonElement;
+
+      form?.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        errorDiv.style.display = "none";
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Menyimpan...";
+
+        try {
+          const name = (document.getElementById("year-name") as HTMLInputElement).value.trim();
+          const start_date = (document.getElementById("year-start") as HTMLInputElement).value;
+          const end_date = (document.getElementById("year-end") as HTMLInputElement).value;
+
+          await api("/academic-years", {
+            method: "POST",
+            body: JSON.stringify({ name, start_date, end_date })
+          });
+
+          window.location.reload();
+        } catch (err: any) {
+          errorDiv.textContent = err.message || "Gagal menyimpan.";
+          errorDiv.style.display = "block";
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Simpan";
+        }
+      });
+
+      document.querySelectorAll(".btn-switch-year").forEach(btn => {
+        btn.addEventListener("click", async (e) => {
+          const target = e.target as HTMLButtonElement;
+          const id = target.getAttribute("data-id");
+          if (!id || !confirm("Jadikan tahun ajaran ini sebagai periode aktif berjalan?")) return;
+
+          target.disabled = true;
+          target.textContent = "Memproses...";
+          try {
+            await api("/academic-years/switch", {
+              method: "POST",
+              body: JSON.stringify({ academic_year_id: id })
+            });
+            window.location.reload();
+          } catch (err: any) {
+            alert("Gagal mengaktifkan: " + err.message);
+            target.disabled = false;
+            target.textContent = "Jadikan Aktif";
+          }
+        });
+      });
+    }, 100);
+  } catch (error) { shell(errorState(error), "Tahun Ajaran", "Kelola tahun ajaran dan periode aktif."); }
+}
+async function cardsPage(): Promise<void> {
+  shell(`<section class="stats-grid">${Array.from({ length: 2 }, () => skeleton(1)).join("")}</section>`, "Kartu Siswa", "Pantau identitas kartu fisik (NFC) dan status lifecycle-nya.");
+  try {
+    const { data: summary } = await api<{ active: number, blocked: number }>("/cards/summary");
+
+    shell(`<section class="stats-grid">
+      <article class="stat-card sage"><div><span>Kartu Aktif</span><strong>${summary.active} Kartu</strong></div><span class="trend">💳</span></article>
+      <article class="stat-card ${summary.blocked > 0 ? 'red' : 'neutral'}"><div><span>Kartu Diblokir/Hilang</span><strong>${summary.blocked} Kartu</strong></div><span class="trend">!</span></article>
+    </section>
+    <section class="dashboard-grid" style="grid-template-columns: 1fr;">
+      <article class="panel">
+        <div class="panel-head"><h2>Daftar Kartu Terdaftar</h2><p>Identitas UID dan Serial NFC</p></div>
+        <div id="cards-data">${skeleton(6)}</div>
+      </article>
+    </section>`, "Kartu Siswa", "Pantau identitas kartu fisik (NFC) dan status lifecycle-nya.");
+
+    let page = 1;
+    const loadCards = async () => {
+      try {
+        const response = await api<Card[]>(`/cards?page=${page}&page_size=50`);
+        const cards = response.data;
+        const cardRows = cards.map(item => {
+          const student = relation(item.students) as any;
+          const studentHtml = student ? `<strong>${escapeHtml(student.full_name)}</strong><small>${escapeHtml(student.student_number)}</small>` : `<strong style="color:var(--muted)">Belum terhubung</strong>`;
+          return `<tr><td>${studentHtml}</td><td><strong>${escapeHtml(item.card_serial)}</strong><small><code>${escapeHtml(item.card_uid)}</code></small></td><td><span class="status ${item.status === "ACTIVE" ? "success" : "warning"}">${escapeHtml(item.status)}</span></td><td>${escapeHtml(item.expires_at ? new Date(item.expires_at).toLocaleDateString("id-ID") : "—")}</td><td><button class="button secondary" data-action="status" data-id="${item.id}" style="padding:0.3rem 0.6rem;font-size:0.75rem;">Status</button></td></tr>`;
+        }).join("");
+
+        const total = response.meta?.total ?? 0;
+        document.querySelector("#cards-data")!.innerHTML = cards.length
+          ? `<div class="table-wrap"><table><thead><tr><th>Siswa Pemilik</th><th>Serial & UID</th><th>Status</th><th>Kedaluwarsa</th><th>Aksi</th></tr></thead><tbody>${cardRows}</tbody></table></div>
+             <div class="table-footer" style="display:flex;justify-content:space-between;align-items:center;">
+               <button class="button secondary" id="cards-prev" ${page === 1 ? "disabled" : ""}>Sebelumnya</button>
+               <span>Menampilkan Halaman ${page} dari ${Math.ceil(total/50) || 1} (${total} data)</span>
+               <button class="button secondary" id="cards-next" ${page * 50 >= total ? "disabled" : ""}>Berikutnya</button>
+             </div>`
+          : emptyState("Data belum tersedia", "Belum ada kartu terdaftar.");
+
+        document.querySelector("#cards-prev")?.addEventListener("click", () => { page--; void loadCards(); });
+        document.querySelector("#cards-next")?.addEventListener("click", () => { page++; void loadCards(); });
+
+        document.querySelectorAll<HTMLButtonElement>("[data-action='status']").forEach(btn => btn.addEventListener("click", async (e) => {
+          const id = (e.currentTarget as HTMLButtonElement).dataset.id!;
+          const current = cards.find(c => c.id === id);
+          if(!current) return;
+          const newStatus = prompt("Masukkan status baru (ACTIVE, LOST, BLOCKED, EXPIRED):\nPerhatian: Mengubah menjadi LOST/BLOCKED tidak dapat mencetak kartu baru dari sini, gunakan module Produksi Kartu Siswa jika ingin mencetak ulang.", current.status);
+          if(newStatus && ["ACTIVE", "LOST", "BLOCKED", "EXPIRED"].includes(newStatus) && newStatus !== current.status) {
+            const reason = prompt("Alasan perubahan status:") || "Diperbarui admin";
+            try {
+              btn.disabled = true;
+              await api(`/cards/${id}`, { method: "PATCH", body: JSON.stringify({ status: newStatus, reason }) });
+              void loadCards();
+            } catch (err) { alert((err as Error).message); btn.disabled = false; }
+          }
+        }));
+      } catch (err) { document.querySelector("#cards-data")!.innerHTML = errorState(err); }
+    };
+    
+    void loadCards();
+  } catch (error) { shell(errorState(error), "Kartu Siswa", "Pantau identitas kartu fisik (NFC) dan status lifecycle-nya."); }
+}
+async function devicesPage(): Promise<void> {
+  shell(`<section class="stats-grid">${Array.from({ length: 3 }, () => skeleton(1)).join("")}</section>`, "Perangkat", "Status IoT gate, terminal, LED, dan card station sekolah.");
+  try {
+    const [summaryRes, devicesRes] = await Promise.all([
+      api<{ total: number, active: number, maintenance: number, inactive: number }>("/devices/summary"),
+      api<Device[]>("/devices?page=1&page_size=50")
+    ]);
+    const summary = summaryRes.data;
+    const devices = devicesRes.data;
+
+    const deviceRows = devices.map(item => `<tr><td><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.device_code)} · ${escapeHtml(item.location ?? "—")}</small></td><td>${escapeHtml(item.device_type)}</td><td>${escapeHtml(item.firmware_version ?? "—")}</td><td><span class="status ${item.online ? 'success' : 'error'}">${item.online ? 'ONLINE' : 'OFFLINE'}</span> <span class="status ${item.status === "ACTIVE" ? "success" : item.status === "MAINTENANCE" ? "warning" : "error"}">${escapeHtml(item.status)}</span></td><td>${escapeHtml(item.last_seen_at ? formatTime(item.last_seen_at) : "Belum pernah")}</td></tr>`).join("");
+
+    shell(`<section class="stats-grid">
+      <article class="stat-card sage"><div><span>Total Perangkat</span><strong>${summary.total} Unit</strong></div><span class="trend">🖥️</span></article>
+      <article class="stat-card lime"><div><span>Aktif / Online</span><strong>${summary.active} Unit</strong></div><span class="trend">✓</span></article>
+      <article class="stat-card ${summary.inactive > 0 ? 'red' : 'neutral'}"><div><span>Offline / Gangguan</span><strong>${summary.inactive + summary.maintenance} Unit</strong></div><span class="trend">!</span></article>
+    </section>
+    <section class="dashboard-grid" style="grid-template-columns: 1fr;">
+      <article class="panel">
+        <div class="panel-head">
+          <div><h2>Daftar Perangkat IoT</h2><p>Terminal presensi, Gate, dan Reader</p></div>
+          <button class="button primary" data-register-device>+ Tambah Perangkat</button>
+        </div>
+        ${deviceRows ? `<div class="table-wrap"><table><thead><tr><th>Perangkat & Lokasi</th><th>Tipe</th><th>Firmware</th><th>Status</th><th>Terakhir Aktif</th></tr></thead><tbody>${deviceRows}</tbody></table></div>` : emptyState("Data belum tersedia", "Tambahkan perangkat pertama untuk memulai.")}
+      </article>
+    </section>`, "Perangkat", "Status IoT gate, terminal, LED, dan card station sekolah.");
+    document.querySelector<HTMLButtonElement>("[data-register-device]")?.addEventListener("click", async () => {
+      try { await registerSchoolDevice(state.school!.id); await devicesPage(); }
+      catch (error) { const panel=document.querySelector(".content");if(panel)panel.insertAdjacentHTML("afterbegin",errorState(error)); }
+    });
+  } catch (error) { shell(errorState(error), "Perangkat", "Status IoT gate, terminal, LED, dan card station sekolah."); }
+}
+async function attendancePage(): Promise<void> {
+  shell(`<section class="stats-grid">${Array.from({ length: 2 }, () => skeleton(1)).join("")}</section>`, "Kehadiran", "Log presensi gerbang yang sudah tervalidasi dan idempotent.");
+  try {
+    const [summaryRes, logsRes] = await Promise.all([
+      api<{ total_present: number, total_late: number }>("/attendance/summary"),
+      api<Attendance[]>("/attendance?page=1&page_size=50")
+    ]);
+    const summary = summaryRes.data;
+    const logs = logsRes.data;
+
+    const logRows = logs.map(item => {
+      const student = relation(item.students);
+      return `<tr><td><strong>${escapeHtml(student?.full_name ?? "Siswa")}</strong><small>${escapeHtml(student?.student_number)}</small></td><td>${escapeHtml(relation(item.classes)?.name ?? "—")}</td><td>${item.direction === "CHECK_IN" ? "Masuk" : "Pulang"}</td><td>${formatTime(item.occurred_at_local)}</td><td><span class="status ${item.is_late ? "warning" : "success"}">${item.is_late ? "Terlambat" : "Tepat waktu"}</span></td></tr>`;
+    }).join("");
+
+    shell(`<section class="stats-grid">
+      <article class="stat-card lime"><div><span>Kehadiran Hari Ini</span><strong>${summary.total_present} Siswa</strong></div><span class="trend">✓</span></article>
+      <article class="stat-card ${summary.total_late > 0 ? 'red' : 'sage'}"><div><span>Terlambat Hari Ini</span><strong>${summary.total_late} Siswa</strong></div><span class="trend">!</span></article>
+    </section>
+    <section class="dashboard-grid" style="grid-template-columns: 1fr;">
+      <article class="panel">
+        <div class="panel-head"><h2>Riwayat Kehadiran (50 Terakhir)</h2><p>Log presensi gerbang yang tervalidasi</p></div>
+        ${logRows ? `<div class="table-wrap"><table><thead><tr><th>Siswa</th><th>Kelas</th><th>Arah</th><th>Waktu</th><th>Keterangan</th></tr></thead><tbody>${logRows}</tbody></table></div>` : emptyState("Data belum tersedia", "Tambahkan data pertama untuk memulai.")}
+      </article>
+    </section>`, "Kehadiran", "Log presensi gerbang yang sudah tervalidasi dan idempotent.");
+  } catch (error) { shell(errorState(error), "Kehadiran", "Log presensi gerbang yang sudah tervalidasi dan idempotent."); }
+}
+
+function studentImportPage(): void {
+  shell(`<section class="panel"><div class="panel-head"><h2>Import Data Siswa</h2><p>Pilih file CSV (Header: NIS, Nama, NISN, L/P, Tgl Lahir YYYY-MM-DD) untuk mengimport data siswa.</p></div>
+    <form id="import-form" class="login-form" style="margin:0;">
+      <label>File CSV <input type="file" id="csv-file" accept=".csv" required /></label>
+      <div id="import-preview"></div>
+      <div style="display:flex;gap:1rem;margin-top:1rem;">
+        <button class="button primary" type="submit" id="import-submit">Preview Data</button>
+        <a href="/students" data-link class="button secondary">Batal</a>
+      </div>
+    </form>
+  </section>`, "Import Siswa", "Tambahkan data siswa secara massal menggunakan file CSV.");
+
+  setTimeout(() => {
+    const form = document.getElementById("import-form") as HTMLFormElement;
+    const fileInput = document.getElementById("csv-file") as HTMLInputElement;
+    const preview = document.getElementById("import-preview") as HTMLDivElement;
+    const submitBtn = document.getElementById("import-submit") as HTMLButtonElement;
+    let parsedData: any[] = [];
+    let isPreview = true;
+
+    form?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (isPreview) {
+        const file = fileInput.files?.[0];
+        if (!file) return;
+        const text = await file.text();
+        const rows = text.split("\\n").map(r => r.trim()).filter(Boolean);
+        parsedData = rows.slice(1).map(row => {
+          const cols = row.split(",");
+          return { student_number: cols[0], full_name: cols[1], nisn: cols[2] || undefined, gender: cols[3] === "L" ? "MALE" : cols[3] === "P" ? "FEMALE" : "OTHER", date_of_birth: cols[4] };
+        });
+        preview.innerHTML = `<div class="table-wrap" style="margin-top:1rem"><table><thead><tr><th>NIS</th><th>Nama Lengkap</th><th>Gender</th><th>Tgl Lahir</th></tr></thead><tbody>${parsedData.slice(0, 5).map(s => `<tr><td>${escapeHtml(s.student_number)}</td><td>${escapeHtml(s.full_name)}</td><td>${escapeHtml(s.gender)}</td><td>${escapeHtml(s.date_of_birth)}</td></tr>`).join("")}</tbody></table></div><p style="margin-top:1rem;font-size:0.8rem;color:var(--muted)">Menampilkan 5 data pertama dari total ${parsedData.length} data siap di-import.</p>`;
+        submitBtn.textContent = "Simpan ke Database";
+        isPreview = false;
+      } else {
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Menyimpan...";
+        try {
+          for (const student of parsedData) {
+            await api("/students", { method: "POST", body: JSON.stringify(student) });
+          }
+          navigate("/students");
+        } catch (error) {
+          preview.innerHTML = errorState(error);
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Coba Lagi";
+        }
+      }
+    });
+  }, 0);
+}
+
+function classPromotionPage(): void {
+  shell(`<section class="panel"><div class="panel-head"><h2>Kenaikan Kelas Massal (CSV)</h2><p>Pilih Tahun Ajaran baru, lalu upload file CSV (Header: NIS, Nama Kelas Tujuan). Pastikan kelas tujuan sudah ada di Master Kelas.</p></div>
+    <form id="promotion-form" class="login-form" style="margin:0;">
+      <label>Tahun Ajaran Tujuan 
+        <select id="academic-year-select" style="width:100%;padding:.85rem;border-radius:.75rem;border:1px solid var(--line);background:var(--bg);color:var(--text);" required></select>
+      </label>
+      <label>Tanggal Efektif (Start Date)
+        <input type="date" id="start-date" required value="${new Date().toISOString().split('T')[0]}" />
+      </label>
+      <label>File CSV Kenaikan Kelas <input type="file" id="csv-file" accept=".csv" required /></label>
+      <div id="import-preview"></div>
+      <div style="display:flex;gap:1rem;margin-top:1rem;">
+        <button class="button primary" type="submit" id="import-submit">Preview Data</button>
+        <a href="/students" data-link class="button secondary">Batal</a>
+      </div>
+    </form>
+  </section>`, "Kenaikan Kelas", "Pindahkan ratusan siswa ke kelas baru sekaligus via Excel.");
+
+  setTimeout(async () => {
+    const yearSelect = document.getElementById("academic-year-select") as HTMLSelectElement;
+    const form = document.getElementById("promotion-form") as HTMLFormElement;
+    const fileInput = document.getElementById("csv-file") as HTMLInputElement;
+    const preview = document.getElementById("import-preview") as HTMLDivElement;
+    const submitBtn = document.getElementById("import-submit") as HTMLButtonElement;
+
+    let yearsRes, classesRes, studentsData: Student[] = [];
+    try {
+      [yearsRes, classesRes] = await Promise.all([
+        api<AcademicYear[]>("/academic-years"),
+        api<SchoolClass[]>("/classes/summary")
+      ]);
+
+      let page = 1;
+      let hasMore = true;
+      while (hasMore) {
+        const res = await api<Student[]>(`/students?page=${page}&page_size=500`);
+        studentsData = studentsData.concat(res.data);
+        if (res.data.length < 500) hasMore = false;
+        else page++;
+      }
+
+      yearSelect.innerHTML = yearsRes.data.map(y => `<option value="${y.id}">${escapeHtml(y.name)}</option>`).join("");
+    } catch (err) {
+      preview.innerHTML = errorState(err);
+      return;
+    }
+
+    let parsedData: any[] = [];
+    let isPreview = true;
+
+    form?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (isPreview) {
+        const file = fileInput.files?.[0];
+        if (!file) return;
+        const text = await file.text();
+        const rows = text.split("\\n").map(r => r.trim()).filter(Boolean);
+        parsedData = rows.slice(1).map(row => {
+          const cols = row.split(",");
+          const nis = cols[0]?.trim();
+          const targetClassName = cols[1]?.trim();
+          const student = studentsData.find(s => s.student_number === nis);
+          const targetClass = classesRes.data.find(c => c.name.toLowerCase() === targetClassName?.toLowerCase());
+          return { nis, student_id: student?.id, student_name: student?.full_name, targetClassName, class_id: targetClass?.id };
+        });
+
+        const errors = parsedData.filter(d => !d.student_id || !d.class_id);
+        if (errors.length > 0) {
+          preview.innerHTML = `<div style="background:var(--red);color:white;padding:1rem;border-radius:8px;">Terdapat ${errors.length} baris bermasalah (NIS tidak ditemukan atau Kelas belum ada di Master). Mohon perbaiki CSV Anda. Contoh baris gagal: NIS <b>${escapeHtml(errors[0].nis ?? "")}</b> -> Kelas <b>${escapeHtml(errors[0].targetClassName ?? "")}</b></div>`;
+          return;
+        }
+
+        preview.innerHTML = `<div class="table-wrap" style="margin-top:1rem"><table><thead><tr><th>NIS</th><th>Nama Siswa</th><th>Kelas Tujuan</th></tr></thead><tbody>${parsedData.slice(0, 5).map(s => `<tr><td>${escapeHtml(s.nis)}</td><td>${escapeHtml(s.student_name)}</td><td>${escapeHtml(s.targetClassName)}</td></tr>`).join("")}</tbody></table></div><p style="margin-top:1rem;font-size:0.8rem;color:var(--muted)">Menampilkan 5 data pertama dari total ${parsedData.length} data siap diproses.</p>`;
+        submitBtn.textContent = "Proses Kenaikan Kelas";
+        isPreview = false;
+      } else {
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Memproses...";
+        const yearId = yearSelect.value;
+        const startDate = (document.getElementById("start-date") as HTMLInputElement).value;
+        try {
+          let processed = 0;
+          for (const item of parsedData) {
+            await api(`/students/${item.student_id}/history`, { method: "POST", body: JSON.stringify({ class_id: item.class_id, academic_year_id: yearId, start_date: startDate }) });
+            processed++;
+            submitBtn.textContent = `Memproses... ${processed}/${parsedData.length}`;
+          }
+          alert("Kenaikan kelas massal berhasil diselesaikan!");
+          navigate("/students");
+        } catch (error) {
+          preview.innerHTML = errorState(error);
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Coba Lagi";
+        }
+      }
+    });
+  }, 0);
+}
+
+async function wastePage(): Promise<void> {
+  shell(`<section class="stats-grid">${Array.from({ length: 2 }, () => skeleton(1)).join("")}</section>`, "Bank Sampah", "Manajemen setoran sampah (Waste-to-Gold).");
+  try {
+    const [summaryRes, rankingRes] = await Promise.all([
+      api<{ organic_kg: number, inorganic_kg: number, total_kg: number }>("/waste/summary"),
+      api<{ class_id: string, class_name: string, total_kg: number }[]>("/waste/ranking")
+    ]);
+    const summary = summaryRes.data;
+    const rankingRows = rankingRes.data.map((r, i) => `<tr><td><strong>#${i + 1}</strong></td><td>${escapeHtml(r.class_name)}</td><td>${r.total_kg.toFixed(1)} kg</td></tr>`).join("");
+
+    shell(`<section class="stats-grid">
+      <article class="stat-card lime"><div><span>Total Sampah Terkumpul</span><strong>${summary.total_kg.toFixed(1)} Kg</strong></div><span class="trend">♻</span></article>
+      <article class="stat-card sage"><div><span>Total Organik</span><strong>${summary.organic_kg.toFixed(1)} Kg</strong></div><span class="trend">↑</span></article>
+      <article class="stat-card sage"><div><span>Total Anorganik</span><strong>${summary.inorganic_kg.toFixed(1)} Kg</strong></div><span class="trend">↑</span></article>
+    </section>
+    <section class="dashboard-grid">
+      <article class="panel">
+        <div class="panel-head"><h2>Jadwal Operasional</h2><p>Batas waktu penggunaan PWA</p></div>
+        <form id="form-waste-schedule" style="margin-top: 1rem;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <label>Jam Buka<input type="time" name="start_time" id="waste-start" /></label>
+            <label>Jam Tutup<input type="time" name="end_time" id="waste-end" /></label>
+          </div>
+          <p style="font-size:0.85rem; color:var(--text-light); margin-top:0.5rem; margin-bottom:1rem;">Biarkan kosong jika PWA bebas diakses 24 jam.</p>
+          <button type="submit" class="btn">Simpan Jadwal</button>
+        </form>
+      </article>
+      <article class="panel" style="grid-column: 1 / -1;">
+        <div class="panel-head"><h2>Klasemen Bank Sampah</h2><p>Peringkat antar kelas</p></div>
+        ${rankingRows ? `<div class="table-wrap"><table><thead><tr><th>Rank</th><th>Kelas</th><th>Total Terkumpul</th></tr></thead><tbody>${rankingRows}</tbody></table></div>` : emptyState("Belum ada data setoran", "Data akan muncul ketika siswa menyetorkan sampah via Terminal/PWA.")}
+      </article>
+    </section>`, "Bank Sampah", "Manajemen setoran sampah (Waste-to-Gold).");
+
+    // Fetch and bind schedule
+    const scheduleForm = document.getElementById("form-waste-schedule") as HTMLFormElement;
+    if (scheduleForm) {
+      api<{ waste_start_time: string, waste_end_time: string }>("/schools/current").then(res => {
+        if (res.data.waste_start_time) (document.getElementById("waste-start") as HTMLInputElement).value = res.data.waste_start_time.substring(0, 5);
+        if (res.data.waste_end_time) (document.getElementById("waste-end") as HTMLInputElement).value = res.data.waste_end_time.substring(0, 5);
+      });
+      scheduleForm.onsubmit = async (e) => {
+        e.preventDefault();
+        const btn = scheduleForm.querySelector("button")!;
+        const originalText = btn.textContent;
+        btn.textContent = "Menyimpan...";
+        btn.disabled = true;
+        try {
+          const start = (document.getElementById("waste-start") as HTMLInputElement).value;
+          const end = (document.getElementById("waste-end") as HTMLInputElement).value;
+          await api("/schools/current", { method: "PATCH", body: JSON.stringify({ waste_start_time: start ? start + ":00" : null, waste_end_time: end ? end + ":00" : null }) });
+          btn.textContent = "Tersimpan!";
+          setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 2000);
+        } catch (err: any) {
+          alert("Gagal menyimpan: " + err.message);
+          btn.textContent = originalText;
+          btn.disabled = false;
+        }
+      };
+    }
+  } catch (error) { shell(errorState(error), "Bank Sampah", "Manajemen setoran sampah (Waste-to-Gold)."); }
+}
+
+async function libraryPage(): Promise<void> {
+  shell(`<section class="panel">${skeleton()}</section>`, "Perpustakaan", "Monitor kunjungan perpustakaan.");
+  try {
+    const summaryRes = await api<{ class_id: string, class_name: string, total: number }[]>("/library/summary");
+    const totalVisits = summaryRes.data.reduce((acc, r) => acc + r.total, 0);
+    const summaryRows = summaryRes.data.map((r, i) => `<tr><td><strong>#${i + 1}</strong></td><td>${escapeHtml(r.class_name)}</td><td>${r.total} kunjungan</td></tr>`).join("");
+    shell(`<section class="stats-grid"><article class="stat-card blue"><div><span>Total Kunjungan</span><strong>${totalVisits}</strong><small>Semua kelas bulan ini</small></div><span class="trend">▤</span></article></section>
+    <section class="dashboard-grid" style="grid-template-columns: 1fr;">
+      <article class="panel">
+        <div class="panel-head"><h2>Kunjungan Per Kelas</h2><p>Rekap bulan berjalan</p></div>
+        ${summaryRows ? `<div class="table-wrap"><table><thead><tr><th>#</th><th>Kelas</th><th>Kunjungan</th></tr></thead><tbody>${summaryRows}</tbody></table></div>` : emptyState("Belum ada kunjungan", "Siswa dapat tap kartu di terminal perpustakaan.")}
+      </article>
+    </section>`, "Perpustakaan", "Monitor rekam jejak kunjungan siswa ke perpustakaan.");
+  } catch (error) { shell(errorState(error), "Perpustakaan", "Monitor kunjungan perpustakaan."); }
+}
+
+async function extracurricularPage(): Promise<void> {
+  shell(`<section class="stats-grid">${Array.from({ length: 2 }, () => skeleton(1)).join("")}</section>`, "Ekstrakurikuler", "Kelola kegiatan dan keanggotaan ekstrakurikuler.");
+  try {
+    const res = await api<Extracurricular[]>("/extracurriculars");
+    const data = res.data;
+    const activeCount = data.filter(e => e.is_active).length;
+
+    const rows = data.map(item => `<tr><td><code>${escapeHtml(item.code)}</code></td><td><strong>${escapeHtml(item.name)}</strong></td><td>${escapeHtml(item.description ?? "—")}</td><td><button class="status ${item.is_active ? "success" : "neutral"} toggle-status-btn" data-id="${item.id}" data-current="${item.is_active ? 'true' : 'false'}" style="border:none;cursor:pointer;" title="Klik untuk mengubah status">${item.is_active ? "Aktif" : "Nonaktif"} ⟳</button></td></tr>`).join("");
+
+    shell(`<section class="stats-grid">
+      <article class="stat-card blue"><div><span>Total Ekstrakurikuler</span><strong>${data.length} Kegiatan</strong></div><span class="trend">⚽</span></article>
+      <article class="stat-card lime"><div><span>Ekskul Aktif</span><strong>${activeCount} Kegiatan</strong></div><span class="trend">✓</span></article>
+    </section>
+    <section class="dashboard-grid" style="grid-template-columns: 1fr;">
+      <article class="panel">
+        <div class="panel-head">
+          <div><h2>Daftar Ekstrakurikuler</h2><p>Data referensi kegiatan siswa</p></div>
+          <button id="btn-add-ekskul" class="button primary">+ Tambah Ekskul</button>
+        </div>
+        ${rows ? `<div class="table-wrap"><table id="ekskul-table"><thead><tr><th>Kode</th><th>Nama Ekskul</th><th>Deskripsi</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>` : emptyState("Belum ada ekstrakurikuler", "Tambahkan ekstrakurikuler pertama untuk memulai.")}
+      </article>
+    </section>
+    
+    <div id="ekskul-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;overflow-y:auto;padding:2rem;">
+      <div style="background:var(--bg);max-width:500px;margin:auto;border-radius:1rem;padding:2rem;position:relative;">
+        <button id="close-ekskul-modal" style="position:absolute;top:1rem;right:1rem;background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--text);">&times;</button>
+        <h2>Tambah Ekstrakurikuler</h2>
+        <p style="margin-bottom:1.5rem;color:var(--text-light);">Tambahkan referensi kegiatan ekstrakurikuler baru.</p>
+        <form id="ekskul-form" class="login-form" style="margin:0;">
+          <div id="ekskul-error" style="display:none;background:var(--red);color:white;padding:0.75rem;border-radius:0.5rem;font-size:0.875rem;margin-bottom:1rem;"></div>
+          <label>Kode (Singkatan)<input id="ekskul-code" type="text" placeholder="Cth: PRAM, BSKT, PASK" pattern="[A-Za-z0-9_-]+" required maxlength="32" /></label>
+          <label>Nama Ekstrakurikuler<input id="ekskul-name" type="text" placeholder="Cth: Pramuka, Bola Basket" required maxlength="120" /></label>
+          <label>Deskripsi (Opsional)<textarea id="ekskul-desc" rows="3" placeholder="Penjelasan singkat mengenai ekskul..." style="width:100%;padding:.85rem;border-radius:.75rem;border:1px solid var(--line);background:var(--bg);color:var(--text);font-family:inherit;"></textarea></label>
+          <button id="ekskul-submit" class="button primary" type="submit" style="margin-top:1rem;">Simpan Ekstrakurikuler</button>
+        </form>
+      </div>
+    </div>`, "Ekstrakurikuler", "Kelola referensi kegiatan untuk aplikasi presensi guru.");
+
+    setTimeout(() => {
+      const modal = document.getElementById("ekskul-modal") as HTMLDivElement;
+      document.getElementById("btn-add-ekskul")?.addEventListener("click", () => modal.style.display = "flex");
+      document.getElementById("close-ekskul-modal")?.addEventListener("click", () => modal.style.display = "none");
+
+      const form = document.getElementById("ekskul-form") as HTMLFormElement;
+      const errorDiv = document.getElementById("ekskul-error") as HTMLDivElement;
+      const submitBtn = document.getElementById("ekskul-submit") as HTMLButtonElement;
+
+      form?.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        errorDiv.style.display = "none";
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Menyimpan...";
+
+        try {
+          const code = (document.getElementById("ekskul-code") as HTMLInputElement).value;
+          const name = (document.getElementById("ekskul-name") as HTMLInputElement).value;
+          const desc = (document.getElementById("ekskul-desc") as HTMLTextAreaElement).value;
+
+          await api("/extracurriculars", {
+            method: "POST",
+            body: JSON.stringify({
+              code: code.trim(),
+              name: name.trim(),
+              description: desc.trim() || null
+            })
+          });
+
+          window.location.reload();
+        } catch (err: any) {
+          errorDiv.textContent = err.message || "Gagal menyimpan data.";
+          errorDiv.style.display = "block";
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Simpan Ekstrakurikuler";
+        }
+      });
+
+      // Toggle status listener
+      document.getElementById("ekskul-table")?.addEventListener("click", async (e) => {
+        const target = e.target as HTMLElement;
+        if (target.classList.contains("toggle-status-btn")) {
+          const id = target.getAttribute("data-id");
+          const isCurrentlyActive = target.getAttribute("data-current") === "true";
+          const newStatus = !isCurrentlyActive;
+
+          target.textContent = "Menyimpan...";
+          target.style.opacity = "0.5";
+
+          try {
+            await api(`/extracurriculars/${id}`, {
+              method: "PATCH",
+              body: JSON.stringify({ is_active: newStatus })
+            });
+            window.location.reload();
+          } catch (err: any) {
+            alert("Gagal mengubah status: " + err.message);
+            target.textContent = isCurrentlyActive ? "Aktif ⟳" : "Nonaktif ⟳";
+            target.style.opacity = "1";
+          }
+        }
+      });
+    }, 100);
+  } catch (error) { shell(errorState(error), "Ekstrakurikuler", "Kelola kegiatan dan absensi ekstrakurikuler."); }
+}
+async function ledPage(): Promise<void> {
+  shell(`<section class="stats-grid">${Array.from({ length: 2 }, () => skeleton(1)).join("")}</section>`, "LED Board", "Manajemen tampilan teks berjalan pada LED matrix gerbang.");
+  try {
+    const [resContent, resGateways] = await Promise.all([
+      api<any[]>("/led/content"),
+      api<any[]>("/led/gateways").catch(() => ({ data: [] }))
+    ]);
+
+    const data = resContent.data;
+    const gateways = resGateways.data || [];
+
+    const activeCount = data.filter(e => e.is_active).length;
+    const isGatewayOnline = gateways.some(g => new Date(g.reported_at).getTime() > Date.now() - 5 * 60000);
+
+    const rows = data.map(item => `<tr>
+      <td><strong>${escapeHtml(item.title || "—")}</strong></td>
+      <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(item.body)}</td>
+      <td>${item.priority}</td>
+      <td>${item.starts_at ? formatTime(item.starts_at) : "—"} — ${item.ends_at ? formatTime(item.ends_at) : "—"}</td>
+      <td><button class="status ${item.is_active ? "success" : "neutral"} toggle-led-btn" data-id="${item.id}" data-current="${item.is_active ? 'true' : 'false'}" style="border:none;cursor:pointer;" title="Klik untuk mengubah status">${item.is_active ? "Aktif" : "Nonaktif"} ⟳</button></td>
+    </tr>`).join("");
+
+    shell(`<section class="stats-grid">
+      <article class="stat-card blue"><div><span>Pesan Aktif</span><strong>${activeCount} Pesan</strong></div><span class="trend">💬</span></article>
+      <article class="stat-card ${isGatewayOnline ? 'lime' : 'red'}"><div><span>Status Gateway</span><strong>${isGatewayOnline ? 'Online' : 'Offline'}</strong></div><span class="trend">${isGatewayOnline ? '✓' : '✗'}</span></article>
+    </section>
+    <section class="dashboard-grid" style="grid-template-columns: 1fr;">
+      <article class="panel">
+        <div class="panel-head">
+          <div><h2>Daftar Pesan LED</h2><p>Pesan berjalan pada gerbang sekolah</p></div>
+          <button id="btn-add-led" class="button primary">+ Tambah Pesan</button>
+        </div>
+        ${rows ? `<div class="table-wrap"><table id="led-table"><thead><tr><th>Judul</th><th>Isi Pesan</th><th>Prioritas</th><th>Jadwal</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>` : emptyState("Belum ada pesan", "Tambahkan pesan pertama untuk ditampilkan di LED Board.")}
+      </article>
+    </section>
+    
+    <div id="led-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;overflow-y:auto;padding:2rem;">
+      <div style="background:var(--bg);max-width:500px;margin:auto;border-radius:1rem;padding:2rem;position:relative;">
+        <button id="close-led-modal" style="position:absolute;top:1rem;right:1rem;background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--text);">&times;</button>
+        <h2>Tambah Pesan LED</h2>
+        <p style="margin-bottom:1.5rem;color:var(--text-light);">Tambahkan pesan berjalan baru.</p>
+        <form id="led-form" class="login-form" style="margin:0;">
+          <div id="led-error" style="display:none;background:var(--red);color:white;padding:0.75rem;border-radius:0.5rem;font-size:0.875rem;margin-bottom:1rem;"></div>
+          
+          <label>Prioritas
+            <select id="led-priority" required style="width:100%;padding:.85rem;border-radius:.75rem;border:1px solid var(--line);background:var(--bg);color:var(--text);font-family:inherit;">
+              <option value="RUNNING_TEXT">Teks Berjalan Biasa (RUNNING_TEXT)</option>
+              <option value="ACHIEVEMENT">Pengumuman Prestasi (ACHIEVEMENT)</option>
+              <option value="EMERGENCY">Darurat (EMERGENCY)</option>
+            </select>
+          </label>
+          
+          <label>Judul (Opsional)<input id="led-title" type="text" placeholder="Cth: Sambutan Pagi" maxlength="160" /></label>
+          <label>Isi Pesan<textarea id="led-body" rows="4" placeholder="Masukkan teks yang akan berjalan di LED..." required maxlength="4000" style="width:100%;padding:.85rem;border-radius:.75rem;border:1px solid var(--line);background:var(--bg);color:var(--text);font-family:inherit;"></textarea></label>
+          
+          <button id="led-submit" class="button primary" type="submit" style="margin-top:1rem;">Simpan Pesan</button>
+        </form>
+      </div>
+    </div>`, "LED Board", "Manajemen tampilan teks berjalan pada LED matrix gerbang.");
+
+    setTimeout(() => {
+      const modal = document.getElementById("led-modal") as HTMLDivElement;
+      document.getElementById("btn-add-led")?.addEventListener("click", () => modal.style.display = "flex");
+      document.getElementById("close-led-modal")?.addEventListener("click", () => modal.style.display = "none");
+
+      const form = document.getElementById("led-form") as HTMLFormElement;
+      const errorDiv = document.getElementById("led-error") as HTMLDivElement;
+      const submitBtn = document.getElementById("led-submit") as HTMLButtonElement;
+
+      form?.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        errorDiv.style.display = "none";
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Menyimpan...";
+
+        try {
+          const priority = (document.getElementById("led-priority") as HTMLSelectElement).value;
+          const title = (document.getElementById("led-title") as HTMLInputElement).value;
+          const body = (document.getElementById("led-body") as HTMLTextAreaElement).value;
+
+          await api("/led/content", {
+            method: "POST",
+            body: JSON.stringify({
+              priority,
+              title: title.trim() || null,
+              body: body.trim()
+            })
+          });
+
+          window.location.reload();
+        } catch (err: any) {
+          errorDiv.textContent = err.message || "Gagal menyimpan pesan.";
+          errorDiv.style.display = "block";
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Simpan Pesan";
+        }
+      });
+
+      document.getElementById("led-table")?.addEventListener("click", async (e) => {
+        const target = e.target as HTMLElement;
+        if (target.classList.contains("toggle-led-btn")) {
+          const id = target.getAttribute("data-id");
+          const isCurrentlyActive = target.getAttribute("data-current") === "true";
+          const newStatus = !isCurrentlyActive;
+
+          target.textContent = "Menyimpan...";
+          target.style.opacity = "0.5";
+
+          try {
+            await api(`/led/content/${id}`, {
+              method: "PATCH",
+              body: JSON.stringify({ is_active: newStatus })
+            });
+            window.location.reload();
+          } catch (err: any) {
+            alert("Gagal mengubah status: " + err.message);
+            target.textContent = isCurrentlyActive ? "Aktif ⟳" : "Nonaktif ⟳";
+            target.style.opacity = "1";
+          }
+        }
+      });
+    }, 100);
+  } catch (error) { shell(errorState(error), "LED Board", "Manajemen tampilan teks berjalan pada LED matrix gerbang."); }
+}
+
+async function reportsPage(): Promise<void> {
+  shell(`<section class="panel">${skeleton()}</section>`, "Laporan Wali Kelas", "Rekapitulasi data siswa per kelas.");
+  try {
+    const res = await api<{ id: string, name: string, student_count: number, attendance_count: number, waste_kg: number, library_visits: number, extracurricular_members: number }[]>("/reports/classes-summary");
+
+    const rows = (res.data ?? []).map(cls => `<tr>
+        <td><strong>${escapeHtml(cls.name)}</strong><br/><small>${cls.student_count} siswa</small></td>
+        <td>${cls.attendance_count}x Hadir</td>
+        <td>${Number(cls.waste_kg).toFixed(1)} Kg</td>
+        <td>${cls.library_visits}x Datang</td>
+        <td>—</td>
+        <td><button class="button secondary" style="font-size:0.75rem;padding:0.4rem 0.8rem" data-print-class="${cls.id}" data-class-name="${escapeHtml(cls.name)}">🖨 Cetak</button></td>
+      </tr>`).join("");
+
+    shell(`<section class="panel">
+      <div class="panel-head">
+        <div><h2>Rekapitulasi Kinerja Siswa</h2><p>Data berikut dapat dicetak dan diserahkan ke wali kelas masing-masing.</p></div>
+        <select id="report-period" style="padding:0.5rem;border-radius:0.5rem;border:1px solid var(--line);background:var(--bg);color:var(--text);">
+          <option>September 2026</option><option>Agustus 2026</option><option>Semester Ganjil 2026</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Kelas</th><th>Kehadiran</th><th>Sampah</th><th>Perpus</th><th>Ekskul</th><th>Aksi</th></tr></thead>
+          <tbody>${rows || `<tr><td colspan="6">${emptyState("Belum ada kelas", "Silakan tambahkan data kelas.")}</td></tr>`}</tbody>
+        </table>
+      </div>
+    </section>
+    <div id="print-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;overflow-y:auto;padding:2rem;">
+      <div style="background:var(--bg);max-width:900px;margin:auto;border-radius:1rem;padding:2rem;position:relative;">
+        <button id="close-modal" style="position:absolute;top:1rem;right:1rem;background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--text);">&times;</button>
+        <div id="print-content"></div>
+        <div style="display:flex;gap:1rem;margin-top:1.5rem;justify-content:flex-end;" id="print-actions"></div>
+      </div>
+    </div>`, "Laporan Wali Kelas", "Rekapitulasi data aktivitas untuk diserahkan ke wali kelas.");
+
+    document.getElementById("close-modal")?.addEventListener("click", () => {
+      document.getElementById("print-modal")!.style.display = "none";
+    });
+
+    document.querySelectorAll<HTMLButtonElement>("[data-print-class]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const classId = btn.getAttribute("data-print-class")!;
+        const className = btn.getAttribute("data-class-name") ?? "Kelas";
+        const modal = document.getElementById("print-modal")!;
+        const content = document.getElementById("print-content")!;
+        const actions = document.getElementById("print-actions")!;
+        content.innerHTML = skeleton(6);
+        actions.innerHTML = "";
+        modal.style.display = "block";
+        try {
+          const res = await api<{ full_name: string, student_number: string, nisn: string, attendance_count: number, waste_kg: number, library_visits: number, extracurriculars: string[] }[]>(`/reports/class-report/${classId}`);
+          const studentRows = res.data.map((s, i) => `<tr>
+            <td>${i + 1}</td>
+            <td><strong>${escapeHtml(s.full_name)}</strong></td>
+            <td>${escapeHtml(s.nisn)}</td>
+            <td style="text-align:center">${s.attendance_count}</td>
+            <td style="text-align:center">${s.waste_kg.toFixed(1)} kg</td>
+            <td style="text-align:center">${s.library_visits}</td>
+            <td>${s.extracurriculars.length ? s.extracurriculars.map(e => escapeHtml(e)).join(", ") : "—"}</td>
+          </tr>`).join("");
+          const period = (document.getElementById("report-period") as HTMLSelectElement)?.value ?? "";
+          content.innerHTML = `
+            <div id="printable-area">
+              <div style="text-align:center;margin-bottom:1.5rem;">
+                <h2 style="margin:0;">${escapeHtml(state.school?.name ?? "Sekolah")}</h2>
+                <p style="margin:0.25rem 0;">Laporan Rekapitulasi Aktivitas Siswa</p>
+                <p style="margin:0;"><strong>${escapeHtml(className)}</strong> &mdash; Periode: ${escapeHtml(period)}</p>
+              </div>
+              <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
+                <thead><tr style="background:var(--surface);">
+                  <th style="border:1px solid var(--line);padding:0.5rem;">No</th>
+                  <th style="border:1px solid var(--line);padding:0.5rem;">Nama Siswa</th>
+                  <th style="border:1px solid var(--line);padding:0.5rem;">NISN</th>
+                  <th style="border:1px solid var(--line);padding:0.5rem;">Kehadiran</th>
+                  <th style="border:1px solid var(--line);padding:0.5rem;">Sampah</th>
+                  <th style="border:1px solid var(--line);padding:0.5rem;">Perpus</th>
+                  <th style="border:1px solid var(--line);padding:0.5rem;">Ekskul</th>
+                </tr></thead>
+                <tbody>${studentRows || '<tr><td colspan="7" style="text-align:center;padding:1rem;">Tidak ada siswa di kelas ini.</td></tr>'}</tbody>
+              </table>
+              <p style="margin-top:1.5rem;font-size:0.8rem;text-align:right;">Dicetak pada: ${new Date().toLocaleDateString("id-ID", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</p>
+            </div>`;
+          actions.innerHTML = `<button class="button primary" id="do-print">🖨 Cetak / Print</button>`;
+          document.getElementById("do-print")?.addEventListener("click", () => {
+            const printArea = document.getElementById("printable-area")!.innerHTML;
+            const w = window.open("", "_blank");
+            if (w) {
+              w.document.write(`<html><head><title>Laporan ${className}</title><style>body{font-family:system-ui,sans-serif;padding:2rem;}table{width:100%;border-collapse:collapse;}th,td{border:1px solid #ccc;padding:0.4rem 0.6rem;text-align:left;}th{background:#f5f5f5;font-weight:600;}@media print{body{padding:0;}}</style></head><body>${printArea}</body></html>`);
+              w.document.close();
+              w.print();
+            }
+          });
+        } catch (error) { content.innerHTML = errorState(error); }
+      });
+    });
+  } catch (error) { shell(errorState(error), "Laporan Wali Kelas", "Rekapitulasi data siswa per kelas."); }
+}
 
 function placeholderPage(title: string): void { shell(`<section class="panel coming-soon"><span>◇</span><h2>${escapeHtml(title)} sedang dipersiapkan</h2><p>Fondasi API dan navigasi sudah tersedia. Modul ini akan diaktifkan pada fase berikutnya.</p><a href="/" data-link class="button secondary">Kembali ke ringkasan</a></section>`, title, "Entry point modul AKSIS berikutnya."); }
 
+async function pwaPortalsPage() {
+  getApp().innerHTML = skeleton();
+  try {
+    const schoolId = state.school!.id;
+    const [classesRes, firstStudents] = await Promise.all([
+      api<SchoolClass[]>("/classes/summary"), api<Student[]>("/students?page=1&page_size=500")
+    ]);
+    const classes = classesRes.data;
+    const students = [...firstStudents.data];
+    const total = firstStudents.meta?.total ?? students.length;
+    for (let page = 2; students.length < total; page++) {
+      const result = await api<Student[]>(`/students?page=${page}&page_size=500`);
+      if (!result.data.length) break;
+      students.push(...result.data);
+    }
+    const definitions = [
+      { key: "waste", role: "WASTE_STAFF", name: "Piket Bank Sampah", icon: "♻", description: "Satu QR untuk piket dan setoran siswa di kelas yang dipilih.", port: 4175 },
+      { key: "library", role: "LIBRARY_STAFF", name: "Perpustakaan", icon: "▤", description: "Langsung buka terminal pencatatan kunjungan perpustakaan sekolah.", port: 4177 },
+      { key: "extracurricular", role: "TEACHER", name: "Ekstrakurikuler", icon: "☆", description: "Akses kegiatan, sesi, dan presensi ekstrakurikuler sekolah.", port: 4176 },
+      { key: "parent", role: "PARENT", name: "Portal Orang Tua", icon: "♡", description: "Satu QR sekolah untuk semua orang tua. Wali mencari data anak dengan NISN & Tgl Lahir.", port: 4174 }
+    ];
+    shell(`<section class="panel portal-intro"><div><span class="eyebrow">AKSES TANPA USERNAME & PASSWORD</span><h2>Satu kali pindai, selanjutnya tinggal buka.</h2><p>Buat QR, bagikan kepada pengguna, lalu simpan aplikasi ke layar utama smartphone.</p></div><ol><li>Buat QR portal</li><li>Pindai dengan kamera</li><li>Simpan ke layar utama</li></ol></section>
+      <section class="qr-grid">${definitions.map(d => `<article class="qr-card" id="card-${d.key}">
+        <div class="portal-icon">${d.icon}</div><div class="qr-header"><h3>${d.name}</h3><p>${d.description}</p></div>
+        ${d.key === "waste" ? `<label class="no-print">Kelas<select id="scope-waste"><option value="">Pilih kelas…</option>${classes.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("")}</select></label>` : ""}
+        <div class="qr-container" id="qr-${d.key}"><p>QR akan tampil di sini</p></div>
+        <p class="portal-feedback no-print" id="feedback-${d.key}" role="status"></p>
+        <button class="button primary wide no-print" id="generate-${d.key}">Buat QR akses</button>
+        <div class="portal-actions no-print" id="actions-${d.key}" hidden></div>
+      </article>`).join("")}</section>
+      <section class="panel" style="margin-top:24px"><div class="panel-head"><div><h2>Akses portal yang diterbitkan</h2><p>QR berlaku sampai dinonaktifkan. Setiap orang yang memegang QR dapat membuka portal. <b>Demi keamanan (enkripsi searah), QR tidak dapat ditampilkan ulang.</b> Jika hilang, hapus dan buat QR baru.</p></div></div><div id="portal-access-list">Memuat akses…</div></section>`,
+      "Portal PWA & QR", "Kelola pintu masuk aplikasi sekolah tanpa akun dan password pengguna.");
+    const configured: Record<string, string | undefined> = {
+      waste: import.meta.env.VITE_WASTE_URL, library: import.meta.env.VITE_LIBRARY_URL,
+      extracurricular: import.meta.env.VITE_EXTRACURRICULAR_URL, parent: import.meta.env.VITE_PARENT_URL
+    };
+    const loadAccess = async () => {
+      const container = document.getElementById("portal-access-list"); if (!container) return;
+      try {
+        const result = await api<Array<{ id: string; role_code: string; metadata: { class_id?: string; student_id?: string }; created_at: string; revoked_at: string | null }>>(`/auth/qr?school_id=${schoolId}`);
+        container.innerHTML = result.data.length ? `<div class="table-wrap"><table><thead><tr><th>Portal</th><th>Lingkup</th><th>Dibuat</th><th>Status</th><th></th></tr></thead><tbody>${result.data.map(q => {
+          const scope = classes.find(c => c.id === q.metadata?.class_id)?.name ?? students.find(s => s.id === q.metadata?.student_id)?.full_name ?? state.school!.name;
+          return `<tr><td>${escapeHtml(definitions.find(d => d.role === q.role_code)?.name ?? q.role_code)}</td><td>${escapeHtml(scope)}</td><td>${escapeHtml(new Date(q.created_at).toLocaleDateString("id-ID"))}</td><td>${q.revoked_at ? "Nonaktif" : "Aktif"}</td><td>${q.revoked_at ? "" : `<button class="button secondary" data-revoke="${q.id}">Nonaktifkan</button>`}<button class="button danger" style="margin-left: 8px;" data-hard-delete="${q.id}">Hapus</button></td></tr>`;
+        }).join("")}</tbody></table></div>` : `<p>Belum ada QR diterbitkan untuk sekolah ini.</p>`;
+        container.querySelectorAll<HTMLButtonElement>("[data-revoke]").forEach(button => {
+          button.onclick = async () => {
+            button.disabled = true;
+            try { await api(`/auth/qr/${button.dataset.revoke}`, { method: "DELETE" }); await loadAccess(); }
+            catch (error) { button.disabled = false; button.textContent = "Coba nonaktifkan lagi"; const feedback = document.createElement("p"); feedback.textContent = error instanceof Error ? error.message : "Gagal menonaktifkan akses"; container.append(feedback); }
+          };
+        });
+        container.querySelectorAll<HTMLButtonElement>("[data-hard-delete]").forEach(button => {
+          button.onclick = async () => {
+            if (!confirm("Apakah Anda yakin ingin menghapus akses ini secara permanen? Data yang berkaitan dengan sesi ini akan ikut terhapus.")) return;
+            button.disabled = true;
+            try { await api(`/auth/qr/${button.dataset.hardDelete}/hard`, { method: "DELETE" }); await loadAccess(); }
+            catch (error) { button.disabled = false; button.textContent = "Coba hapus lagi"; const feedback = document.createElement("p"); feedback.textContent = error instanceof Error ? error.message : "Gagal menghapus akses"; container.append(feedback); }
+          };
+        });
+      } catch (error) { container.textContent = error instanceof Error ? error.message : "Daftar akses belum tersedia"; }
+    };
+    for (const definition of definitions) {
+      const d = definition;
+      const button = document.getElementById(`generate-${d.key}`) as HTMLButtonElement;
+      const select = document.getElementById(`scope-${d.key}`) as HTMLSelectElement | null;
+      const feedback = document.getElementById(`feedback-${d.key}`)!;
+      const container = document.getElementById(`qr-${d.key}`)!;
+      const actions = document.getElementById(`actions-${d.key}`)!;
+      let revision = 0;
+      if (select) {
+        button.disabled = !select.value;
+        select.onchange = () => { revision++; button.disabled = !select.value; container.innerHTML = "<p>QR akan tampil di sini</p>"; actions.hidden = true; feedback.textContent = ""; };
+      }
+      button.onclick = async () => {
+        const current = ++revision;
+        const metadata = d.key === "waste" ? { class_id: select!.value } : {};
+        const label = select?.selectedOptions[0]?.textContent ?? state.school!.name;
+        button.disabled = true; feedback.textContent = "Menyiapkan akses portal…";
+        try {
+          const result = await api<{ id: string; token: string }>("/auth/qr/generate", { method: "POST", body: JSON.stringify({ school_id: schoolId, role_code: d.role, metadata }) });
+          const isDev = import.meta.env.DEV;
+          const base = configured[d.key] || (isDev ? `${location.protocol}//${location.hostname}:${d.port}/` : `${location.origin}/${d.key}/`);
+          const url = new URL(base); url.hash = new URLSearchParams({ token: result.data.token }).toString();
+          const dataUrl = await QRCode.toDataURL(url.toString(), { width: 320, margin: 3, errorCorrectionLevel: "M" });
+          await loadAccess();
+          if (revision !== current || state.school?.id !== schoolId) return;
+          container.innerHTML = `<div class="qr-print-wrapper"><img src="${dataUrl}" width="250" height="250" alt="QR akses ${d.name}"/><div class="qr-label"><strong>${escapeHtml(state.school!.name)}</strong><p>${escapeHtml(d.name)}<br/>${escapeHtml(label)}</p><small>Pindai → buka portal → simpan ke layar utama</small></div></div>`;
+          feedback.textContent = "QR siap digunakan. Unduh atau cetak sebelum meninggalkan halaman.";
+          actions.replaceChildren(); actions.hidden = false;
+          const download = document.createElement("a"); download.className = "button secondary"; download.href = dataUrl; download.download = `aksis-${d.key}.png`; download.textContent = "Unduh QR";
+          const open = document.createElement("a"); open.className = "button secondary"; open.href = url.toString(); open.target = "_blank"; open.rel = "noopener noreferrer"; open.textContent = "Buka portal";
+          const print = document.createElement("button"); print.className = "button secondary"; print.textContent = "Cetak QR";
+          print.onclick = () => { const card = document.getElementById(`card-${d.key}`)!; card.classList.add("print-active"); window.print(); card.classList.remove("print-active"); };
+          actions.append(download, print, open);
+        } catch (error) { if (revision === current) feedback.textContent = error instanceof Error ? error.message : "QR belum berhasil dibuat. Coba kembali."; }
+        finally { if (revision === current) { button.disabled = Boolean(select && !select.value); button.textContent = "Buat QR baru"; } }
+      };
+    }
+    await loadAccess();
+  } catch (error) { shell(errorState(error), "Portal PWA & QR", "Gagal memuat portal"); }
+}
+
 export async function render(): Promise<void> {
-  if (!getSession()) { loginView(); return; }
-  try { if (!state.school || !state.context) await bootstrap(); } catch { clearSession(); loginView(); return; }
-  const path = location.pathname;
-  if (!canAccess(path, state.context?.permissions ?? [])) { shell(`<section class="state-card state-error"><span>!</span><div><strong>Akses dibatasi</strong><p>Peran Anda tidak memiliki izin untuk membuka modul ini.</p></div></section>`, "Akses dibatasi", "Hubungi admin sekolah bila Anda memerlukan akses."); return; }
-  if (path === "/") await dashboardPage();
-  else if (path === "/students") studentsPage();
-  else if (path === "/classes") classesPage();
-  else if (path === "/attendance") attendancePage();
-  else if (path === "/cards") cardsPage();
-  else if (path === "/devices") devicesPage();
-  else placeholderPage(navItems.find(([route]) => route === path)?.[1] ?? "Halaman");
+  clearDashboard();
+  try {
+    if (!getSession()) { loginView(); return; }
+    try { if (!state.school || !state.context) await bootstrap(); } catch { clearSession(); loginView(); return; }
+
+    let path = location.pathname;
+    if (state.context?.roles.includes("SUPER_ADMIN") && !isPlatformRoute(path)) {
+      history.replaceState({}, "", "/platform");
+      path = "/platform";
+    }
+
+
+    if (!canAccess(path, state.context?.permissions ?? [], state.context?.roles ?? [])) {
+      // If a non-Super Admin tries to access /platform*, redirect them to school dashboard
+      if (isPlatformRoute(path)) {
+        navigate("/");
+        return;
+      }
+      shell(`<section class="state-card state-error"><span>!</span><div><strong>Akses dibatasi</strong><p>Peran Anda tidak memiliki izin untuk membuka modul ini.</p></div></section>`, "Akses dibatasi", "Hubungi admin sekolah bila Anda memerlukan akses.");
+      return;
+    }
+
+    if (isPlatformRoute(path)) { await bootstrap(); await mountPlatformPage(path, state.allSchools ?? [], shell, navigate); }
+    else if (path === "/") await dashboardPage();
+    else if (path === "/students") await studentsPage();
+    else if (path === "/academic-years") await academicYearsPage();
+    else if (path === "/attendance") await attendancePage();
+    else if (path === "/cards") await cardsPage();
+    else if (path === "/devices") await devicesPage();
+    else if (path === "/student-import") studentImportPage();
+    else if (path === "/class-promotion") classPromotionPage();
+    else if (path === "/waste") await wastePage();
+    else if (path === "/library") await libraryPage();
+    else if (path === "/extracurricular") await extracurricularPage();
+    else if (path === "/led") await ledPage();
+    else if (path === "/pwa-portals") await pwaPortalsPage();
+    else if (path === "/reports") await reportsPage();
+    else placeholderPage(navItems.find(([route]) => route === path)?.[1] ?? "Halaman");
+  } catch (err) {
+    console.error("Render error:", err);
+    getApp().innerHTML = errorState(err);
+  }
 }
 
 window.addEventListener("popstate", () => void render());

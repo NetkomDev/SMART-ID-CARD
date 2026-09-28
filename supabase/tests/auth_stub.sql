@@ -1,0 +1,11 @@
+create role anon nologin;
+create role authenticated nologin;
+create role service_role nologin bypassrls;
+create schema auth;
+create table auth.users(id uuid primary key,raw_app_meta_data jsonb not null default '{}',raw_user_meta_data jsonb not null default '{}',email text,instance_id uuid,aud text,role text,encrypted_password text,email_confirmed_at timestamptz,created_at timestamptz,updated_at timestamptz,confirmation_token text,recovery_token text,email_change_token_new text,email_change text);
+create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
+create function auth.jwt() returns jsonb language sql stable as $$select coalesce(nullif(current_setting('request.jwt.claims',true),'')::jsonb,'{}'::jsonb)$$;
+grant usage on schema public,auth to anon,authenticated,service_role;
+grant execute on function auth.uid(),auth.jwt() to anon,authenticated,service_role;
+alter default privileges in schema public grant all on tables to authenticated,service_role;
+alter default privileges in schema public grant usage,select on sequences to authenticated,service_role;

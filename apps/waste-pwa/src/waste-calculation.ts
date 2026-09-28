@@ -25,6 +25,7 @@ export function calculateWasteMeasurement(
     organic_kg: wasteType === "ORGANIC" ? totalKg : 0,
     inorganic_kg: wasteType === "INORGANIC" ? totalKg : 0,
     total_kg: totalKg,
-    source: unit === "KTG" ? "MANUAL" : "SCALE"
+    // Both controls are typed by the operator; only a hardware adapter can report SCALE.
+    source: "MANUAL"
   };
 }

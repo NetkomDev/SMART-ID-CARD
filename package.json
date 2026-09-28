@@ -31,7 +31,12 @@
     "typecheck": "tsc -p apps/api/tsconfig.json --noEmit",
     "test": "vitest run",
     "test:db:library": "bash tooling/test-phase-11-library.sh",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "typecheck:portals": "tsc -p apps/api/tsconfig.json --noEmit && tsc -p apps/admin-web/tsconfig.json --noEmit && tsc -p apps/parent-pwa/tsconfig.json --noEmit && tsc -p apps/waste-pwa/tsconfig.json --noEmit && tsc -p apps/extracurricular-pwa/tsconfig.json --noEmit && tsc -p apps/library-terminal/tsconfig.json --noEmit",
+    "test:db:portals": "bash tooling/test-portal-qr.sh",
+    "test:db:super-admin": "bash tooling/test-super-admin-db.sh",
+    "test:browser:super-admin": "node tooling/test-super-admin-browser.mjs",
+    "test:browser:pwa": "node tooling/test-pwa-ui.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
@@ -40,15 +45,19 @@
     "express": "^5.1.0",
     "express-rate-limit": "^8.1.0",
     "helmet": "^8.1.0",
+    "html5-qrcode": "^2.3.8",
     "pino": "^9.9.4",
     "pino-http": "^10.5.0",
+    "qrcode": "^1.5.4",
     "zod": "^4.1.8"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
     "@types/node": "^24.5.2",
+    "@types/qrcode": "^1.5.6",
     "@types/supertest": "^6.0.3",
+    "@vitejs/plugin-basic-ssl": "^2.3.0",
     "supertest": "^7.1.4",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2",
