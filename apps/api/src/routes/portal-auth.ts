@@ -93,7 +93,12 @@ portalAuthRouter.delete("/:id/hard", requireAuth, validate({ params: idParamsSch
   if (accessError || !allowed) throw new ApiError(403, "FORBIDDEN", "Hanya admin sekolah yang dapat menghapus akses portal.");
   
   const cleanup = await admin.auth.admin.deleteUser(q.auth_user_id);
-  if (cleanup.error) throw new ApiError(500, "INTERNAL_ERROR", "Gagal menghapus kredensial login");
+  if (cleanup.error) {
+    // Fallback: If user cannot be hard deleted due to foreign key references (e.g. they created sessions),
+    // we just delete the token and revoke their school membership to effectively destroy the credential.
+    await admin.from("qr_access_tokens").delete().eq("id", req.params.id);
+    await admin.from("school_users").update({ status: "REVOKED" }).eq("user_id", q.auth_user_id).eq("school_id", q.school_id);
+  }
   
   res.status(204).send();
 }));
