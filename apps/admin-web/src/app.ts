@@ -1125,7 +1125,7 @@ async function pwaPortalsPage() {
         button.disabled = true; feedback.textContent = "Menyiapkan akses portal…";
         try {
           const result = await api<{ id: string; token: string }>("/auth/qr/generate", { method: "POST", body: JSON.stringify({ school_id: schoolId, role_code: d.role, metadata }) });
-          const isDev = import.meta.env.DEV;
+          const isDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
           const base = configured[d.key] || (isDev ? `${location.protocol}//${location.hostname}:${d.port}/` : `${location.origin}/${d.key}/`);
           const url = new URL(base); url.hash = new URLSearchParams({ token: result.data.token }).toString();
           const dataUrl = await QRCode.toDataURL(url.toString(), { width: 320, margin: 3, errorCorrectionLevel: "M" });
