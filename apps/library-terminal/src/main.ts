@@ -10,21 +10,71 @@ const form = document.querySelector<HTMLFormElement>("#scan")!;
 const card = document.querySelector<HTMLInputElement>("#card")!;
 const status = document.querySelector<HTMLOutputElement>("#status")!;
 const queued = document.querySelector("#queued")!;
+const studentResult = document.querySelector<HTMLElement>("#student-result")!;
+const studentName = document.querySelector<HTMLElement>("#student-name")!;
+const visitTime = document.querySelector<HTMLElement>("#visit-time")!;
+const todayVisits = document.querySelector<HTMLElement>("#today-visits")!;
+const activeClasses = document.querySelector<HTMLElement>("#active-classes")!;
 const gate = document.createElement("section");
 gate.id = "gate"; gate.className = "portal-gate";
 gate.innerHTML = gateIntro("Selamat datang di perpustakaan", "Catat kunjungan siswa dengan QR kartu atau reader kartu sekolah.");
 const message = document.createElement("p");
 message.style.fontWeight = "600";
 const retry = document.createElement("button"); retry.textContent = "Coba lagi";
-gate.append(message, retry); gate.insertAdjacentHTML("beforeend", gateHelp); document.querySelector("header")!.after(gate);
+const scanBtn = document.createElement("button"); scanBtn.textContent = "Pindai QR Akses"; scanBtn.style.marginTop = "1rem"; scanBtn.style.width = "100%";
+const scannerContainer = document.createElement("div"); scannerContainer.style.display = "none"; scannerContainer.style.marginTop = "1rem";
+const readerDiv = document.createElement("div"); readerDiv.id = "login-qr-reader";
+const cancelBtn = document.createElement("button"); cancelBtn.textContent = "Batal Scan"; cancelBtn.className = "btn-secondary"; cancelBtn.style.marginTop = "0.5rem"; cancelBtn.style.width = "100%";
+scannerContainer.append(readerDiv, cancelBtn);
+gate.append(message, retry, scannerContainer, scanBtn); gate.insertAdjacentHTML("beforeend", gateHelp); document.querySelector("header")!.after(gate);
+
+let loginScanner: Html5Qrcode | null = null;
+scanBtn.onclick = async () => {
+  scanBtn.style.display = "none"; retry.style.display = "none"; scannerContainer.style.display = "block";
+  try {
+    loginScanner ??= new Html5Qrcode("login-qr-reader");
+    await loginScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, decoded => {
+      try {
+        const url = new URL(decoded);
+        if (url.hash.includes("token=") || url.searchParams.has("token")) {
+          void loginScanner?.stop().catch(() => {});
+          window.location.href = decoded;
+        }
+      } catch {}
+    }, () => undefined);
+  } catch {
+    scannerContainer.style.display = "none"; scanBtn.style.display = "block";
+    message.textContent = "Kamera tidak dapat diakses.";
+  }
+};
+cancelBtn.onclick = async () => {
+  if (loginScanner) { try { await loginScanner.stop(); } catch {} }
+  scannerContainer.style.display = "none"; scanBtn.style.display = "block"; retry.style.display = "inline-block";
+};
 const panel = document.getElementById("panel")!;
-const logout = document.getElementById("logout")!;
 const queueKey = () => `aksis.library.queue.${portal.context?.id ?? "none"}`;
 function queue(key = queueKey()): Visit[] {
   try { return JSON.parse(localStorage.getItem(key) ?? "[]") as Visit[]; } catch { return []; }
 }
 function save(items: Visit[], key = queueKey()) { localStorage.setItem(key, JSON.stringify(items)); queued.textContent = String(items.length); }
 let syncing: Promise<void> | null = null;
+type LibrarySummary = { class_id: string | null; class_name: string; total: number };
+const dayRange = () => {
+  const start = new Date(); start.setHours(0, 0, 0, 0);
+  const end = new Date(start); end.setDate(end.getDate() + 1);
+  return { start: start.toISOString(), end: end.toISOString() };
+};
+async function loadDailySummary() {
+  const { start, end } = dayRange();
+  try {
+    const rows = await portal.request<LibrarySummary[]>(`/library/summary?occurred_from=${encodeURIComponent(start)}&occurred_to=${encodeURIComponent(end)}`);
+    todayVisits.textContent = String(rows.reduce((total, row) => total + row.total, 0));
+    activeClasses.textContent = String(rows.filter(row => row.total > 0).length);
+  } catch {
+    todayVisits.textContent = "—";
+    activeClasses.textContent = "—";
+  }
+}
 async function sync() {
   if (syncing) return syncing;
   const work = async () => {
@@ -35,6 +85,7 @@ async function sync() {
       save(queue(key).filter(item => item.event_id !== visit.event_id), key);
     }
     status.value = "Semua kunjungan tersinkronisasi";
+    await loadDailySummary();
   };
   syncing = Promise.resolve(navigator.locks ? navigator.locks.request(queueKey(), work) : work()).then(() => undefined).finally(() => { syncing = null; });
   return syncing;
@@ -44,8 +95,12 @@ form.onsubmit = async event => {
   const key = queueKey();
   const visit: Visit = { event_id: crypto.randomUUID(), card_uid: card.value.trim(), occurred_at: new Date().toISOString(), local_sequence: Date.now(), metadata: { terminal: "library-pwa" } };
   try {
-    const result = await portal.request<{student_name?:string}>("/library/visits", { method: "POST", body: JSON.stringify(visit) });
+    const result = await portal.request<{student_name?:string;duplicate?:boolean}>("/library/visits", { method: "POST", body: JSON.stringify(visit) });
     status.value = result.student_name ? `Kunjungan tercatat: ${result.student_name}` : "Kunjungan tercatat";
+    studentName.textContent = result.student_name ?? "Siswa";
+    visitTime.textContent = `${result.duplicate ? "Sudah tercatat" : "Tercatat"} pukul ${new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit" }).format(new Date())}`;
+    studentResult.hidden = false;
+    void loadDailySummary();
   } catch (error) {
     if (error instanceof PortalError && error.status < 500) { status.value = error.message; return; }
     save([...queue(key), visit], key); status.value = "Koneksi tertunda — kunjungan tersimpan di perangkat";
@@ -110,22 +165,23 @@ async function start() {
   panel.hidden = true; gate.hidden = false;
   message.textContent = "Membuka akses sekolah…"; retry.disabled = true;
   try {
-    if (!await portal.start()) { message.textContent = "Pindai QR Perpustakaan dari admin sekolah untuk masuk."; return; }
+    if (!await portal.start()) {
+      message.textContent = "Pindai QR Akses dari admin sekolah untuk masuk.";
+      scanBtn.style.display = "block"; retry.style.display = "none";
+      return;
+    }
     gate.hidden = true; panel.hidden = false;
-    document.querySelector("header span")!.textContent = `Perpustakaan · ${portal.context!.school_name}`;
+    document.querySelector("#library-school")!.textContent = portal.context!.school_name;
     queued.textContent = String(queue().length); offerInstall(); card.focus();
+    void loadDailySummary();
     if (queue().length) void sync().catch(showError);
-  } catch (error) { message.textContent = error instanceof Error ? error.message : "Belum dapat terhubung."; }
+  } catch (error) {
+    message.textContent = error instanceof Error ? error.message : "Belum dapat terhubung.";
+    scanBtn.style.display = "block"; retry.style.display = "inline-block";
+  }
   finally { retry.disabled = false; }
 }
 
 retry.onclick = () => void start();
-logout.onclick = async () => {
-  await stopCameraScanner();
-  await portal.logout().catch(() => undefined);
-  panel.hidden = true;
-  gate.hidden = false;
-  message.textContent = "Anda sudah keluar. Pindai QR untuk masuk kembali.";
-};
 
 void start();

@@ -1,105 +1,74 @@
 <!doctype html>
 <html lang="id">
-  <head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><meta name="apple-mobile-web-app-capable" content="yes"><link rel="apple-touch-icon" href="/icon-192.png">
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <meta name="theme-color" content="#102f43" />
-    <link rel="manifest" href="/manifest.webmanifest" />
-    <title>AKSIS Bank Sampah</title>
-  </head>
-  <body>
-    <header>
-      <div style="display: flex; align-items: center; gap: 0.75rem;">
-        <img src="/logo.png" alt="AKSIS Logo" style="height: 32px; width: auto; object-fit: contain; filter: drop-shadow(0px 0px 4px rgba(255, 255, 255, 0.8));">
-        <div style="display: flex; flex-direction: column; justify-content: center; text-align: left;">
-          <b style="line-height: 1;">AKSIS</b>
-          <span id="header-subtitle" style="font-size: 0.75rem; margin-top: 0.2rem;">Bank Sampah</span>
+<head>
+  <meta charset="utf-8"><meta name="referrer" content="no-referrer">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#075b3d">
+  <link rel="apple-touch-icon" href="/icon-192.png"><link rel="manifest" href="/manifest.webmanifest">
+  <title>Piket Sampah · AKSIS</title>
+</head>
+<body>
+  <header class="waste-header">
+    <div class="brand"><img src="/logo.png" alt="AKSIS"></div>
+    <div class="page-title"><h1>Piket Sampah</h1><span id="header-subtitle">Bank Sampah Sekolah</span></div>
+  </header>
+  <main id="app-container">
+    <nav id="workspace-nav" hidden aria-label="Navigasi Bank Sampah">
+      <div class="school-context"><span class="live-dot" aria-hidden="true"></span><span id="school-name"></span><span id="class-name-label"></span></div>
+      <div class="nav-actions"><button id="btn-deposit" class="active" type="button" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M5 14v6h14v-6" stroke-linecap="round" stroke-linejoin="round"/></svg>Setoran</button><button id="btn-ranking" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 20V10h5v10m0 0V4h6v16m0 0V13h5v7M3 20h18" stroke-linecap="round" stroke-linejoin="round"/></svg>Klasemen</button></div>
+    </nav>
+    <section id="view-error" hidden><h1>Akses Ditolak</h1><p id="error-msg">Pindai QR akses dari admin sekolah.</p></section>
+    <section id="view-login" style="display:none">
+      <form id="form-login">
+        <p id="login-error" role="status"></p>
+        <button type="submit" id="btn-login-retry" style="display:none">Coba lagi</button>
+        <div id="login-scanner-container" style="display:none; margin-top: 1rem;">
+          <div id="login-qr-reader"></div>
+          <button type="button" id="btn-cancel-login-scan" class="btn-text">Batal Scan</button>
+        </div>
+        <button type="button" id="btn-start-login-scan" style="margin-top: 1rem;">Pindai QR Akses</button>
+      </form>
+    </section>
+    <section id="view-scan" style="display:none">
+      <div class="scanner-stage">
+        <div class="scanner-heading"><div><strong>Scan QR Siswa</strong><span>Arahkan kamera ke QR kartu siswa</span></div><button id="btn-switch-camera" type="button" class="camera-switch" aria-label="Ganti kamera">↻ <span>Kamera belakang</span></button></div>
+        <div id="qr-reader" style="display:none"></div>
+        <div id="scanner-placeholder"><div class="scan-reticle" aria-hidden="true"><svg viewBox="0 0 80 80" fill="none"><path d="M24 5H5v19M56 5h19v19M5 56v19h19M75 56v19H56" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><path d="M20 20h14v14H20zM46 20h14v14H46zM20 46h14v14H20zM46 46h6v6h8v8H46z" stroke="currentColor" stroke-width="3"/></svg><span class="scan-line"></span></div><p id="scanner-hint">Kartu kecil, langkah besar<br>untuk bumi yang lebih bersih.</p></div>
+        <button id="btn-toggle-camera" type="button">Buka Kamera Scanner</button>
+        <div class="scan-state"><span class="live-dot"></span><span id="scan-status">Siap memindai identitas siswa</span></div>
+      </div>
+      <form id="form-scan"><label for="scan-input">Atau masukkan QR / NIS / NISN siswa</label><div class="manual-scan"><input id="scan-input" type="text" placeholder="Nomor siswa" autocomplete="off" required><button type="submit">Cari siswa →</button></div></form>
+      <p id="scan-error" class="error" role="alert"></p>
+    </section>
+    <section id="view-input" style="display:none">
+      <div class="student-card"><div class="student-avatar" id="student-avatar" aria-hidden="true">◎</div><div class="student-details"><small>SISWA PENYETOR</small><h2 id="input-student-name"></h2><p id="input-student-nisn"></p><span class="status-chip">✓ Identitas terverifikasi</span></div><button id="btn-cancel-input" type="button" class="btn-text">Ganti</button></div>
+      <form id="form-input">
+        <fieldset class="waste-card"><legend>♻ Jenis Sampah</legend><p>Pilih jenis sampah yang disetor</p><div class="type-options"><label><input type="radio" name="waste_type" value="ORGANIC" checked><span><i aria-hidden="true">❧</i>Organik</span></label><label><input type="radio" name="waste_type" value="INORGANIC"><span><i aria-hidden="true">♻</i>Anorganik</span></label></div></fieldset>
+        <div class="measurement-grid"><div class="waste-card weight-card"><label for="weight-input">Berat Setoran</label><div class="weight-controls"><button id="weight-minus" type="button" aria-label="Kurangi berat">−</button><input id="weight-input" type="number" name="weight" min="0.001" max="1000" step="0.001" value="0.500" required><button id="weight-plus" type="button" aria-label="Tambah berat">+</button></div><select id="unit-select" aria-label="Satuan berat"><option value="KG">Kilogram (kg)</option><option value="KTG">Kantong (1 kantong = 0,5 kg)</option></select><output id="total">0,5 kg</output></div><div class="waste-card points-card"><span class="star" aria-hidden="true">★</span><span>Poin Diperoleh</span><strong id="points-preview">—</strong><small id="points-hint">Mengikuti aturan sekolah</small></div></div>
+        <div class="staff-card"><span>◎ Petugas</span><strong id="staff-label">Piket Sampah</strong><span class="status-chip">Akses sekolah</span></div>
+        <button type="submit" id="btn-save">▣ Simpan Setoran <span>→</span></button>
+        <p id="input-error" class="error" role="alert"></p>
+        <div class="ready-note"><span>✓</span><div><strong>Data siap disimpan</strong><p>Pastikan jenis dan berat setoran sudah sesuai.</p></div></div>
+      </form>
+    </section>
+    <section id="view-success" style="display:none"><div class="success-icon">✓</div><h1>Setoran berhasil disimpan</h1><p id="success-detail">Terima kasih sudah menjaga sekolah tetap bersih.</p><button id="btn-next-scan" type="button">Pindai siswa berikutnya →</button></section>
+    <section id="view-ranking" style="display:none">
+    <section id="today-panel" hidden class="waste-card"><div class="section-head"><h2>▥ Setoran Hari Ini</h2><span id="today-date"></span></div><p id="today-scope" class="summary-scope">Semua kelas di sekolah tempat piket bertugas</p><div class="daily-stats"><div><strong id="today-students">—</strong><span>Siswa menyetor</span></div><div><strong id="today-weight">—</strong><span>Total setoran</span></div><div><strong id="today-points">—</strong><span id="today-points-label">Total poin</span></div></div><p id="dashboard-error" class="error" role="status"></p></section>
+      <div class="ranking-hero"><div class="ranking-heading"><small>PAPAN PRESTASI</small><h1>Klasemen Sekolah</h1></div><div class="ranking-actions"><label for="ranking-period">Periode klasemen<select id="ranking-period"><option value="today">Hari ini</option><option value="month" selected>Bulan ini</option><option value="all">Semua waktu</option></select></label><button id="btn-refresh" type="button" class="btn-secondary">↻ Perbarui</button><button id="btn-fullscreen" type="button" class="btn-secondary">⛶ Layar penuh</button></div></div>
+      <div class="ranking-meta"><span id="ranking-updated" role="status">Memuat klasemen…</span><span>Berdasarkan berat setoran (kg)</span></div><p id="ranking-error" class="error" role="alert"></p>
+      <div id="ranking-content" hidden>
+        <div class="ranking-grid"><article class="waste-card class-ranking"><div class="section-head"><h2>3 Kelas Teratas</h2><span class="ranking-badge">TOP 3</span></div><p class="chart-caption">Kontribusi terbesar berdasarkan berat setoran</p><ol id="class-ranking"></ol></article><div class="student-rankings"><article class="waste-card"><small>BINTANG BANK SAMPAH</small><h2>3 Siswa Teratas</h2><p class="chart-caption">Kontribusi individu terbesar</p><ol id="top-students"></ol></article><article class="waste-card bottom-ranking"><small>AYO, IKUT BERKONTRIBUSI</small><h2>3 Siswa Setoran Terendah</h2><p>Termasuk siswa aktif yang belum menyetor pada periode ini.</p><ol id="bottom-students"></ol></article></div></div>
+        <div class="ranking-overview">
+          <article class="impact-card"><div id="contribution-donut" class="contribution-donut" role="img" aria-label="Memuat kontribusi kelas"><div><span aria-hidden="true">♻</span></div></div><div><small>SETORAN KELAS AKTIF</small><strong id="period-weight">—</strong><span id="period-caption">Bulan ini</span><p id="leading-class">Memuat kontribusi…</p></div></article>
+          <article class="participation-card"><span class="overview-icon" aria-hidden="true">♧</span><div><small>KELAS BERKONTRIBUSI</small><strong id="participating-classes">—</strong><p id="participation-caption">Pada periode terpilih</p></div></article>
+          <article class="ranking-invitation"><span aria-hidden="true">✦</span><div><strong>Bersama, lebih berdampak.</strong><p>Ajak teman yang belum menyetor. Mulai dari satu langkah kecil hari ini.</p></div></article>
         </div>
       </div>
-    </header>
-    
-    <main id="app-container">
-      <!-- State 1: Error / Missing Class -->
-      <section id="view-error" style="display:none; text-align:center;">
-        <h1 style="color: var(--danger); margin-bottom: 0.5rem;">Akses Ditolak</h1>
-        <p id="error-msg">Silakan scan QR Kelas terlebih dahulu dari Dashboard Admin untuk mengakses Bank Sampah.</p>
-      </section>
-
-      <!-- State 2: Login -->
-      <section id="view-login" style="display:none;">
-        <small>AKSES QR SEKOLAH</small>
-        <h1>Piket Bank Sampah</h1>
-        <p>Pindai QR dari admin sekolah. Akses akan tersimpan otomatis di perangkat Anda.</p>
-        <form id="form-login">
-          <p id="login-error" role="status" style="font-weight: 500;"></p>
-          <button type="submit">Coba lagi</button>
-        </form>
-      </section>
-
-      <!-- State 3: Dashboard / Scanner -->
-      <section id="view-scan" style="display:none; text-align:center;">
-        <small id="class-name-label">KELAS</small>
-        <h1>Pindai Identitas Siswa</h1>
-        <p>Pindai QR kartu siswa untuk mencatat setoran. Jika kamera tidak tersedia, masukkan nomor siswa.</p>
-        
-        <div class="scanner-box">
-          <div id="qr-reader" style="width: 100%; margin-bottom: 1rem; border-radius: 12px; overflow: hidden; display: none;"></div>
-          <button id="btn-toggle-camera" type="button" class="btn-secondary" style="margin-bottom: 1rem; width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-            Buka Kamera Scanner
-          </button>
-          
-          <form id="form-scan" style="margin:0;">
-            <input aria-label="QR kartu atau nomor siswa" type="text" id="scan-input" placeholder="QR / nomor siswa" style="width:100%; text-align:center; font-size: 1.15rem; font-weight:700; padding: 1rem; background: rgba(255,255,255,0.8);" autocomplete="off" />
-          </form>
-          <p style="margin-top:1.25rem; font-size: 0.85rem; font-weight: 600; color: var(--primary);">Menunggu pindai identitas...</p>
-        </div>
-        
-        <p id="scan-error" style="color: var(--danger); font-weight: 600; margin-bottom: 2rem;"></p>
-        <button id="btn-logout" class="btn-secondary">Keluar / Ganti Kelas</button>
-      </section>
-
-      <!-- State 4: Input Setoran -->
-      <section id="view-input" style="display:none;">
-        <button id="btn-cancel-input" class="btn-text" style="margin-bottom: 1.5rem;">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-          Kembali
-        </button>
-        <small>INPUT SETORAN</small>
-        <div class="student-card">
-          <h1 id="input-student-name">Nama Siswa</h1>
-          <p id="input-student-nisn">NISN: -</p>
-        </div>
-        
-        <form id="form-input">
-          <label>Jenis Sampah
-            <select id="waste-type" name="waste_type">
-              <option value="ORGANIC">Organik</option>
-              <option value="INORGANIC">Anorganik</option>
-            </select>
-          </label>
-          <label>Jumlah Setoran
-            <div class="input-group">
-              <input id="weight-input" name="weight" type="number" min="0.001" step="0.001" value="0.500" required />
-              <select id="unit-select" name="unit" aria-label="Satuan berat">
-                <option value="KG" selected>KG (Input manual)</option>
-                <option value="KTG">KTG (Manual)</option>
-              </select>
-            </div>
-          </label>
-          <output id="total">Total 0.500 kg</output>
-          <button type="submit" style="margin-top:0.5rem;">Simpan Transaksi</button>
-          <p id="input-error" style="color: var(--danger); font-weight: 600; text-align: center;"></p>
-        </form>
-      </section>
-      
-      <!-- State 5: Success -->
-      <section id="view-success" style="display:none; text-align:center;">
-        <div class="success-icon">✓</div>
-        <h1 style="color: var(--primary); margin-bottom: 0.5rem;">Berhasil!</h1>
-        <p>Setoran sampah berhasil dicatat ke sistem.</p>
-        <button id="btn-next-scan" style="margin-top: 2.5rem; width: 100%;">Lanjut Pindai</button>
-      </section>
-    </main>
-    <script type="module" src="/src/main.ts"></script>
-  </body>
+      <p class="ranking-footnote">Panjang batang siswa memakai skala yang sama; 0 kg berarti belum menyetor. Berat yang sama ditampilkan menurut urutan nama. Data diperbarui otomatis setiap 60 detik saat halaman dibuka.</p>
+    </section>
+    <footer>Sekolah bersih dimulai dari kita. <span>AKSIS · Bank Sampah</span></footer>
+  </main>
+  <script type="module" src="/src/main.ts"></script>
+</body>
 </html>

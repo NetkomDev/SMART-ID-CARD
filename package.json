@@ -37,7 +37,11 @@
     "test:db:portals": "bash tooling/test-portal-qr.sh",
     "test:db:super-admin": "bash tooling/test-super-admin-db.sh",
     "test:browser:super-admin": "node tooling/test-super-admin-browser.mjs",
-    "test:browser:pwa": "node tooling/test-pwa-ui.mjs"
+    "test:browser:pwa": "node tooling/test-pwa-ui.mjs",
+    "test:browser:waste": "node tooling/test-waste-pwa.mjs",
+    "test:db:waste": "bash tooling/test-waste-db.sh",
+    "test:browser:parent": "node tooling/test-parent-pwa.mjs",
+    "test:db:parent:local": "bash tooling/test-parent-db-local.sh"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",

@@ -83,7 +83,11 @@ export class PortalSession {
     if (response.status === 401) {
       const body = await response.clone().json().catch(() => null);
       if (body?.error?.code === "PORTAL_ACCESS_INVALID") { this.clear(); return this.parse<T>(response); }
-      if (retry) { await this.refresh(saved.session.access_token); return this.request<T>(path, init, false); }
+      if (retry) {
+        await this.refresh(saved.session.access_token);
+        if (this.saved()?.portal.id !== saved.portal.id) throw new PortalError("Akses portal berubah. Muat ulang halaman sebelum melanjutkan.", 403, "PORTAL_MISMATCH");
+        return this.request<T>(path, init, false);
+      }
       this.clear();
     }
     return this.parse<T>(response);

@@ -61,21 +61,37 @@ router.post("/:id/members/fast-enroll", requirePermission("extracurricular.manag
   const record = { school_id: req.tenant!.schoolId, extracurricular_id: req.params.id, student_id: req.body.student_id,
     idempotency_key: req.body.idempotency_key, enrolled_by: req.auth!.user.id };
   const { data, error } = await req.auth!.client.from("extracurricular_members").upsert(record, {
-    onConflict: "school_id,idempotency_key", ignoreDuplicates: true
+    onConflict: "school_id,extracurricular_id,student_id", ignoreDuplicates: true
   }).select("*").maybeSingle();
   if (error) throw fromDatabaseError(error);
   if (data) return sendData(res, { ...data, duplicate: false }, 201);
   const { data: existing, error: lookupError } = await req.auth!.client.from("extracurricular_members").select("*")
-    .eq("school_id", req.tenant!.schoolId).eq("idempotency_key", req.body.idempotency_key).single();
+    .eq("school_id", req.tenant!.schoolId).eq("extracurricular_id", req.params.id).eq("student_id", req.body.student_id).single();
   if (lookupError) throw fromDatabaseError(lookupError);
+  if (existing.status !== "ACTIVE") throw new ApiError(409, "CONFLICT", "Keanggotaan siswa tidak aktif. Hubungi pengelola kegiatan.");
   sendData(res, { ...existing, duplicate: true });
 }));
 
 router.post("/:id/sessions/:sessionId/attendance", requirePermission("extracurricular.attendance"), validate({ params: sessionParamsSchema, body: recordAttendanceSchema }), asyncHandler(async (req, res) => {
+  const { data: member, error: memberError } = await req.auth!.client.from("extracurricular_members")
+    .select("id,status").eq("school_id", req.tenant!.schoolId).eq("extracurricular_id", req.params.id)
+    .eq("student_id", req.body.student_id).maybeSingle();
+  if (memberError) throw fromDatabaseError(memberError);
+  if (!member) throw new ApiError(409, "EXTRACURRICULAR_MEMBER_REQUIRED", "Siswa belum terdaftar sebagai anggota kegiatan.");
+  if (member.status !== "ACTIVE") throw new ApiError(409, "CONFLICT", "Keanggotaan siswa tidak aktif. Hubungi pengelola kegiatan.");
   const { data, error } = await req.auth!.client.from("extracurricular_attendance").insert({ ...req.body,
     school_id: req.tenant!.schoolId, extracurricular_id: req.params.id, session_id: req.params.sessionId,
     recorded_by: req.auth!.user.id
   }).select("*").single();
+  if (error?.code === "23505") {
+    const { data: existing, error: lookupError } = await req.auth!.client.from("extracurricular_attendance").select("*")
+      .eq("school_id", req.tenant!.schoolId).eq("session_id", req.params.sessionId).eq("extracurricular_id", req.params.id)
+      .eq("student_id", req.body.student_id).maybeSingle();
+    if (lookupError) throw fromDatabaseError(lookupError);
+    if (existing && existing.status === req.body.status && (existing.notes ?? null) === (req.body.notes ?? null)) {
+      sendData(res, { ...existing, duplicate: true }); return;
+    }
+  }
   if (error) throw fromDatabaseError(error);
   sendData(res, data, 201);
 }));

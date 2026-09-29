@@ -28,6 +28,7 @@ export type ErrorCode =
   | "GATE_RULE_VIOLATION"
   | "PARENT_LINK_INVALID"
   | "CHILD_NOT_LINKED"
+  | "EXTRACURRICULAR_MEMBER_REQUIRED"
   | "RESOURCE_NOT_FOUND"
   | "INVALID_JSON"
   | "PAYLOAD_TOO_LARGE"
@@ -56,7 +57,7 @@ import * as fs from "node:fs";
 
 export function fromDatabaseError(error: PostgrestError): ApiError {
   try {
-    fs.appendFileSync("/Users/berech/Documents/Smart ID Card/AKSES.CO.ID/db_error.log", new Date().toISOString() + " DB Error: " + JSON.stringify(error) + "\n");
+    fs.appendFileSync(process.cwd() + "/db_error.log", new Date().toISOString() + " DB Error: " + JSON.stringify(error) + "\n");
   } catch (e) {}
 
   if (error.code === "PGRST202" && error.message.includes("is_platform_admin")) {

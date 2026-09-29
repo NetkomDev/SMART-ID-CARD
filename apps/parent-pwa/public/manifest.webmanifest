@@ -1,13 +1,13 @@
 {
   "id": "./",
-  "name": "AKSIS Orang Tua",
+  "name": "AKSIS Kontrol Orang Tua",
   "short_name": "Orang Tua",
   "description": "Portal Orang Tua sekolah AKSIS",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#f2f6f8",
-  "theme_color": "#102f43",
+  "background_color": "#edf7f2",
+  "theme_color": "#164736",
   "lang": "id",
   "icons": [
     {

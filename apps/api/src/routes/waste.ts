@@ -5,36 +5,60 @@ import { asyncHandler } from "../middleware/async-handler.js";
 import { requirePermission } from "../middleware/tenant.js";
 import { validate } from "../middleware/validate.js";
 import { createWasteSchema } from "../schemas/waste.js";
+import { readWasteDashboard } from "../services/waste-dashboard.js";
 
 const router = Router();
 
 router.post("/transactions", requirePermission("waste.create"), validate({ body: createWasteSchema }), asyncHandler(async (req, res) => {
-  const { data: school, error: sErr } = await req.auth!.client.from("schools")
-    .select("timezone, waste_start_time, waste_end_time").eq("id", req.tenant!.schoolId).single();
-  if (sErr) throw fromDatabaseError(sErr);
-  
-  if (school.waste_start_time || school.waste_end_time) {
-    const tz = school.timezone || "Asia/Jakarta";
-    const now = new Date();
-    const currentTimeStr = new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(now);
-    const currentHMS = currentTimeStr.replace("24:", "00:");
-    
-    if (school.waste_start_time && currentHMS < school.waste_start_time) {
-      throw new ApiError(403, "FORBIDDEN", "Gagal melakukan penyetoran sampah diluar jadwal, silahkan hubungi admin sekolah bila ingin menyetor sampah sekarang.");
+  // A retry after a lost response must return the original deposit, even after schedule closure.
+  const columns = "id,event_id,class_id,student_id,organic_kg,inorganic_kg,total_kg,points_earned,source,created_at";
+  const findExisting = () => req.auth!.client.from("waste_transactions").select(columns)
+    .eq("school_id", req.tenant!.schoolId).eq("event_id", req.body.event_id).maybeSingle();
+  const replyExisting = (row: Record<string, unknown>) => {
+    if (["class_id", "student_id", "organic_kg", "inorganic_kg", "source"].some(key => row[key] !== req.body[key])) {
+      throw new ApiError(409, "CONFLICT", "Setoran sebelumnya memiliki isi berbeda. Gunakan transaksi baru.");
     }
-    if (school.waste_end_time && currentHMS > school.waste_end_time) {
-      throw new ApiError(403, "FORBIDDEN", "Gagal melakukan penyetoran sampah diluar jadwal, silahkan hubungi admin sekolah bila ingin menyetor sampah sekarang.");
-    }
-  }
+    sendData(res, row);
+  };
+  const existing = await findExisting();
+  if (existing.error) throw fromDatabaseError(existing.error);
+  if (existing.data) { replyExisting(existing.data); return; }
 
   const { data, error } = await req.auth!.client.from("waste_transactions").insert({
     ...req.body,
     school_id: req.tenant!.schoolId,
     staff_user_id: req.auth!.user.id
-  }).select("id,event_id,class_id,student_id,organic_kg,inorganic_kg,total_kg,source,created_at").single();
+  }).select(columns).single();
   
+  if (error?.code === "23505") {
+    const duplicate = await findExisting();
+    if (duplicate.error) throw fromDatabaseError(duplicate.error);
+    if (duplicate.data) { replyExisting(duplicate.data); return; }
+  }
+  if (error?.code === "42501" && error.message.includes("jadwal")) throw new ApiError(403, "FORBIDDEN", error.message);
+  if (error?.code === "23514" && error.message.includes("Siswa")) throw new ApiError(422, "VALIDATION_ERROR", error.message);
   if (error) throw fromDatabaseError(error);
   sendData(res, data, 201);
+}));
+
+router.get("/dashboard", requirePermission("waste.read"), asyncHandler(async (req, res) => {
+  const period = req.query.period ?? "month";
+  if (typeof period !== "string" || !["today", "month", "all"].includes(period)) {
+    throw new ApiError(400, "VALIDATION_ERROR", "Periode klasemen tidak valid.");
+  }
+  const { data, error } = await req.auth!.client.rpc("waste_dashboard", {
+    p_school_id: req.tenant!.schoolId, p_period: period
+  });
+  if (error?.code === "PGRST202") {
+    const dashboard = await readWasteDashboard(req.auth!.client, req.auth!.user.id,
+      Boolean(req.auth!.user.app_metadata?.portal_access), req.tenant!.schoolId, period as "today" | "month" | "all");
+    res.setHeader("Cache-Control", "no-store");
+    sendData(res, { ...dashboard, school_id: req.tenant!.schoolId });
+    return;
+  }
+  if (error) throw fromDatabaseError(error);
+  res.setHeader("Cache-Control", "no-store");
+  sendData(res, { ...data, school_id: req.tenant!.schoolId });
 }));
 
 router.get("/ranking", requirePermission("waste.read"), asyncHandler(async (req, res) => {

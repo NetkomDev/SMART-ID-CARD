@@ -14,9 +14,12 @@ try {
  else if(path==='/parent/children')data=[{student_id:'child1',full_name:'Andi Pratama',class_name:'X IPA 1',school_name:portal.school_name},{student_id:'child2',full_name:'Nadia Putri',class_name:'VII B',school_name:portal.school_name}];
  else if(path.endsWith('/today'))data={timezone:'Asia/Makassar',events:[{type:'attendance.check_in',occurred_at:new Date().toISOString(),is_late:false},{type:'library.visit',occurred_at:new Date().toISOString(),extra_info:'Kunjungan perpustakaan'}]};
  else if(path==='/extracurriculars')data=[{id:'activity1',code:'PRM',name:'Pramuka'},{id:'activity2',code:'BSK',name:'Bola basket'}];
- else if(path.endsWith('/sessions'))data=[{id:'session1',starts_at:new Date().toISOString()}];
+ else if(path.endsWith('/sessions'))data=[{id:'session1',starts_at:new Date().toISOString(),status:'OPEN'}];
+ else if(path.endsWith('/summary'))data={total:8,present:7,excused:1,absent:0};
  else if(path==='/cards/resolve')data={id:'child1',full_name:'Andi Pratama',student_number:'2026001'};
- else if(path==='/waste/transactions')data={id:'transaction1'};
+ else if(path==='/waste/dashboard')data={period:'month',timezone:'Asia/Makassar',as_of:new Date().toISOString(),rates:{organic:null,inorganic:null},today:{students:0,total_kg:0,points:0,transactions:0,unscored:0},classes:[],top_students:[],bottom_students:[]};
+ else if(path==='/waste/transactions')data={id:'transaction1',total_kg:0.5,points_earned:null};
+ else if(path.startsWith('/library/summary'))data=[{class_id:'class1',class_name:'X IPA 1',total:12}];
  else if(path==='/library/visits')data={student_name:'Andi Pratama'};
  else if(path==='/auth/logout'){await req.respond({status:204});return;}
  else{unexpected.push(path);status=404;}

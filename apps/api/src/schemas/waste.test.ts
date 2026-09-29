@@ -16,6 +16,11 @@ describe("waste contract", () => {
     }).success).toBe(false);
   });
 
+  it("rejects precision that the database would silently round", () => {
+    expect(createWasteSchema.safeParse({ event_id: id, class_id: id, student_id: id,
+      organic_kg: 0.1234, inorganic_kg: 0, source: "MANUAL" }).success).toBe(false);
+  });
+
   it("accepts scale source", () => {
     expect(createWasteSchema.safeParse({
       event_id: id,

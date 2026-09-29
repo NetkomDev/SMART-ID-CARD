@@ -1558,6 +1558,7 @@ export type Database = {
       }
       parent_student_links: {
         Row: {
+          portal_session_id: string | null
           id: string
           linked_at: string
           parent_user_id: string
@@ -1568,6 +1569,7 @@ export type Database = {
           student_id: string
         }
         Insert: {
+          portal_session_id?: string | null
           id?: string
           linked_at?: string
           parent_user_id: string
@@ -1578,6 +1580,7 @@ export type Database = {
           student_id: string
         }
         Update: {
+          portal_session_id?: string | null
           id?: string
           linked_at?: string
           parent_user_id?: string
@@ -1973,6 +1976,8 @@ export type Database = {
           timezone: string
           updated_at: string
           waste_end_time: string | null
+          waste_organic_points_per_kg: number | null
+          waste_inorganic_points_per_kg: number | null
           waste_start_time: string | null
         }
         Insert: {
@@ -1986,6 +1991,8 @@ export type Database = {
           timezone?: string
           updated_at?: string
           waste_end_time?: string | null
+          waste_organic_points_per_kg?: number | null
+          waste_inorganic_points_per_kg?: number | null
           waste_start_time?: string | null
         }
         Update: {
@@ -1999,6 +2006,8 @@ export type Database = {
           timezone?: string
           updated_at?: string
           waste_end_time?: string | null
+          waste_organic_points_per_kg?: number | null
+          waste_inorganic_points_per_kg?: number | null
           waste_start_time?: string | null
         }
         Relationships: []
@@ -2159,6 +2168,7 @@ export type Database = {
       }
       students: {
         Row: {
+          photo_url: string | null
           created_at: string
           date_of_birth: string | null
           deleted_at: string | null
@@ -2173,6 +2183,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          photo_url?: string | null
           created_at?: string
           date_of_birth?: string | null
           deleted_at?: string | null
@@ -2187,6 +2198,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          photo_url?: string | null
           created_at?: string
           date_of_birth?: string | null
           deleted_at?: string | null
@@ -2257,6 +2269,7 @@ export type Database = {
           event_id: string
           id: string
           inorganic_kg: number
+          points_earned: number | null
           organic_kg: number
           school_id: string
           source: Database["public"]["Enums"]["waste_source"]
@@ -2270,6 +2283,7 @@ export type Database = {
           event_id: string
           id?: string
           inorganic_kg: number
+          points_earned?: number | null
           organic_kg: number
           school_id: string
           source: Database["public"]["Enums"]["waste_source"]
@@ -2283,6 +2297,7 @@ export type Database = {
           event_id?: string
           id?: string
           inorganic_kg?: number
+          points_earned?: number | null
           organic_kg?: number
           school_id?: string
           source?: Database["public"]["Enums"]["waste_source"]
@@ -2326,6 +2341,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      waste_dashboard: { Args: { p_school_id: string; p_period?: string }; Returns: Json }
       acknowledge_led_content: {
         Args: {
           device_secret: string

@@ -4,51 +4,63 @@
   <meta charset="utf-8">
   <meta name="referrer" content="no-referrer">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <link rel="apple-touch-icon" href="/icon-192.png">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#102f43">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#07563f">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <link rel="manifest" href="/manifest.webmanifest">
-  <title>AKSIS Library Terminal</title>
+  <title>AKSIS Pustaka Sekolah</title>
 </head>
 <body>
-  <main>
-    <header>
-      <div style="display: flex; align-items: center; gap: 0.75rem;">
-        <img src="/logo.png" alt="AKSIS Logo" style="height: 32px; width: auto; object-fit: contain; filter: drop-shadow(0px 0px 4px rgba(255, 255, 255, 0.8));">
-        <div style="display: flex; flex-direction: column; justify-content: center; text-align: left;">
-          <b style="line-height: 1;">AKSIS</b>
-          <span style="font-size: 0.75rem; margin-top: 0.2rem;">Terminal Perpustakaan</span>
-        </div>
+  <main class="library-shell">
+    <header class="portal-header">
+      <div class="portal-brand">
+        <img src="/logo.png" alt="Logo AKSIS">
+        <div><b>AKSIS</b><strong>Pustaka Sekolah</strong><span id="library-school">Petugas Perpustakaan</span></div>
       </div>
+      <div class="book-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V4H6.5A2.5 2.5 0 0 0 4 6.5v13Zm0 0A2.5 2.5 0 0 0 6.5 22H20v-5"/><path d="M8 7h8M8 11h6"/></svg></div>
     </header>
-    <section id="panel" hidden>
-      <small>KUNJUNGAN PERPUSTAKAAN</small>
-      <h1>Catat kunjungan</h1>
-      <p>Pindai QR kartu siswa atau gunakan reader untuk membaca UID kartu.</p>
-      
-      <div class="scanner-box">
-        <div id="qr-reader" style="width: 100%; margin-bottom: 1rem; border-radius: 12px; overflow: hidden; display: none;"></div>
-        <button id="btn-toggle-camera" type="button" class="btn-secondary" style="margin-bottom: 1rem; width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+
+    <section id="panel" class="library-content" hidden>
+      <div class="intro-row">
+        <div><small>LAYANAN PERPUSTAKAAN</small><h1>Pindai QR Siswa</h1><p>Arahkan kamera ke QR kartu pelajar atau gunakan reader kartu sekolah.</p></div>
+        <span class="live-pill"><i></i> Siap</span>
+      </div>
+
+      <div class="scanner-card">
+        <div class="scanner-heading">
+          <span class="round-icon"><svg viewBox="0 0 24 24"><path d="M5 3H3v4M19 3h2v4M5 21H3v-4m16 4h2v-4M7 7h3v3H7zm7 0h3v3h-3zM7 14h3v3H7zm7 0h1v1h2v2h-3z"/></svg></span>
+          <div><strong>Pemindai Identitas</strong><span>QR kartu atau UID siswa</span></div>
+        </div>
+        <div id="qr-reader" class="camera-reader"></div>
+        <button id="btn-toggle-camera" type="button" class="camera-button">
+          <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
           Buka Kamera Scanner
         </button>
-        
-        <form id="scan" style="margin:0;">
-          <input aria-label="QR atau UID kartu siswa" type="text" id="card" placeholder="Pindai QR atau baca UID kartu" style="width:100%; text-align:center; font-size: 1.15rem; font-weight:700; padding: 1rem; background: rgba(255,255,255,0.8);" autocomplete="off" required minlength="4" maxlength="64" />
+        <div class="scan-divider"><span>atau gunakan reader</span></div>
+        <form id="scan">
+          <label for="card" class="sr-only">QR atau UID kartu siswa</label>
+          <div class="scan-input-wrap"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h4M7 13h7"/></svg><input type="text" id="card" placeholder="Pindai QR atau baca UID kartu" autocomplete="off" required minlength="4" maxlength="64"></div>
         </form>
-        <p style="margin-top:1.25rem; font-size: 0.85rem; font-weight: 600; color: var(--primary);">Menunggu pindai identitas...</p>
+        <p class="waiting"><i></i> Menunggu pindai identitas…</p>
       </div>
-      
+
       <output id="status" aria-live="polite">Siap memindai</output>
-      
-      <div class="queue-status">
-        <span>Antrean Sinkronisasi:</span>
-        <b id="queued">0</b>
-      </div>
-      <div class="actions-row">
-        <button id="sync">Sinkronkan sekarang</button>
-        <button id="logout" class="btn-secondary">Keluar dari portal</button>
-      </div>
+      <section id="student-result" class="student-result" hidden>
+        <div class="result-check"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></div>
+        <div><span>Kunjungan berhasil dicatat</span><strong id="student-name">Siswa</strong><small id="visit-time">Hari ini</small></div>
+      </section>
+
+      <section class="service-card">
+        <div class="section-title"><span class="round-icon blue"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V4H6.5A2.5 2.5 0 0 0 4 6.5v13Zm0 0A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg></span><div><strong>Kunjungan Perpustakaan</strong><span>Aktivitas tercatat hari ini</span></div></div>
+        <div class="visit-stats">
+          <div><span class="stat-icon"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><strong id="today-visits">—</strong><span>kunjungan hari ini</span></div>
+          <div><span class="stat-icon"><svg viewBox="0 0 24 24"><path d="M3 3v18h18M7 16l4-5 4 3 5-7"/></svg></span><strong id="active-classes">—</strong><span>kelas berkunjung</span></div>
+          <div><span class="stat-icon"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span><strong id="queued">0</strong><span>antrean sinkronisasi</span></div>
+        </div>
+      </section>
+
+      <div class="sync-banner"><span class="round-icon"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span><div><strong>Data kunjungan tersimpan</strong><span>Sistem akan menyinkronkan data secara otomatis.</span></div></div>
+      <div class="actions-row"><button id="sync">Sinkronkan sekarang</button></div>
     </section>
   </main>
   <script type="module" src="/src/main.ts"></script>

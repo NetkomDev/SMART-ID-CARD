@@ -1,209 +1,329 @@
-import { gateIntro, gateHelp, schoolLabel } from "../../shared/portal-ui";
+import { gateIntro, gateHelp, escapePortal as esc } from "../../shared/portal-ui";
 import "./style.css";
-import { PortalSession } from "../../shared/portal-session";
+import { PortalError, PortalSession } from "../../shared/portal-session";
 import { setupInstallPrompt, offerInstall } from "../../shared/install-prompt";
 import { Html5Qrcode } from "html5-qrcode";
-const portal = new PortalSession("WASTE_STAFF", import.meta.env.VITE_API_BASE_URL ?? "/api/v1");
-setupInstallPrompt("Piket Bank Sampah", import.meta.env.BASE_URL, import.meta.env.PROD);
 import { calculateWasteMeasurement, type WasteType, type WasteUnit } from "./waste-calculation.js";
 
-const entry = document.getElementById("view-login")!;
-entry.classList.add('portal-gate');
-const accessForm = document.getElementById('form-login')!;
-entry.innerHTML = gateIntro('Piket Bank Sampah', 'Catat setoran siswa dan aktivitas kebersihan kelas melalui akses resmi sekolah.');
-entry.append(accessForm); entry.insertAdjacentHTML('beforeend', gateHelp);
-// DOM Elements
-const views = {
-  error: document.getElementById("view-error")!,
-  login: document.getElementById("view-login")!,
-  scan: document.getElementById("view-scan")!,
-  input: document.getElementById("view-input")!,
-  success: document.getElementById("view-success")!
-};
+const portal = new PortalSession("WASTE_STAFF", import.meta.env.VITE_API_BASE_URL ?? "/api/v1");
+setupInstallPrompt("Piket Bank Sampah", import.meta.env.BASE_URL, import.meta.env.PROD);
+const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
+const input = <T extends HTMLInputElement | HTMLSelectElement = HTMLInputElement>(id: string) => el<T>(id);
+const number = (n: number) => new Intl.NumberFormat("id-ID", { maximumFractionDigits: 3 }).format(n);
+const message = (error: unknown) => error instanceof Error ? error.message : "Layanan belum dapat dihubungi. Coba kembali.";
+const login = el("view-login");
+const loginForm = el<HTMLFormElement>("form-login");
+login.classList.add("portal-gate");
+login.innerHTML = gateIntro("Piket Bank Sampah", "Catat setoran dan lihat kontribusi sekolah melalui akses resmi dari admin.");
+login.append(loginForm); login.insertAdjacentHTML("beforeend", gateHelp);
 
-const elements = {
-  className: document.getElementById("class-name-label")!,
-  formLogin: document.getElementById("form-login") as HTMLFormElement,
-  loginError: document.getElementById("login-error")!,
-  formScan: document.getElementById("form-scan") as HTMLFormElement,
-  scanInput: document.getElementById("scan-input") as HTMLInputElement,
-  scanError: document.getElementById("scan-error")!,
-  btnLogout: document.getElementById("btn-logout")!,
-
-  formInput: document.getElementById("form-input") as HTMLFormElement,
-  inputStudentName: document.getElementById("input-student-name")!,
-  inputStudentNisn: document.getElementById("input-student-nisn")!,
-  weightInput: document.getElementById("weight-input") as HTMLInputElement,
-  unitSelect: document.getElementById("unit-select") as HTMLSelectElement,
-  wasteTypeSelect: document.getElementById("waste-type") as HTMLSelectElement,
-  totalOutput: document.getElementById("total") as HTMLOutputElement,
-  inputError: document.getElementById("input-error")!,
-  btnCancelInput: document.getElementById("btn-cancel-input")!,
-
-  btnNextScan: document.getElementById("btn-next-scan")!
-};
-
-let currentClassId = "";
-let currentStudentId = "";
-
-let html5QrCode: Html5Qrcode | null = null;
-let isScanning = false;
-
-async function stopCameraScanner() {
-  if (html5QrCode && isScanning) {
-    try { await html5QrCode.stop(); } catch (e) {}
-    isScanning = false;
-    document.getElementById("qr-reader")!.style.display = "none";
-    document.getElementById("btn-toggle-camera")!.innerHTML = `
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-      Buka Kamera Scanner
-    `;
-  }
-}
-
-async function startCameraScanner() {
-  if (!html5QrCode) html5QrCode = new Html5Qrcode("qr-reader");
+let loginScanner: Html5Qrcode | null = null;
+el("btn-start-login-scan").addEventListener("click", async () => {
+  el("btn-start-login-scan").style.display = "none";
+  el("btn-login-retry").style.display = "none";
+  el("login-scanner-container").style.display = "block";
   try {
-    document.getElementById("qr-reader")!.style.display = "block";
-
-    const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-    const onScanSuccess = async (decodedText: string) => {
-      elements.scanInput.value = decodedText;
-      await stopCameraScanner();
-      elements.formScan.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
-    };
-
-    try {
-      // Prioritaskan secara paksa (strict) menggunakan kamera belakang
-      await html5QrCode.start({ facingMode: { exact: "environment" } }, config, onScanSuccess, () => {});
-    } catch (e) {
-      // Fallback jika device tidak mengenali constraint "exact: environment"
-      await html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess, () => {});
-    }
-
-    isScanning = true;
-    document.getElementById("btn-toggle-camera")!.innerHTML = "Tutup Kamera";
-  } catch (err) {
-    elements.scanError.textContent = "Kamera tidak dapat diakses atau tidak ditemukan.";
-    document.getElementById("qr-reader")!.style.display = "none";
+    loginScanner ??= new Html5Qrcode("login-qr-reader");
+    await loginScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: (w, h) => ({ width: Math.min(250, w * .8, h * .8), height: Math.min(250, w * .8, h * .8) }) }, decoded => {
+      try {
+        const url = new URL(decoded);
+        if (url.hash.includes("token=") || url.searchParams.has("token")) {
+          void loginScanner?.stop().catch(() => {});
+          window.location.href = decoded;
+        }
+      } catch { /* ignore invalid URLs */ }
+    }, () => undefined);
+  } catch (error) {
+    el("login-error").textContent = "Kamera tidak dapat diakses untuk memindai QR.";
+    el("login-scanner-container").style.display = "none";
+    el("btn-start-login-scan").style.display = "block";
   }
-}
-
-document.getElementById("btn-toggle-camera")!.addEventListener("click", () => {
-  if (isScanning) stopCameraScanner();
-  else startCameraScanner();
 });
+el("btn-cancel-login-scan").addEventListener("click", async () => {
+  if (loginScanner) { try { await loginScanner.stop(); } catch {} }
+  el("login-scanner-container").style.display = "none";
+  el("btn-start-login-scan").style.display = "block";
+});
+el("form-login").addEventListener("submit", (e) => { e.preventDefault(); void init(); });
 
-function switchView(viewName: keyof typeof views) {
-  if (viewName !== "scan") stopCameraScanner();
-  Object.values(views).forEach(v => v.style.display = "none");
-  views[viewName].style.display = "block";
-  if (viewName === "scan") setTimeout(() => elements.scanInput.focus(), 100);
+type View = "login" | "scan" | "input" | "success" | "ranking";
+type Student = { id: string; full_name: string; nisn?: string | null; student_number: string };
+type RankedStudent = { student_id: string; full_name: string; class_name: string; total_kg: number };
+type Dashboard = {
+  school_id: string;
+  period: string; timezone: string; as_of: string; rates: { organic: number | null; inorganic: number | null };
+  today: { students: number; total_kg: number; points: number; transactions: number; unscored: number };
+  classes: { class_id: string; class_name: string; total_kg: number; student_count: number }[];
+  top_students: RankedStudent[]; bottom_students: RankedStudent[];
+};
+let view: View = "login", classId = "", className = "", student: Student | null = null;
+let dashboard: Dashboard | null = null, dashboardRequest = 0;
+let activePortalId = "";
+let scanning = false, cameraBusy = false, cameraStart: Promise<void> | null = null, facing: "environment" | "user" = "environment";
+let scanner: Html5Qrcode | null = null, resolving = false, saving = false;
+type PendingDeposit = { event_id: string; class_id: string; student_id: string; organic_kg: number; inorganic_kg: number; source: string };
+let pending: PendingDeposit | null = null;
+const pendingKey = () => `aksis.waste.pending.${portal.context?.id ?? ""}`;
+function rememberPending() {
+  try {
+    if (pending && student) sessionStorage.setItem(pendingKey(), JSON.stringify({ pending, student }));
+    else sessionStorage.removeItem(pendingKey());
+  } catch { /* In-memory retry still protects this session when storage is disabled. */ }
+}
+function showStudent(selected: Student) {
+  student = selected;
+  el("input-student-name").textContent = student.full_name;
+  el("input-student-nisn").textContent = `${portal.context!.school_name} · ${className} · ${student.nisn || student.student_number}`;
+  el("student-avatar").textContent = student.full_name.split(/\s+/).slice(0, 2).map(n => n[0]).join("").toUpperCase();
 }
 
-// QR exchange and saved-session restoration share the same path.
-async function init() {
-  switchView("login");
-  elements.loginError.textContent = "Membuka akses sekolah…";
+async function stopCamera() {
+  if (cameraStart) await cameraStart;
+  if (scanning && scanner) { try { await scanner.stop(); } catch { /* Already stopped by browser. */ } }
+  scanning = false;
+  el("qr-reader").style.display = "none";
+  el("scanner-placeholder").hidden = false;
+  el("btn-toggle-camera").textContent = "Buka Kamera Scanner";
+}
+async function startCamera() {
+  if (cameraBusy || scanning) return;
+  cameraBusy = true;
+  el<HTMLButtonElement>("btn-toggle-camera").disabled = true;
+  cameraStart = (async () => {
+    try {
+      scanner ??= new Html5Qrcode("qr-reader");
+      el("scan-error").textContent = "";
+      el("qr-reader").style.display = "block";
+      el("scanner-placeholder").hidden = true;
+      await scanner.start({ facingMode: facing }, { fps: 10, qrbox: (w, h) => ({ width: Math.min(220, w * .7, h * .7), height: Math.min(220, w * .7, h * .7) }) }, decoded => {
+        if (resolving || view !== "scan") return;
+        input("scan-input").value = decoded;
+        void resolveStudent();
+      }, () => undefined);
+      scanning = true;
+      el("btn-toggle-camera").textContent = "Tutup Kamera";
+    } catch {
+      el("scan-error").textContent = "Kamera tidak tersedia. Izinkan akses kamera atau masukkan nomor siswa.";
+      el("qr-reader").style.display = "none";
+      el("scanner-placeholder").hidden = false;
+    } finally { cameraBusy = false; el<HTMLButtonElement>("btn-toggle-camera").disabled = false; }
+  })();
+  await cameraStart; cameraStart = null;
+}
+function switchView(next: View) {
+  view = next;
+  if (next !== "scan") void stopCamera();
+  for (const name of ["login", "scan", "input", "success", "ranking"] as View[]) {
+    el(`view-${name}`).style.display = name === next || (next === "input" && name === "scan") ? "block" : "none";
+  }
+  el("workspace-nav").hidden = next === "login";
+  el("today-panel").hidden = next !== "ranking";
+  el("form-scan").hidden = next === "input";
+  el("btn-toggle-camera").hidden = next === "input";
+  el("btn-switch-camera").hidden = next === "input";
+  el("scanner-hint").textContent = next === "input" ? "Identitas siswa berhasil diverifikasi" : "Kartu kecil, langkah besar untuk bumi yang lebih bersih.";
+  el("scan-status").textContent = next === "input" ? "✓ Siswa terdeteksi · siap mencatat setoran" : "Siap memindai identitas siswa";
+  document.body.classList.toggle("show-ranking", next === "ranking");
+  el("header-subtitle").textContent = "Bank Sampah Sekolah";
+  if (next === "ranking") window.scrollTo({ top: 0, behavior: "instant" });
+  for (const [id, active] of [["btn-ranking", next === "ranking"], ["btn-deposit", next !== "ranking"]] as const) {
+    el(id).classList.toggle("active", active);
+    if (active) el(id).setAttribute("aria-current", "page"); else el(id).removeAttribute("aria-current");
+  }
+}
+function updateMeasurement() {
+  const type = document.querySelector<HTMLInputElement>('input[name="waste_type"]:checked')!.value as WasteType;
+  const result = calculateWasteMeasurement(Number(input("weight-input").value), input<HTMLSelectElement>("unit-select").value as WasteUnit, type);
+  el<HTMLOutputElement>("total").value = `${number(result.total_kg)} kg`;
+  const rate = type === "ORGANIC" ? dashboard?.rates.organic : dashboard?.rates.inorganic;
+  el("points-preview").textContent = rate == null ? "—" : `${number(Math.round(result.total_kg * rate * 100) / 100)} poin`;
+  el("points-hint").textContent = rate == null ? (dashboard ? "Tarif poin belum diatur sekolah" : "Tarif poin belum tersedia") : `${number(rate)} poin / kg`;
+  return result;
+}
+function clearDailySummary() {
+  for (const id of ["today-students", "today-weight", "today-points"]) el(id).textContent = "—";
+  el("today-date").textContent = "";
+  el("today-points-label").textContent = "Total poin tercatat";
+}
+function renderDashboard(data: Dashboard) {
+  el("today-date").textContent = new Intl.DateTimeFormat("id-ID", { timeZone: data.timezone, weekday: "short", day: "numeric", month: "short", year: "numeric" }).format(new Date(data.as_of));
+  el("today-students").textContent = `${number(data.today.students)} siswa`;
+  el("today-weight").textContent = `${number(data.today.total_kg)} kg`;
+  const noRecordedPoints = data.today.transactions > 0 && data.today.unscored === data.today.transactions;
+  el("today-points").textContent = noRecordedPoints || (data.rates.organic == null && data.rates.inorganic == null && data.today.points === 0) ? "—" : `${number(data.today.points)} poin`;
+  el("today-points-label").textContent = data.today.unscored ? `${data.today.unscored} setoran belum memiliki poin` : "Total poin tercatat";
+  el("today-date").title = `Tanggal sekolah · ${data.timezone}`;
+  const colors = ["#087f52", "#54b980", "#91ce6d", "#d5ae42", "#70aeb0"];
+  const total = data.classes.reduce((sum, c) => sum + c.total_kg, 0);
+  const contributors = data.classes.filter(c => c.total_kg > 0).length;
+  const periodLabel = { today: "Hari ini", month: "Bulan ini", all: "Semua waktu" }[data.period] ?? "Periode terpilih";
+  el("period-weight").textContent = `${number(total)} kg`;
+  el("period-caption").textContent = periodLabel;
+  el("participating-classes").textContent = `${number(contributors)} / ${number(data.classes.length)} kelas`;
+  el("participation-caption").textContent = contributors ? "Sudah menyetor pada periode ini" : "Yuk, mulai setoran pertama!";
+  const leader = data.classes[0];
+  el("leading-class").textContent = total > 0 && leader ? `${leader.class_name} menyumbang ${number(Math.round(leader.total_kg / total * 1000) / 10)}% dari total kelas aktif` : "Belum ada setoran pada periode ini.";
+  let offset = 0;
+  const segments = data.classes.filter(c => c.total_kg > 0).map(c => {
+    const start = offset; offset += c.total_kg / total * 100;
+    return `${colors[data.classes.indexOf(c) % colors.length]} ${start}% ${offset}%`;
+  });
+  el("contribution-donut").style.background = segments.length ? `conic-gradient(${segments.join(",")})` : "#e2ece6";
+  el("contribution-donut").setAttribute("aria-label", total > 0 ? `Kontribusi kelas: ${data.classes.filter(c => c.total_kg > 0).map(c => `${c.class_name} ${number(c.total_kg)} kg`).join(", ")}` : "Belum ada setoran kelas pada periode ini");
+  const max = Math.max(1, ...data.classes.map(c => c.total_kg));
+  el("class-ranking").innerHTML = data.classes.length ? data.classes.slice(0, 3).map((c, i) => `<li style="--bar-height:${Math.max(0, Math.min(100, c.total_kg / max * 100))}%"><span class="rank-number">${i + 1}</span><div class="rank-person"><strong><i class="chart-key" style="background:${colors[i % colors.length]}" aria-hidden="true"></i>${esc(c.class_name)}</strong><span>${number(c.student_count)} siswa menyetor</span><div class="rank-bar" aria-hidden="true"><i style="width:${Math.max(0, Math.min(100, c.total_kg / max * 100))}%;background:${colors[i % colors.length]}"></i></div></div><span class="rank-weight">${number(c.total_kg)} kg</span></li>`).join("") : '<li class="empty-ranking">Belum ada kelas aktif.</li>';
+  const studentMax = Math.max(1, ...data.top_students.map(s => s.total_kg), ...data.bottom_students.map(s => s.total_kg));
+  const renderStudents = (rows: RankedStudent[], empty: string) => rows.length ? rows.map((s, i) => `<li><span class="rank-number">${i + 1}</span><div class="rank-person"><strong>${esc(s.full_name)}</strong><span>${esc(s.class_name)}${s.total_kg === 0 ? " · Belum menyetor" : ""}</span><div class="rank-bar student-bar" aria-hidden="true"><i style="width:${Math.max(0, Math.min(100, s.total_kg / studentMax * 100))}%"></i></div></div><span class="rank-weight">${number(s.total_kg)} kg</span></li>`).join("") : `<li class="empty-ranking">${empty}</li>`;
+  el("top-students").innerHTML = renderStudents(data.top_students, "Belum ada setoran pada periode ini.");
+  el("bottom-students").innerHTML = renderStudents(data.bottom_students, "Belum ada siswa aktif dalam kelas.");
+  el("ranking-updated").textContent = `Diperbarui ${new Intl.DateTimeFormat("id-ID", { timeZone: data.timezone, dateStyle: "medium", timeStyle: "short" }).format(new Date(data.as_of))}`;
+  updateMeasurement();
+}
+async function loadDashboard() {
+  if (!portal.connected || view === "login") return;
+  if (portal.context!.id !== activePortalId) { window.location.reload(); return; }
+  const schoolId = portal.context!.school_id;
+  const requestId = ++dashboardRequest;
+  el<HTMLButtonElement>("btn-refresh").disabled = true;
+  el("ranking-content").setAttribute("aria-busy", "true");
   try {
-    if (!await portal.start()) {
-      elements.loginError.textContent = "Pindai QR Piket Bank Sampah dari admin sekolah untuk masuk.";
+    const data = await portal.request<Dashboard>(`/waste/dashboard?period=${input<HTMLSelectElement>("ranking-period").value}`);
+    if (requestId !== dashboardRequest || !portal.connected) return;
+    if (portal.context?.school_id !== schoolId || data.school_id !== schoolId) {
+      dashboard = null;
+      el("ranking-content").hidden = true;
+      throw new PortalError("Konteks sekolah berubah. Muat ulang halaman sebelum melihat data.", 403, "PORTAL_MISMATCH");
+    }
+    dashboard = data; renderDashboard(data);
+    el("ranking-content").hidden = false;
+    el("dashboard-error").textContent = ""; el("ranking-error").textContent = "";
+  } catch (error) {
+    if (requestId !== dashboardRequest) return;
+    clearDailySummary();
+    if (error instanceof PortalError && (error.status === 401 || error.status === 403)) {
+      switchView("login");
+      el("login-error").textContent = message(error);
+      el("btn-login-retry").style.display = "block";
+      el("btn-start-login-scan").style.display = "block";
       return;
     }
-    schoolLabel(portal.context!.school_name);
-    currentClassId = portal.context?.metadata.class_id ?? "";
-    if (!currentClassId) throw new Error("QR belum terhubung ke kelas. Hubungi admin sekolah.");
-    const cls = await portal.request<{name:string}>(`/classes/${currentClassId}`);
-    elements.className.textContent = cls.name.toUpperCase().startsWith("KELAS ")
-      ? cls.name.toUpperCase()
-      : `KELAS ${cls.name.toUpperCase()}`;
-    switchView("scan"); offerInstall();
-  } catch (error) {
-    elements.loginError.textContent = error instanceof Error ? error.message : "Belum dapat terhubung.";
+    const text = `Data belum diperbarui. ${message(error)}`;
+    el("dashboard-error").textContent = text; el("ranking-error").textContent = text;
+    el("ranking-updated").textContent = "Pembaruan gagal · tekan Perbarui untuk mencoba lagi";
+    if (!dashboard || dashboard.period !== input<HTMLSelectElement>("ranking-period").value) el("ranking-content").hidden = true;
+  } finally {
+    if (requestId === dashboardRequest) { el<HTMLButtonElement>("btn-refresh").disabled = false; el("ranking-content").setAttribute("aria-busy", "false"); }
   }
 }
-
-// 2. LOGIN (Disabled)
-elements.formLogin.addEventListener("submit", (e) => {
-  e.preventDefault();
-  void init();
-});
-
-elements.btnLogout.addEventListener("click", async () => {
-  await portal.logout().catch(() => undefined);
-  currentClassId = "";
-  elements.loginError.textContent = "Anda sudah keluar. Pindai QR untuk masuk kembali.";
-  switchView("login");
-});
-
-// 3. SCAN
-elements.formScan.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const query = elements.scanInput.value.trim();
-  if (!query) return;
-
-  elements.scanError.textContent = "Mencari siswa...";
+async function init() {
+  clearDailySummary();
+  switchView("login"); el("login-error").textContent = "Membuka akses sekolah…";
   try {
-    const students = /^[a-f0-9]{48}$/.test(query)
-      ? [await portal.request<{id:string;full_name:string;nisn?:string|null;student_number:string}>("/cards/resolve", { method: "POST", body: JSON.stringify({qr_key:query}) })]
-      : await portal.request<Array<{id:string;full_name:string;nisn:string|null;student_number:string}>>(`/students?search=${encodeURIComponent(query)}`);
-    if (students.length !== 1) throw new Error(students.length ? "Lebih dari satu siswa cocok. Masukkan NIS/NISN lengkap." : "Siswa tidak ditemukan di kelas ini.");
-    const student = students[0]!;
-    currentStudentId = student.id;
-    elements.inputStudentName.textContent = student.full_name;
-    elements.inputStudentNisn.textContent = `NISN: ${student.nisn || student.student_number}`;
-    elements.scanInput.value = "";
-    elements.scanError.textContent = "";
-
-    // Reset Form Input
-    elements.weightInput.value = "0.500";
-    elements.unitSelect.value = "KG";
-    updateTotal();
-    switchView("input");
-  } catch (err: any) {
-    elements.scanError.textContent = err.message;
-    elements.scanInput.select();
-  }
-});
-
-// 4. INPUT
-function updateTotal() {
-  const measurement = calculateWasteMeasurement(
-    Number(elements.weightInput.value),
-    elements.unitSelect.value as WasteUnit,
-    elements.wasteTypeSelect.value as WasteType
-  );
-  elements.totalOutput.value = `Total ${measurement.total_kg.toFixed(3)} kg`;
-  return measurement;
-}
-
-elements.formInput.addEventListener("input", updateTotal);
-
-elements.btnCancelInput.addEventListener("click", () => switchView("scan"));
-
-elements.formInput.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  elements.inputError.textContent = "Menyimpan...";
-  const measurement = updateTotal();
-  const eventId = crypto.randomUUID(); // Idempotency key
-
-  try {
-    await portal.request("/waste/transactions", {
-      method: "POST",
-      body: JSON.stringify({ event_id: eventId, class_id: currentClassId, student_id: currentStudentId,
-        organic_kg: measurement.organic_kg, inorganic_kg: measurement.inorganic_kg, source: measurement.source })
-    });
-    elements.inputError.textContent = "";
-    switchView("success");
-  } catch (err: any) {
-    elements.inputError.textContent = err.message;
-    if (err.message.toLowerCase().includes("jadwal")) {
-      alert(err.message);
+    if (!await portal.start()) {
+      el("login-error").textContent = "Pindai QR Akses dari admin sekolah untuk masuk.";
+      el("btn-start-login-scan").style.display = "block";
+      el("btn-login-retry").style.display = "none";
+      return;
     }
+    classId = portal.context!.metadata.class_id ?? "";
+    activePortalId = portal.context!.id;
+    if (!classId) throw new Error("QR belum terhubung ke kelas. Hubungi admin sekolah.");
+    const cls = await portal.request<{ name: string }>(`/classes/${classId}`);
+    className = cls.name;
+    el("class-name-label").textContent = `Kelas ${className.replace(/^(?:kelas\s+)+/i, "").trim()}`;
+    el("school-name").textContent = portal.context!.school_name;
+    el("today-scope").textContent = `Semua kelas di ${portal.context!.school_name}`;
+    el("staff-label").textContent = `Piket ${className}`;
+    switchView("scan");
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(pendingKey()) ?? "null") as { pending: PendingDeposit; student: Student } | null;
+      if (saved?.pending.class_id === classId && saved.student.id === saved.pending.student_id) {
+        pending = saved.pending; showStudent(saved.student);
+        input("weight-input").value = String(pending.organic_kg + pending.inorganic_kg);
+        input<HTMLSelectElement>("unit-select").value = "KG";
+        document.querySelector<HTMLInputElement>(`input[value="${pending.organic_kg > 0 ? "ORGANIC" : "INORGANIC"}"]`)!.checked = true;
+        lockForm(true); switchView("input"); updateMeasurement();
+        el("input-error").textContent = "Ada setoran yang belum terkonfirmasi. Tekan Simpan Setoran untuk memeriksa atau mengulang tanpa menggandakan data.";
+      }
+    } catch { /* Ignore malformed browser storage. */ }
+    void loadDashboard(); offerInstall();
+  } catch (error) {
+    el("login-error").textContent = message(error);
+    el("btn-login-retry").style.display = "block";
+    el("btn-start-login-scan").style.display = "block";
   }
+}
+async function resolveStudent() {
+  const query = input("scan-input").value.trim();
+  if (!query || resolving || pending) return;
+  resolving = true; el("scan-error").textContent = "Mencari siswa…";
+  el<HTMLButtonElement>("btn-ranking").disabled = true;
+  try {
+    await stopCamera();
+    const students = /^[a-f0-9]{48}$/.test(query)
+      ? [await portal.request<Student>("/cards/resolve", { method: "POST", body: JSON.stringify({ qr_key: query }) })]
+      : await portal.request<Student[]>(`/students?search=${encodeURIComponent(query)}`);
+    if (students.length !== 1) throw new Error(students.length ? "Lebih dari satu siswa cocok. Masukkan NIS/NISN lengkap." : "Siswa tidak ditemukan di kelas ini.");
+    if (view !== "scan") return;
+    showStudent(students[0]!);
+    input("scan-input").value = ""; el("scan-error").textContent = ""; el("input-error").textContent = "";
+    input("weight-input").value = "0.500"; input<HTMLSelectElement>("unit-select").value = "KG";
+    document.querySelector<HTMLInputElement>('input[value="ORGANIC"]')!.checked = true;
+    updateMeasurement(); switchView("input");
+  } catch (error) { el("scan-error").textContent = message(error); }
+  finally { resolving = false; el<HTMLButtonElement>("btn-ranking").disabled = false; }
+}
+function lockForm(locked: boolean) {
+  el("form-input").querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>("input, select, button[type=button]").forEach(control => control.disabled = locked);
+  el<HTMLButtonElement>("btn-cancel-input").disabled = locked;
+}
+async function saveDeposit(e: SubmitEvent) {
+  e.preventDefault();
+  if (saving || !student) return;
+  const measurement = updateMeasurement();
+  if (!Number.isFinite(measurement.total_kg) || measurement.total_kg <= 0 || measurement.total_kg > 1000) { el("input-error").textContent = "Berat harus lebih dari 0 dan maksimal 1.000 kg."; return; }
+  pending ??= { event_id: crypto.randomUUID(), class_id: classId, student_id: student.id, organic_kg: measurement.organic_kg, inorganic_kg: measurement.inorganic_kg, source: measurement.source };
+  rememberPending();
+  saving = true; lockForm(true); el<HTMLButtonElement>("btn-save").disabled = true;
+  el("input-error").textContent = "Menyimpan setoran…";
+  try {
+    const saved = await portal.request<{ total_kg: number; points_earned: number | null }>("/waste/transactions", { method: "POST", body: JSON.stringify(pending) });
+    el("success-detail").textContent = `${student.full_name} · ${number(saved.total_kg)} kg${saved.points_earned == null ? "" : ` · ${number(saved.points_earned)} poin`}. Terima kasih sudah berkontribusi!`;
+    pending = null; rememberPending(); student = null; el("input-error").textContent = ""; lockForm(false); switchView("success"); void loadDashboard();
+  } catch (error) {
+    // Keep the same event and payload after an ambiguous network/server failure.
+    if (error instanceof PortalError && error.status >= 400 && error.status < 500 && error.status !== 409) { pending = null; rememberPending(); lockForm(false); }
+    el("input-error").textContent = `${message(error)}${pending ? " Tekan Simpan Setoran untuk mengecek atau mengulang setoran yang sama tanpa menggandakan data." : ""}`;
+  } finally { saving = false; el<HTMLButtonElement>("btn-save").disabled = false; }
+}
+loginForm.addEventListener("submit", e => { e.preventDefault(); void init(); });
+el("form-scan").addEventListener("submit", e => { e.preventDefault(); void resolveStudent(); });
+el<HTMLFormElement>("form-input").addEventListener("submit", saveDeposit);
+el("form-input").addEventListener("input", updateMeasurement);
+el("btn-toggle-camera").addEventListener("click", () => { if (scanning) void stopCamera(); else void startCamera(); });
+el("btn-switch-camera").addEventListener("click", async () => {
+  if (cameraBusy) return;
+  await stopCamera(); facing = facing === "environment" ? "user" : "environment";
+  el("btn-switch-camera").querySelector("span")!.textContent = facing === "environment" ? "Kamera belakang" : "Kamera depan";
+  void startCamera();
 });
-
-// 5. SUCCESS
-elements.btnNextScan.addEventListener("click", () => switchView("scan"));
-
+for (const [id, delta] of [["weight-minus", -.1], ["weight-plus", .1]] as const) el(id).addEventListener("click", () => {
+  input("weight-input").value = Math.max(.001, Math.min(1000, Number(input("weight-input").value) + delta)).toFixed(3); updateMeasurement();
+});
+el("btn-cancel-input").addEventListener("click", () => { if (!pending) { student = null; switchView("scan"); } });
+el("btn-next-scan").addEventListener("click", () => { student = null; switchView("scan"); });
+el("btn-ranking").addEventListener("click", () => { switchView("ranking"); void loadDashboard(); });
+el("btn-deposit").addEventListener("click", () => switchView(student && view !== "success" ? "input" : "scan"));
+el("btn-refresh").addEventListener("click", () => void loadDashboard());
+el("ranking-period").addEventListener("change", () => { el("ranking-content").hidden = true; el("ranking-updated").textContent = "Memuat periode…"; void loadDashboard(); });
+el("btn-fullscreen").addEventListener("click", async () => {
+  try { if (document.fullscreenElement) await document.exitFullscreen(); else await document.body.requestFullscreen(); }
+  catch { el("ranking-error").textContent = "Layar penuh tidak didukung browser ini. Gunakan mode lanskap untuk tampilan lebih luas."; }
+});
+document.addEventListener("fullscreenchange", () => {
+  document.body.classList.toggle("board-mode", Boolean(document.fullscreenElement));
+  el("btn-fullscreen").textContent = document.fullscreenElement ? "⛶ Keluar layar penuh" : "⛶ Layar penuh";
+});
+window.setInterval(() => { if (!document.hidden && view !== "login") void loadDashboard(); }, 60_000);
+document.addEventListener("visibilitychange", () => { if (document.hidden) void stopCamera(); else void loadDashboard(); });
 void init();

@@ -1,8 +1,9 @@
 import { gateIntro, gateHelp, schoolLabel } from "../../shared/portal-ui";
 
-import { PortalSession } from "../../shared/portal-session";
+import { PortalError, PortalSession } from "../../shared/portal-session";
 import { setupInstallPrompt, offerInstall } from "../../shared/install-prompt";
 import { Html5Qrcode } from "html5-qrcode";
+import "./style.css";
 
 const portal = new PortalSession("TEACHER", import.meta.env.VITE_API_BASE_URL ?? "/api/v1");
 setupInstallPrompt("Ekstrakurikuler", import.meta.env.BASE_URL, import.meta.env.PROD);
@@ -21,6 +22,51 @@ const views = {
 let currentEkskulId = "";
 let currentSessionId = "";
 let pendingStudentId = "";
+let enrollmentKey = "";
+let selecting = false, submitting = false;
+type SessionSummary = { total: number; present: number; excused: number; absent: number };
+
+async function loadSessionSummary() {
+  if (!currentEkskulId || !currentSessionId) return;
+  try {
+    const summary = await request<SessionSummary>(`/extracurriculars/${currentEkskulId}/sessions/${currentSessionId}/summary`);
+    document.getElementById("session-present")!.textContent = String(summary.present);
+    document.getElementById("session-excused")!.textContent = String(summary.excused);
+    document.getElementById("session-total")!.textContent = String(summary.total);
+  } catch {
+    document.getElementById("session-present")!.textContent = "—";
+    document.getElementById("session-excused")!.textContent = "—";
+    document.getElementById("session-total")!.textContent = "—";
+  }
+}
+
+let loginScanner: Html5Qrcode | null = null;
+document.getElementById("btn-start-login-scan")?.addEventListener("click", async () => {
+  document.getElementById("btn-start-login-scan")!.style.display = "none";
+  document.getElementById("btn-login-retry")!.style.display = "none";
+  document.getElementById("login-scanner-container")!.style.display = "block";
+  try {
+    loginScanner ??= new Html5Qrcode("login-qr-reader");
+    await loginScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: (w, h) => ({ width: Math.min(250, w * .8, h * .8), height: Math.min(250, w * .8, h * .8) }) }, decoded => {
+      try {
+        const url = new URL(decoded);
+        if (url.hash.includes("token=") || url.searchParams.has("token")) {
+          void loginScanner?.stop().catch(() => {});
+          window.location.href = decoded;
+        }
+      } catch { /* ignore invalid URLs */ }
+    }, () => undefined);
+  } catch (error) {
+    document.getElementById("login-error")!.textContent = "Kamera tidak dapat diakses untuk memindai QR.";
+    document.getElementById("login-scanner-container")!.style.display = "none";
+    document.getElementById("btn-start-login-scan")!.style.display = "block";
+  }
+});
+document.getElementById("btn-cancel-login-scan")?.addEventListener("click", async () => {
+  if (loginScanner) { try { await loginScanner.stop(); } catch {} }
+  document.getElementById("login-scanner-container")!.style.display = "none";
+  document.getElementById("btn-start-login-scan")!.style.display = "block";
+});
 
 let html5QrCode: Html5Qrcode | null = null;
 let isScanning = false;
@@ -82,7 +128,9 @@ async function init() {
   switchView("login");
   try {
     if (!await portal.start()) {
-      document.getElementById("login-error")!.textContent = "Pindai QR Ekstrakurikuler dari admin sekolah untuk masuk.";
+      document.getElementById("login-error")!.textContent = "Pindai QR Akses dari admin sekolah untuk masuk.";
+      document.getElementById("btn-start-login-scan")!.style.display = "block";
+      document.getElementById("btn-login-retry")!.style.display = "none";
       return;
     }
     schoolLabel(portal.context!.school_name);
@@ -90,6 +138,8 @@ async function init() {
   } catch (error) {
     switchView("login");
     document.getElementById("login-error")!.textContent = error instanceof Error ? error.message : "Belum dapat terhubung.";
+    document.getElementById("btn-login-retry")!.style.display = "block";
+    document.getElementById("btn-start-login-scan")!.style.display = "block";
   }
 }
 
@@ -131,6 +181,9 @@ async function loadDashboard() {
 }
 
 async function selectEkskul(id: string, name: string) {
+  if (selecting || submitting) return;
+  selecting = true;
+  currentSessionId = "";
   currentEkskulId = id;
   document.getElementById("scan-ekskul-title")!.textContent = name;
 
@@ -146,8 +199,8 @@ async function selectEkskul(id: string, name: string) {
     short_name: name,
     start_url: newUrl.pathname + newUrl.search,
     display: "standalone",
-    theme_color: "#102f43",
-    background_color: "#f2f6f8",
+    theme_color: "#07563f",
+    background_color: "#eff8f3",
     icons: [
       { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
       { src: "/icon-512.png", sizes: "512x512", type: "image/png" }
@@ -168,7 +221,7 @@ async function selectEkskul(id: string, name: string) {
 
     // Check if session exists for today
     const sessions = await request<any[]>(`/extracurriculars/${id}/sessions`);
-    let todaySession = sessions.find(s => new Date(s.starts_at).toLocaleDateString("id-ID", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) === todayStr);
+    let todaySession = sessions.find(s => ['OPEN', 'SCHEDULED'].includes(s.status) && new Date(s.starts_at).toLocaleDateString("id-ID", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) === todayStr);
 
     if (!todaySession) {
       // Create if it doesn't exist
@@ -183,10 +236,11 @@ async function selectEkskul(id: string, name: string) {
     document.getElementById("enrollment-prompt")!.style.display = "none";
     document.getElementById("success-prompt")!.style.display = "none";
     switchView("scan");
+    void loadSessionSummary();
   } catch (err: any) {
     alert("Gagal memuat atau membuat sesi: " + err.message);
     switchView("dashboard");
-  }
+  } finally { selecting = false; }
 }
 
 document.querySelectorAll(".back-btn").forEach(btn => btn.addEventListener("click", (e) => {
@@ -207,7 +261,8 @@ document.getElementById("form-scan")!.addEventListener("submit", async (e) => {
   const input = document.getElementById("scan-input") as HTMLInputElement;
   const errorEl = document.getElementById("scan-error")!;
   const query = input.value.trim();
-  if (!query) return;
+  if (!query || submitting || !currentSessionId) return;
+  submitting = true;
 
   errorEl.textContent = "Mencari siswa...";
   document.getElementById("enrollment-prompt")!.style.display = "none";
@@ -220,6 +275,7 @@ document.getElementById("form-scan")!.addEventListener("submit", async (e) => {
     if (students.length !== 1) throw new Error(students.length ? "Masukkan NIS/NISN lengkap agar siswa tidak tertukar." : "Siswa tidak ditemukan.");
     const student = students[0]!;
     pendingStudentId = student.id;
+    enrollmentKey = crypto.randomUUID();
     input.value = "";
     errorEl.textContent = "";
 
@@ -232,10 +288,11 @@ document.getElementById("form-scan")!.addEventListener("submit", async (e) => {
       });
       // Success
       document.getElementById("success-student-name")!.textContent = `${student.full_name} - Hadir`;
-      document.getElementById("success-prompt")!.style.display = "block";
+      document.getElementById("success-prompt")!.style.display = "flex";
+      void loadSessionSummary();
     } catch (err: any) {
       // If error is FK violation or related to membership, trigger Fast Enrollment
-      if (err.message?.includes("foreign key") || err.message?.includes("member")) {
+      if (err instanceof PortalError && err.code === "EXTRACURRICULAR_MEMBER_REQUIRED") {
         document.getElementById("unregistered-student-name")!.textContent = student.full_name;
         document.getElementById("enrollment-prompt")!.style.display = "block";
       } else {
@@ -244,7 +301,7 @@ document.getElementById("form-scan")!.addEventListener("submit", async (e) => {
     }
   } catch (err: any) {
     errorEl.textContent = err.message;
-  }
+  } finally { submitting = false; }
 });
 
 document.getElementById("btn-cancel-enroll")!.addEventListener("click", () => {
@@ -253,6 +310,8 @@ document.getElementById("btn-cancel-enroll")!.addEventListener("click", () => {
 });
 
 document.getElementById("btn-confirm-enroll")!.addEventListener("click", async () => {
+  if (submitting || !pendingStudentId || !enrollmentKey) return;
+  submitting = true;
   const errorEl = document.getElementById("scan-error")!;
   try {
     document.getElementById("enrollment-prompt")!.style.display = "none";
@@ -261,7 +320,7 @@ document.getElementById("btn-confirm-enroll")!.addEventListener("click", async (
     // Fast Enroll
     await request(`/extracurriculars/${currentEkskulId}/members/fast-enroll`, {
       method: "POST", body: JSON.stringify({
-        student_id: pendingStudentId, idempotency_key: crypto.randomUUID(), confirmed: true
+        student_id: pendingStudentId, idempotency_key: enrollmentKey, confirmed: true
       })
     });
 
@@ -275,16 +334,14 @@ document.getElementById("btn-confirm-enroll")!.addEventListener("click", async (
 
     errorEl.textContent = "";
     document.getElementById("success-student-name")!.textContent = `Siswa Berhasil Didaftarkan & Hadir`;
-    document.getElementById("success-prompt")!.style.display = "block";
+    document.getElementById("success-prompt")!.style.display = "flex";
+    void loadSessionSummary();
 
   } catch (err: any) {
     errorEl.textContent = "Gagal: " + err.message;
-  }
+    document.getElementById("enrollment-prompt")!.style.display = "block";
+  } finally { submitting = false; }
 });
 
 void init();
 
-const logout = document.createElement('button'); logout.textContent = 'Keluar'; logout.hidden = true;
-document.querySelector('header')!.append(logout);
-new MutationObserver(() => { logout.hidden = views.login.style.display !== 'none'; }).observe(views.login, {attributes:true,attributeFilter:['style']});
-logout.onclick = async () => { await stopCameraScanner(); await portal.logout().catch(() => undefined); location.replace(location.pathname); };

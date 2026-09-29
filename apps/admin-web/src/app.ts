@@ -662,7 +662,12 @@ async function wastePage(): Promise<void> {
             <label>Jam Tutup<input type="time" name="end_time" id="waste-end" /></label>
           </div>
           <p style="font-size:0.85rem; color:var(--text-light); margin-top:0.5rem; margin-bottom:1rem;">Biarkan kosong jika PWA bebas diakses 24 jam.</p>
-          <button type="submit" class="btn">Simpan Jadwal</button>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+            <label>Poin / kg organik<input type="number" id="waste-organic-rate" min="0" max="10000" step="0.001" placeholder="Belum diatur" /></label>
+            <label>Poin / kg anorganik<input type="number" id="waste-inorganic-rate" min="0" max="10000" step="0.001" placeholder="Belum diatur" /></label>
+          </div>
+          <p style="font-size:.85rem;margin-top:.5rem">Tarif berlaku untuk setoran baru. Kosongkan jika sekolah belum menggunakan poin; poin setoran lama tetap tersimpan.</p>
+          <button type="submit" class="btn">Simpan Pengaturan</button>
         </form>
       </article>
       <article class="panel" style="grid-column: 1 / -1;">
@@ -674,9 +679,16 @@ async function wastePage(): Promise<void> {
     // Fetch and bind schedule
     const scheduleForm = document.getElementById("form-waste-schedule") as HTMLFormElement;
     if (scheduleForm) {
-      api<{ waste_start_time: string, waste_end_time: string }>("/schools/current").then(res => {
+      const settingsControls = scheduleForm.querySelectorAll<HTMLInputElement | HTMLButtonElement>("input, button");
+      settingsControls.forEach(control => control.disabled = true);
+      api<{ waste_start_time: string, waste_end_time: string, waste_organic_points_per_kg: number | null, waste_inorganic_points_per_kg: number | null }>("/schools/current").then(res => {
+        (document.getElementById("waste-organic-rate") as HTMLInputElement).value = res.data.waste_organic_points_per_kg == null ? "" : String(res.data.waste_organic_points_per_kg);
+        (document.getElementById("waste-inorganic-rate") as HTMLInputElement).value = res.data.waste_inorganic_points_per_kg == null ? "" : String(res.data.waste_inorganic_points_per_kg);
         if (res.data.waste_start_time) (document.getElementById("waste-start") as HTMLInputElement).value = res.data.waste_start_time.substring(0, 5);
         if (res.data.waste_end_time) (document.getElementById("waste-end") as HTMLInputElement).value = res.data.waste_end_time.substring(0, 5);
+        settingsControls.forEach(control => control.disabled = false);
+      }).catch(error => {
+        scheduleForm.insertAdjacentHTML("beforeend", `<p role="alert">Pengaturan belum dimuat: ${escapeHtml(error instanceof Error ? error.message : "Coba muat ulang halaman.")}</p>`);
       });
       scheduleForm.onsubmit = async (e) => {
         e.preventDefault();
@@ -687,7 +699,9 @@ async function wastePage(): Promise<void> {
         try {
           const start = (document.getElementById("waste-start") as HTMLInputElement).value;
           const end = (document.getElementById("waste-end") as HTMLInputElement).value;
-          await api("/schools/current", { method: "PATCH", body: JSON.stringify({ waste_start_time: start ? start + ":00" : null, waste_end_time: end ? end + ":00" : null }) });
+          await api("/schools/current", { method: "PATCH", body: JSON.stringify({ waste_start_time: start ? start + ":00" : null, waste_end_time: end ? end + ":00" : null,
+            waste_organic_points_per_kg: (document.getElementById("waste-organic-rate") as HTMLInputElement).value === "" ? null : Number((document.getElementById("waste-organic-rate") as HTMLInputElement).value),
+            waste_inorganic_points_per_kg: (document.getElementById("waste-inorganic-rate") as HTMLInputElement).value === "" ? null : Number((document.getElementById("waste-inorganic-rate") as HTMLInputElement).value) }) });
           btn.textContent = "Tersimpan!";
           setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 2000);
         } catch (err: any) {
@@ -1125,7 +1139,7 @@ async function pwaPortalsPage() {
         button.disabled = true; feedback.textContent = "Menyiapkan akses portal…";
         try {
           const result = await api<{ id: string; token: string }>("/auth/qr/generate", { method: "POST", body: JSON.stringify({ school_id: schoolId, role_code: d.role, metadata }) });
-          const isDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+          const isDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname.startsWith('192.168.') || location.hostname.startsWith('10.') || location.hostname.startsWith('172.');
           const base = configured[d.key] || (isDev ? `${location.protocol}//${location.hostname}:${d.port}/` : `${location.origin}/${d.key}/`);
           const url = new URL(base); url.hash = new URLSearchParams({ token: result.data.token }).toString();
           const dataUrl = await QRCode.toDataURL(url.toString(), { width: 320, margin: 3, errorCorrectionLevel: "M" });
