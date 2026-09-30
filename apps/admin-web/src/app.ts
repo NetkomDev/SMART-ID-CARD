@@ -222,9 +222,12 @@ function tablePage<T>(options: { title: string; subtitle: string; path: string; 
 }
 
 async function studentsPage(): Promise<void> {
-  shell(`<section class="dashboard-grid" style="grid-template-columns: 300px 1fr; align-items: start;">
+  shell(`<section class="dashboard-grid" style="grid-template-columns: 320px 1fr; align-items: start;">
     <article class="panel">
-      <div class="panel-head"><h2>Master Kelas</h2><button class="button secondary" style="padding:0.3rem 0.6rem;font-size:0.75rem;">+ Tambah</button></div>
+      <div class="panel-head">
+        <h2>Master Kelas</h2>
+        <button id="btn-add-class" class="button secondary" style="padding:0.3rem 0.6rem;font-size:0.75rem;">+ Tambah</button>
+      </div>
       <div id="classes-data">${skeleton(4)}</div>
     </article>
     <article class="panel">
@@ -237,25 +240,165 @@ async function studentsPage(): Promise<void> {
       </div>
       <div id="table-data">${skeleton(6)}</div>
     </article>
-  </section>`, "Siswa & Kelas", "Kelola daftar siswa dan struktur kelas aktif.");
+  </section>
+  
+  <div id="student-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);z-index:9999;overflow-y:auto;padding:2rem;">
+    <div style="background:var(--bg);max-width:500px;margin:auto;border-radius:1rem;padding:2rem;position:relative;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1);">
+      <button id="close-student-modal" style="position:absolute;top:1rem;right:1rem;background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--text);">&times;</button>
+      <h2 id="student-modal-title">Edit Data Siswa</h2>
+      <form id="student-edit-form" class="login-form" style="margin-top:1rem;">
+        <input type="hidden" id="edit-student-id" />
+        <label>Nama Lengkap<input type="text" id="edit-full-name" required /></label>
+        <label>NISN<input type="text" id="edit-nisn" required /></label>
+        <label>Tempat Lahir<input type="text" id="edit-pob" required /></label>
+        <label>Tanggal Lahir (YYYY-MM-DD)<input type="date" id="edit-dob" required /></label>
+        <label>Alamat<input type="text" id="edit-address" required /></label>
+        <label>Jenis Kelamin
+          <select id="edit-gender" style="width:100%;padding:.85rem;border-radius:.75rem;border:1px solid var(--line);background:var(--bg);color:var(--text);">
+            <option value="MALE">Laki-laki (L)</option>
+            <option value="FEMALE">Perempuan (P)</option>
+          </select>
+        </label>
+        <div style="display:flex;gap:1rem;margin-top:1.5rem;">
+          <button class="button primary" type="submit" id="btn-save-student">Simpan Perubahan</button>
+          <button class="button secondary" type="button" id="btn-cancel-student">Batal</button>
+        </div>
+      </form>
+    </div>
+  </div>`, "Siswa & Kelas", "Kelola daftar siswa dan struktur kelas aktif.");
 
-  api<(SchoolClass & { student_count: number })[]>("/classes/summary").then(res => {
-    document.querySelector("#classes-data")!.innerHTML = res.data.length
-      ? `<div class="table-wrap"><table><thead><tr><th>Nama Kelas</th><th>Siswa/I</th></tr></thead><tbody>${res.data.map(c => `<tr><td><strong>${escapeHtml(c.name)}</strong></td><td>${c.student_count} siswa</td></tr>`).join("")}</tbody></table></div>`
-      : emptyState("Belum ada", "Tambahkan kelas.");
-  }).catch(err => document.querySelector("#classes-data")!.innerHTML = errorState(err));
+  const loadClasses = async () => {
+    try {
+      const res = await api<(SchoolClass & { student_count: number })[]>("/classes/summary");
+      document.querySelector("#classes-data")!.innerHTML = res.data.length
+        ? `<div class="table-wrap"><table><thead><tr><th>Nama Kelas</th><th>Siswa</th><th>Aksi</th></tr></thead><tbody>${res.data.map(c => `<tr><td><strong>${escapeHtml(c.name)}</strong></td><td>${c.student_count} siswa</td><td><button class="button danger btn-delete-class" data-id="${c.id}" data-name="${escapeHtml(c.name)}" data-count="${c.student_count}" style="padding:0.2rem 0.5rem;font-size:0.75rem;">Hapus</button></td></tr>`).join("")}</tbody></table></div>`
+        : emptyState("Belum ada", "Tambahkan kelas.");
+
+      document.querySelectorAll<HTMLButtonElement>(".btn-delete-class").forEach(btn => {
+        btn.onclick = async () => {
+          const id = btn.dataset.id!;
+          const name = btn.dataset.name!;
+          const count = Number(btn.dataset.count);
+          if (count > 0) {
+            alert(`Kelas "${name}" masih berisi ${count} siswa. Pindahkan siswa terlebih dahulu sebelum menghapus kelas.`);
+            return;
+          }
+          if (!confirm(`Apakah Anda yakin ingin menghapus kelas "${name}"?`)) return;
+          try {
+            await api(`/classes/${id}`, { method: "DELETE" });
+            await loadClasses();
+          } catch (err: any) {
+            alert("Gagal menghapus kelas: " + (err.message || "Terjadi kesalahan"));
+          }
+        };
+      });
+    } catch (err) {
+      document.querySelector("#classes-data")!.innerHTML = errorState(err);
+    }
+  };
+
+  document.getElementById("btn-add-class")?.addEventListener("click", async () => {
+    const className = prompt("Masukkan nama kelas baru (Cth: Kelas X-C):");
+    if (!className || !className.trim()) return;
+
+    try {
+      const years = await api<AcademicYear[]>("/academic-years");
+      const activeYear = years.data.find(y => y.is_active) ?? years.data[0];
+      if (!activeYear) {
+        alert("Belum ada Tahun Ajaran aktif. Silakan buat Tahun Ajaran di menu Tahun Ajaran terlebih dahulu.");
+        return;
+      }
+      const code = className.trim().toLowerCase().replace(/\s+/g, "-");
+      await api("/classes", {
+        method: "POST",
+        body: JSON.stringify({
+          name: className.trim(),
+          code,
+          academic_year_id: activeYear.id
+        })
+      });
+      await loadClasses();
+    } catch (err: any) {
+      alert("Gagal menambah kelas: " + (err.message || "Terjadi kesalahan"));
+    }
+  });
+
+  const modal = document.getElementById("student-modal") as HTMLDivElement;
+  const closeModal = () => { modal.style.display = "none"; };
+  document.getElementById("close-student-modal")?.addEventListener("click", closeModal);
+  document.getElementById("btn-cancel-student")?.addEventListener("click", closeModal);
+
+  const editForm = document.getElementById("student-edit-form") as HTMLFormElement;
+  editForm.onsubmit = async (e) => {
+    e.preventDefault();
+    const id = (document.getElementById("edit-student-id") as HTMLInputElement).value;
+    const saveBtn = document.getElementById("btn-save-student") as HTMLButtonElement;
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Menyimpan...";
+
+    try {
+      await api(`/students/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          full_name: (document.getElementById("edit-full-name") as HTMLInputElement).value,
+          nisn: (document.getElementById("edit-nisn") as HTMLInputElement).value,
+          pob: (document.getElementById("edit-pob") as HTMLInputElement).value,
+          date_of_birth: (document.getElementById("edit-dob") as HTMLInputElement).value,
+          address: (document.getElementById("edit-address") as HTMLInputElement).value,
+          gender: (document.getElementById("edit-gender") as HTMLSelectElement).value
+        })
+      });
+      closeModal();
+      await loadStudents();
+    } catch (err: any) {
+      alert("Gagal memperbarui data siswa: " + (err.message || "Terjadi kesalahan"));
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = "Simpan Perubahan";
+    }
+  };
 
   const loadStudents = async (search = "") => {
     try {
       const response = await api<Student[]>(`/students?page=1&page_size=30${search ? `&search=${encodeURIComponent(search)}` : ""}`);
       document.querySelector("#table-data")!.innerHTML = response.data.length
-        ? `<div class="table-wrap"><table><thead><tr><th>Nama Lengkap</th><th>NISN</th><th>Tgl Lahir</th><th>Gender</th><th>Status</th></tr></thead><tbody>${response.data.map(item => `<tr><td><strong>${escapeHtml(item.full_name)}</strong><br/><small>${escapeHtml(item.student_number)}</small></td><td>${escapeHtml(item.nisn ?? "—")}</td><td>${escapeHtml(item.date_of_birth ?? "—")}</td><td>${escapeHtml(item.gender)}</td><td><span class="status ${item.is_active ? "success" : "neutral"}">${item.is_active ? "Aktif" : "Nonaktif"}</span></td></tr>`).join("")}</tbody></table></div><div class="table-footer">Menampilkan ${response.data.length} dari ${response.meta?.total ?? response.data.length} data</div>`
+        ? `<div class="table-wrap"><table><thead><tr><th>Nama Lengkap</th><th>NISN</th><th>Tempat / Tgl Lahir</th><th>Gender</th><th>Status</th><th>Aksi</th></tr></thead><tbody>${response.data.map(item => `<tr><td><strong>${escapeHtml(item.full_name)}</strong><br/><small>${escapeHtml(item.student_number)}</small></td><td>${escapeHtml(item.nisn ?? "—")}</td><td>${escapeHtml((item as any).pob || "—")}, ${escapeHtml(item.date_of_birth ?? "—")}</td><td>${item.gender === 'MALE' ? 'L' : item.gender === 'FEMALE' ? 'P' : escapeHtml(item.gender)}</td><td><span class="status ${item.is_active ? "success" : "neutral"}">${item.is_active ? "Aktif" : "Nonaktif"}</span></td><td><div style="display:flex;gap:4px;"><button class="button secondary btn-edit-student" data-student='${JSON.stringify(item).replace(/'/g, "&#39;")}' style="padding:0.2rem 0.5rem;font-size:0.75rem;">Edit</button><button class="button danger btn-delete-student" data-id="${item.id}" data-name="${escapeHtml(item.full_name)}" style="padding:0.2rem 0.5rem;font-size:0.75rem;">Hapus</button></div></td></tr>`).join("")}</tbody></table></div><div class="table-footer">Menampilkan ${response.data.length} dari ${response.meta?.total ?? response.data.length} data</div>`
         : emptyState("Data belum tersedia", "Tambahkan data siswa pertama.");
+
+      document.querySelectorAll<HTMLButtonElement>(".btn-edit-student").forEach(btn => {
+        btn.onclick = () => {
+          const item = JSON.parse(btn.dataset.student!);
+          (document.getElementById("edit-student-id") as HTMLInputElement).value = item.id;
+          (document.getElementById("edit-full-name") as HTMLInputElement).value = item.full_name || "";
+          (document.getElementById("edit-nisn") as HTMLInputElement).value = item.nisn || "";
+          (document.getElementById("edit-pob") as HTMLInputElement).value = item.pob || "";
+          (document.getElementById("edit-dob") as HTMLInputElement).value = item.date_of_birth || "";
+          (document.getElementById("edit-address") as HTMLInputElement).value = item.address || "";
+          (document.getElementById("edit-gender") as HTMLSelectElement).value = item.gender || "MALE";
+          modal.style.display = "flex";
+        };
+      });
+
+      document.querySelectorAll<HTMLButtonElement>(".btn-delete-student").forEach(btn => {
+        btn.onclick = async () => {
+          const id = btn.dataset.id!;
+          const name = btn.dataset.name!;
+          if (!confirm(`Apakah Anda yakin ingin menghapus data siswa "${name}"?`)) return;
+          try {
+            await api(`/students/${id}`, { method: "DELETE" });
+            await loadStudents();
+          } catch (err: any) {
+            alert("Gagal menghapus siswa: " + (err.message || "Terjadi kesalahan"));
+          }
+        };
+      });
     } catch (error) { document.querySelector("#table-data")!.innerHTML = errorState(error); }
   };
 
   let timer = 0;
   document.querySelector<HTMLInputElement>("#table-search")?.addEventListener("input", (event) => { window.clearTimeout(timer); timer = window.setTimeout(() => void loadStudents((event.target as HTMLInputElement).value), 300); });
+  
+  await loadClasses();
   void loadStudents();
 }
 
