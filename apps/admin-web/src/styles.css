@@ -57,7 +57,9 @@ h1, h2, .brand { font-family: ui-rounded, "Avenir Next", system-ui, sans-serif; 
 .brand-mark { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 11px; background: var(--lime); color: #000; letter-spacing: 0; transition: transform 0.3s ease; }
 .brand:hover .brand-mark { transform: scale(1.05) rotate(-5deg); }
 .login-story h1 { font-size: clamp(2.3rem, 4.5vw, 4.5rem); line-height: 1.04; max-width: 780px; letter-spacing: -.045em; margin: 1rem 0 1.5rem; animation: slideUp 0.8s ease-out; }
-.eyebrow { text-transform: uppercase; letter-spacing: .16em; font-size: .72rem; font-weight: 700; color: #dff27d; }
+.eyebrow { text-transform: uppercase; letter-spacing: .14em; font-size: .75rem; font-weight: 800; color: #1e3f35; }
+[data-theme="dark"] .eyebrow { color: #dff27d; }
+.login-story .eyebrow { color: #dff27d; }
 .eyebrow.dark { color: var(--muted); margin-bottom: .45rem; }
 .story-copy { max-width: 560px; color: #cfdbd6; font-size: 1.1rem; line-height: 1.7; animation: slideUp 1s ease-out; }
 blockquote { margin: 3rem 0 0; padding-left: 1rem; border-left: 3px solid var(--lime); max-width: 480px; color: #d7e1dd; animation: fadeIn 1.2s ease-out; }
