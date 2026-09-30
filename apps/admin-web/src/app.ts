@@ -4,6 +4,7 @@ import { ApiClientError, api, login } from "./lib/api";
 import { canAccess, isPlatformRoute } from "./lib/permissions";
 import { clearSession, getSession, setSchoolId, setSession } from "./lib/session";
 import type { AcademicYear, Attendance, AuthContext, Card, Device, Extracurricular, LedContent, School, SchoolClass, Student } from "./lib/types";
+import { renderLandingPage } from "./landing";
 // @ts-ignore
 import QRCode from "qrcode/lib/browser.js";
 
@@ -83,6 +84,7 @@ function loginView(): void {
     </section>
     <section class="login-panel">
       <form class="login-form" id="login-form">
+        <div style="margin-bottom:0.5rem;"><a href="/" id="back-to-landing" style="font-size:0.85rem;color:var(--muted);font-weight:600;display:inline-flex;align-items:center;gap:0.4rem;">← Kembali ke Beranda AKSIS.CO.ID</a></div>
         <div><p class="eyebrow dark">Portal Admin</p><h2>Selamat datang kembali</h2><p>Masuk menggunakan akun sekolah atau Super Admin Anda.</p></div>
         <div id="login-error" aria-live="polite"></div>
         <label>Email<input name="email" type="email" autocomplete="username" placeholder="admin@sekolah.sch.id" required /></label>
@@ -92,6 +94,11 @@ function loginView(): void {
       </form>
     </section>
   </main>`;
+
+  document.getElementById("back-to-landing")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    navigate("/");
+  });
   document.querySelector<HTMLFormElement>("#login-form")!.addEventListener("submit", async (event) => {
     event.preventDefault();
     const form = event.currentTarget as HTMLFormElement;
@@ -1625,18 +1632,33 @@ async function pwaPortalsPage() {
 export async function render(): Promise<void> {
   clearDashboard();
   try {
-    if (!getSession()) { loginView(); return; }
+    const currentPath = location.pathname;
+
+    // Public / Unauthenticated routing
+    if (!getSession()) {
+      if (currentPath === "/login") {
+        loginView();
+        return;
+      }
+      renderLandingPage(navigate);
+      return;
+    }
+
+    // If logged in and visits /landing explicitly, show landing page
+    if (currentPath === "/landing") {
+      renderLandingPage(navigate);
+      return;
+    }
+
     try { if (!state.school || !state.context) await bootstrap(); } catch { clearSession(); loginView(); return; }
 
-    let path = location.pathname;
+    let path = currentPath === "/login" ? "/" : currentPath;
     if (state.context?.roles.includes("SUPER_ADMIN") && !isPlatformRoute(path)) {
       history.replaceState({}, "", "/platform");
       path = "/platform";
     }
 
-
     if (!canAccess(path, state.context?.permissions ?? [], state.context?.roles ?? [])) {
-      // If a non-Super Admin tries to access /platform*, redirect them to school dashboard
       if (isPlatformRoute(path)) {
         navigate("/");
         return;
