@@ -373,3 +373,69 @@ code { background: var(--bg); padding: .2rem .35rem; border-radius: .3rem; font-
 @media(min-width:1600px) { .qr-grid { grid-template-columns:repeat(4,minmax(0,1fr)); } }
 @media(max-width:700px) { .qr-grid { grid-template-columns:1fr; } .portal-intro { display:block; } }
 @media print { .portal-intro,.portal-icon { display:none!important; } .qr-card.print-active { background:white!important; } }
+
+/* Multi-Ekskul Pill Badges & Homeroom Report Styling */
+.ekskul-pill-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  align-items: center;
+}
+
+.ekskul-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: rgba(185, 222, 85, 0.2);
+  color: #1b382b;
+  border: 1px solid rgba(185, 222, 85, 0.45);
+  white-space: nowrap;
+  line-height: 1.25;
+}
+
+[data-theme="dark"] .ekskul-pill {
+  background: rgba(201, 224, 76, 0.15);
+  color: #c9e04c;
+  border-color: rgba(201, 224, 76, 0.35);
+}
+
+.ekskul-pill-none {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
+.report-summary-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  padding: 0.85rem 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.report-summary-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.report-summary-item span {
+  font-size: 0.68rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+}
+
+.report-summary-item strong {
+  font-size: 1.15rem;
+  color: var(--text);
+  margin-top: 0.15rem;
+}
+

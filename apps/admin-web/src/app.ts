@@ -1304,8 +1304,8 @@ async function reportsPage(): Promise<void> {
         <td>${cls.attendance_count}x Hadir</td>
         <td>${Number(cls.waste_kg).toFixed(1)} Kg</td>
         <td>${cls.library_visits}x Datang</td>
-        <td>—</td>
-        <td><button class="button secondary" style="font-size:0.75rem;padding:0.4rem 0.8rem" data-print-class="${cls.id}" data-class-name="${escapeHtml(cls.name)}">🖨 Cetak</button></td>
+        <td>${cls.extracurricular_members ? `<span class="ekskul-pill">★ ${cls.extracurricular_members} Keikutsertaan</span>` : '<span style="color:var(--muted)">0 Ekskul</span>'}</td>
+        <td><button class="button secondary" style="font-size:0.75rem;padding:0.4rem 0.8rem" data-print-class="${cls.id}" data-class-name="${escapeHtml(cls.name)}">🖨 Cetak Laporan</button></td>
       </tr>`).join("");
 
     shell(`<section class="panel">
@@ -1323,7 +1323,7 @@ async function reportsPage(): Promise<void> {
       </div>
     </section>
     <div id="print-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;overflow-y:auto;padding:2rem;">
-      <div style="background:var(--bg);max-width:900px;margin:auto;border-radius:1rem;padding:2rem;position:relative;">
+      <div style="background:var(--bg);max-width:960px;margin:auto;border-radius:1rem;padding:2rem;position:relative;">
         <button id="close-modal" style="position:absolute;top:1rem;right:1rem;background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--text);">&times;</button>
         <div id="print-content"></div>
         <div style="display:flex;gap:1rem;margin-top:1.5rem;justify-content:flex-end;" id="print-actions"></div>
@@ -1346,43 +1346,125 @@ async function reportsPage(): Promise<void> {
         modal.style.display = "block";
         try {
           const res = await api<{ full_name: string, student_number: string, nisn: string, attendance_count: number, waste_kg: number, library_visits: number, extracurriculars: string[] }[]>(`/reports/class-report/${classId}`);
-          const studentRows = res.data.map((s, i) => `<tr>
-            <td>${i + 1}</td>
-            <td><strong>${escapeHtml(s.full_name)}</strong></td>
-            <td>${escapeHtml(s.nisn)}</td>
-            <td style="text-align:center">${s.attendance_count}</td>
-            <td style="text-align:center">${s.waste_kg.toFixed(1)} kg</td>
-            <td style="text-align:center">${s.library_visits}</td>
-            <td>${s.extracurriculars.length ? s.extracurriculars.map(e => escapeHtml(e)).join(", ") : "—"}</td>
-          </tr>`).join("");
+          
+          const students = res.data ?? [];
+          const totStudents = students.length;
+          const totAttendance = students.reduce((a, s) => a + (s.attendance_count || 0), 0);
+          const totWaste = students.reduce((a, s) => a + (s.waste_kg || 0), 0);
+          const totLibrary = students.reduce((a, s) => a + (s.library_visits || 0), 0);
+          const totEkskul = students.reduce((a, s) => a + (s.extracurriculars?.length || 0), 0);
+
+          const studentRows = students.map((s, i) => {
+            const ekskulTags = s.extracurriculars && s.extracurriculars.length > 0
+              ? `<div class="ekskul-pill-container">${s.extracurriculars.map(e => `<span class="ekskul-pill">★ ${escapeHtml(e)}</span>`).join("")}</div>`
+              : `<span class="ekskul-pill-none">&mdash;</span>`;
+            return `<tr>
+              <td>${i + 1}</td>
+              <td><strong>${escapeHtml(s.full_name)}</strong></td>
+              <td>${escapeHtml(s.nisn)}</td>
+              <td style="text-align:center">${s.attendance_count}</td>
+              <td style="text-align:center">${s.waste_kg.toFixed(1)} kg</td>
+              <td style="text-align:center">${s.library_visits}</td>
+              <td>${ekskulTags}</td>
+            </tr>`;
+          }).join("");
+
           const period = (document.getElementById("report-period") as HTMLSelectElement)?.value ?? "";
+          const schoolName = state.school?.name ?? "Sekolah";
+
           content.innerHTML = `
             <div id="printable-area">
-              <div style="text-align:center;margin-bottom:1.5rem;">
-                <h2 style="margin:0;">${escapeHtml(state.school?.name ?? "Sekolah")}</h2>
-                <p style="margin:0.25rem 0;">Laporan Rekapitulasi Aktivitas Siswa</p>
-                <p style="margin:0;"><strong>${escapeHtml(className)}</strong> &mdash; Periode: ${escapeHtml(period)}</p>
+              <div style="text-align:center;margin-bottom:1.5rem;border-bottom:2px solid var(--line);padding-bottom:1rem;">
+                <h2 style="margin:0;font-size:1.4rem;">${escapeHtml(schoolName)}</h2>
+                <p style="margin:0.25rem 0 0.5rem;font-weight:600;color:var(--muted);">LAPORAN REKAPITULASI AKTIVITAS & EKSKUL SISWA</p>
+                <p style="margin:0;font-size:0.9rem;">Kelas: <strong>${escapeHtml(className)}</strong> &bull; Periode: <strong>${escapeHtml(period)}</strong></p>
               </div>
-              <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
-                <thead><tr style="background:var(--surface);">
-                  <th style="border:1px solid var(--line);padding:0.5rem;">No</th>
-                  <th style="border:1px solid var(--line);padding:0.5rem;">Nama Siswa</th>
-                  <th style="border:1px solid var(--line);padding:0.5rem;">NISN</th>
-                  <th style="border:1px solid var(--line);padding:0.5rem;">Kehadiran</th>
-                  <th style="border:1px solid var(--line);padding:0.5rem;">Sampah</th>
-                  <th style="border:1px solid var(--line);padding:0.5rem;">Perpus</th>
-                  <th style="border:1px solid var(--line);padding:0.5rem;">Ekskul</th>
-                </tr></thead>
-                <tbody>${studentRows || '<tr><td colspan="7" style="text-align:center;padding:1rem;">Tidak ada siswa di kelas ini.</td></tr>'}</tbody>
-              </table>
-              <p style="margin-top:1.5rem;font-size:0.8rem;text-align:right;">Dicetak pada: ${new Date().toLocaleDateString("id-ID", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</p>
+
+              <div class="report-summary-bar">
+                <div class="report-summary-item"><span>Total Siswa</span><strong>${totStudents} Siswa</strong></div>
+                <div class="report-summary-item"><span>Presensi Hadir</span><strong>${totAttendance}x</strong></div>
+                <div class="report-summary-item"><span>Setoran Sampah</span><strong>${totWaste.toFixed(1)} Kg</strong></div>
+                <div class="report-summary-item"><span>Visits Perpus</span><strong>${totLibrary}x</strong></div>
+                <div class="report-summary-item"><span>Partisipasi Ekskul</span><strong>${totEkskul} Diikuti</strong></div>
+              </div>
+
+              <div class="table-wrap">
+                <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
+                  <thead><tr style="background:var(--surface);">
+                    <th style="border:1px solid var(--line);padding:0.55rem;width:4%;">No</th>
+                    <th style="border:1px solid var(--line);padding:0.55rem;width:24%;">Nama Siswa</th>
+                    <th style="border:1px solid var(--line);padding:0.55rem;width:15%;">NISN</th>
+                    <th style="border:1px solid var(--line);padding:0.55rem;width:10%;text-align:center;">Hadir</th>
+                    <th style="border:1px solid var(--line);padding:0.55rem;width:10%;text-align:center;">Sampah</th>
+                    <th style="border:1px solid var(--line);padding:0.55rem;width:10%;text-align:center;">Perpus</th>
+                    <th style="border:1px solid var(--line);padding:0.55rem;width:27%;">Kegiatan Ekskul</th>
+                  </tr></thead>
+                  <tbody>${studentRows || '<tr><td colspan="7" style="text-align:center;padding:1.5rem;">Tidak ada data siswa di kelas ini.</td></tr>'}</tbody>
+                </table>
+              </div>
+              <p style="margin-top:1.5rem;font-size:0.8rem;text-align:right;color:var(--muted);">Dicetak pada: ${new Date().toLocaleDateString("id-ID", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</p>
             </div>`;
-          actions.innerHTML = `<button class="button primary" id="do-print">🖨 Cetak / Print</button>`;
+
+          actions.innerHTML = `
+            <button class="button secondary" id="do-export-csv">📥 Unduh CSV</button>
+            <button class="button primary" id="do-print">🖨 Cetak / Print PDF</button>
+          `;
+
+          document.getElementById("do-export-csv")?.addEventListener("click", () => {
+            const csvRows: string[] = [];
+            csvRows.push("\uFEFFNo;Nama Siswa;NISN;Kehadiran (Hadir);Sampah (Kg);Kunjungan Perpus;Jumlah Ekskul;Daftar Ekskul");
+            students.forEach((s, idx) => {
+              const ekskulListStr = s.extracurriculars && s.extracurriculars.length > 0
+                ? s.extracurriculars.join("; ")
+                : "-";
+              csvRows.push(`${idx + 1};"${(s.full_name || '').replaceAll('"', '""')}";"${s.nisn}";${s.attendance_count};${s.waste_kg.toFixed(1)};${s.library_visits};${s.extracurriculars?.length || 0};"${ekskulListStr.replaceAll('"', '""')}"`);
+            });
+            const blob = new Blob([csvRows.join("\n")], { type: "text/csv;charset=utf-8;" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.setAttribute("download", `Laporan_Wali_Kelas_${className.replace(/\s+/g, '_')}_${period.replace(/\s+/g, '_')}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          });
+
           document.getElementById("do-print")?.addEventListener("click", () => {
             const printArea = document.getElementById("printable-area")!.innerHTML;
             const w = window.open("", "_blank");
             if (w) {
-              w.document.write(`<html><head><title>Laporan ${className}</title><style>body{font-family:system-ui,sans-serif;padding:2rem;}table{width:100%;border-collapse:collapse;}th,td{border:1px solid #ccc;padding:0.4rem 0.6rem;text-align:left;}th{background:#f5f5f5;font-weight:600;}@media print{body{padding:0;}}</style></head><body>${printArea}</body></html>`);
+              w.document.write(`<!DOCTYPE html><html><head><title>Laporan Wali Kelas ${className}</title><style>
+                body { font-family: system-ui, -apple-system, sans-serif; padding: 2rem; color: #111; line-height: 1.4; }
+                table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.85rem; }
+                th, td { border: 1px solid #ccc; padding: 0.45rem 0.6rem; text-align: left; vertical-align: top; }
+                th { background: #f4f6f4; font-weight: 700; text-transform: uppercase; font-size: 0.72rem; letter-spacing: 0.04em; }
+                tr { page-break-inside: avoid; }
+                .report-summary-bar { display: flex; gap: 1.5rem; background: #f8faf8; border: 1px solid #ddd; padding: 0.75rem 1rem; border-radius: 6px; margin: 1rem 0; font-size: 0.8rem; }
+                .report-summary-item { display: flex; flex-direction: column; }
+                .report-summary-item span { font-size: 0.65rem; color: #666; text-transform: uppercase; font-weight: 700; }
+                .report-summary-item strong { font-size: 1rem; color: #111; margin-top: 2px; }
+                .ekskul-pill-container { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+                .ekskul-pill { display: inline-block; padding: 0.15rem 0.45rem; border-radius: 99px; font-size: 0.72rem; font-weight: 600; background: #eef7d5; color: #1e3b2b; border: 1px solid #c4e373; white-space: nowrap; }
+                .ekskul-pill-none { color: #888; font-style: italic; }
+                .signature-section { display: flex; justify-content: space-between; margin-top: 3rem; page-break-inside: avoid; font-size: 0.85rem; }
+                .signature-box { width: 220px; text-align: center; }
+                .signature-space { height: 60px; }
+                @media print { body { padding: 0; } }
+              </style></head><body>
+                ${printArea}
+                <div class="signature-section">
+                  <div class="signature-box">
+                    <p>Mengetahui,<br/>Kepala Sekolah</p>
+                    <div class="signature-space"></div>
+                    <p><strong>( ________________________ )</strong><br/>NIP. ........................................</p>
+                  </div>
+                  <div class="signature-box">
+                    <p>Wali Kelas <strong>${escapeHtml(className)}</strong></p>
+                    <div class="signature-space"></div>
+                    <p><strong>( ________________________ )</strong><br/>NIP. ........................................</p>
+                  </div>
+                </div>
+              </body></html>`);
               w.document.close();
               w.print();
             }

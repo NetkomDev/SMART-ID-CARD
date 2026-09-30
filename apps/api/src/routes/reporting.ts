@@ -22,10 +22,29 @@ router.get("/classes-summary", requirePermission("report.read"), asyncHandler(as
   const { data: attendance } = await req.auth!.client.from("attendance_logs")
     .select("class_id").eq("school_id", schoolId).eq("direction", "CHECK_IN");
     
-  // For ekskul, we can just count total members per class (approximate by students)
-  // But wait, extracurricular_members doesn't have class_id.
-  // We can join student_class_history, or just skip ekskul aggregate for now.
-  
+  // Aggregate extracurricular memberships per class
+  const { data: ekskulMembers } = await req.auth!.client.from("extracurricular_members")
+    .select("student_id").eq("school_id", schoolId);
+  const studentIdsInEkskul = (ekskulMembers ?? []).map(m => m.student_id);
+  const ekskulMap = new Map<string, number>();
+
+  if (studentIdsInEkskul.length > 0) {
+    const { data: studentClassRows } = await req.auth!.client.from("student_class_history")
+      .select("student_id, class_id").eq("school_id", schoolId).eq("is_current", true).in("student_id", studentIdsInEkskul);
+    
+    const studentToClassMap = new Map<string, string>();
+    for (const sc of studentClassRows ?? []) {
+      studentToClassMap.set(sc.student_id, sc.class_id);
+    }
+    
+    for (const m of ekskulMembers ?? []) {
+      const cId = studentToClassMap.get(m.student_id);
+      if (cId) {
+        ekskulMap.set(cId, (ekskulMap.get(cId) ?? 0) + 1);
+      }
+    }
+  }
+
   const studentMap = new Map<string, number>();
   for (const r of counts ?? []) studentMap.set(r.class_id, (studentMap.get(r.class_id) ?? 0) + 1);
   
@@ -45,7 +64,7 @@ router.get("/classes-summary", requirePermission("report.read"), asyncHandler(as
     attendance_count: attMap.get(c.id) ?? 0,
     waste_kg: wasteMap.get(c.id) ?? 0,
     library_visits: libMap.get(c.id) ?? 0,
-    extracurricular_members: 0 // Will implement full query if needed
+    extracurricular_members: ekskulMap.get(c.id) ?? 0
   }));
   
   sendData(res, result);
