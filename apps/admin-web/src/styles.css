@@ -1205,6 +1205,126 @@ code { background: var(--bg); padding: .2rem .35rem; border-radius: .3rem; font-
   .footer-links { grid-template-columns: 1fr; }
   .landing-section { padding: 3rem 1rem; }
   .hero-btn { width: 100%; justify-content: center; }
+  .floating-wa-btn { bottom: 1.2rem; right: 1.2rem; padding: 0.75rem 1.1rem; font-size: 0.88rem; }
 }
+
+/* Contact Grid & Floating WA Button */
+.contact-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.contact-card {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 1.25rem;
+  padding: 1.75rem 2rem;
+  box-shadow: var(--card-shadow);
+  text-decoration: none;
+  color: var(--text);
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.contact-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.08);
+}
+
+.contact-card.whatsapp:hover {
+  border-color: #25d366;
+}
+
+.contact-card.email:hover {
+  border-color: #64b5f6;
+}
+
+.contact-card-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 1.25rem;
+  display: grid;
+  place-items: center;
+  font-size: 1.8rem;
+  flex-shrink: 0;
+}
+
+.contact-card.whatsapp .contact-card-icon {
+  background: rgba(37, 211, 102, 0.15);
+  color: #25d366;
+}
+
+.contact-card.email .contact-card-icon {
+  background: rgba(100, 181, 246, 0.15);
+  color: #1e88e5;
+}
+
+.contact-card-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.contact-card-label {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.contact-card-value {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--text);
+  margin: 0.2rem 0;
+  font-family: ui-rounded, "Avenir Next", system-ui, sans-serif;
+}
+
+.contact-card-action {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--lime);
+  filter: brightness(0.85);
+}
+
+[data-theme="dark"] .contact-card-action {
+  filter: brightness(1);
+}
+
+/* Floating WA Button */
+.floating-wa-btn {
+  position: fixed;
+  bottom: 1.8rem;
+  right: 1.8rem;
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: #25d366;
+  color: #ffffff;
+  padding: 0.85rem 1.4rem;
+  border-radius: 99px;
+  box-shadow: 0 8px 24px rgba(37, 211, 102, 0.4);
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 0.95rem;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.floating-wa-btn:hover {
+  transform: translateY(-3px) scale(1.03);
+  box-shadow: 0 12px 32px rgba(37, 211, 102, 0.55);
+  color: #ffffff;
+}
+
+.wa-btn-icon {
+  font-size: 1.3rem;
+}
+
 
 
