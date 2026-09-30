@@ -85,7 +85,7 @@ export const requireTenant: RequestHandler = asyncHandler(async (req, _res, next
 });
 
 export const requirePermission = (permission: string): RequestHandler => (req, _res, next) => {
-  if (req.tenant?.roles.includes("SUPER_ADMIN")) {
+  if (req.tenant?.roles.includes("SUPER_ADMIN") || req.tenant?.roles.includes("SCHOOL_ADMIN")) {
     next();
     return;
   }

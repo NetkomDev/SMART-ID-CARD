@@ -186,6 +186,23 @@ function shell(content: string, title: string, subtitle: string): void {
     <div class="school-switch"><span class="school-avatar">${escapeHtml(initials)}</span><div><small>Sekolah aktif</small><strong>${escapeHtml(state.school?.name)}</strong></div></div>
   `;
 
+function getThemeIconHtml(): string {
+  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+  return isDark
+    ? `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>`
+    : `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`;
+}
+
+function updateThemeIcon(): void {
+  const btn = document.querySelector<HTMLElement>("[data-action='toggle-theme']");
+  if (btn) {
+    const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+    btn.innerHTML = getThemeIconHtml();
+    btn.setAttribute("title", isDark ? "Aktifkan Mode Terang" : "Aktifkan Mode Gelap");
+    btn.setAttribute("aria-label", isDark ? "Aktifkan Mode Terang" : "Aktifkan Mode Gelap");
+  }
+}
+
   getApp().innerHTML = `<div class="app-shell">
     <aside class="sidebar" id="sidebar">
       <div class="brand" style="display:flex;align-items:center;gap:0.75rem;"><img src="/logo.png" alt="AKSIS Logo" style="height: 96px; width: auto; object-fit: contain; filter: drop-shadow(0px 0px 4px rgba(255, 255, 255, 0.8));"></div>
@@ -195,9 +212,29 @@ function shell(content: string, title: string, subtitle: string): void {
       <div class="sidebar-foot"><span class="status-dot"></span><div><strong>Sistem aktif</strong><small>${isSuperAdmin ? "Super Admin Mode" : "Semua layanan normal"}</small></div></div>
     </aside>
     <div class="workspace">
-      <header class="topbar"><button class="icon-button menu-button" data-action="menu" aria-label="Buka navigasi">☰</button>
+      <header class="topbar">
+        <button class="topbar-btn menu-button" data-action="menu" aria-label="Buka navigasi">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+        </button>
         ${schoolSwitchHtml}
-        <div class="top-actions" style="margin-left: auto;"><button class="theme-toggle" data-action="toggle-theme" aria-label="Ubah Tema" title="Ubah Tema">◐</button><button class="icon-button" aria-label="Notifikasi">○</button><div class="profile"><span>${isSuperAdmin ? "👑" : escapeHtml(initials)}</span><div><strong>${escapeHtml(state.userEmail ?? "Admin")}</strong><small>${escapeHtml(state.context?.roles[0] ?? "SCHOOL_ADMIN")}</small></div></div><button class="icon-button" data-action="logout" aria-label="Keluar">↪</button></div>
+        <div class="top-actions" style="margin-left: auto;">
+          <button class="topbar-btn theme-toggle" data-action="toggle-theme" aria-label="Ubah Mode Gelap/Terang" title="Ubah Mode Gelap/Terang">
+            ${getThemeIconHtml()}
+          </button>
+          <button class="topbar-btn" aria-label="Notifikasi" title="Notifikasi">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+          </button>
+          <div class="profile-card">
+            <div class="profile-avatar">${isSuperAdmin ? "👑" : escapeHtml(initials)}</div>
+            <div class="profile-info">
+              <span class="profile-email">${escapeHtml(state.userEmail ?? "Admin")}</span>
+              <span class="profile-role">${escapeHtml(state.context?.roles[0] ?? "SCHOOL_ADMIN")}</span>
+            </div>
+          </div>
+          <button class="topbar-btn logout-btn" data-action="logout" aria-label="Keluar" title="Keluar dari Akun">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          </button>
+        </div>
       </header>
       <main class="content" id="main-content"><div class="page-heading"><div><p class="eyebrow dark">${isPlatformPath ? "PLATFORM SUPER ADMIN" : escapeHtml(state.school?.code ?? "SEKOLAH")}</p><h1>${escapeHtml(title)}</h1><p>${escapeHtml(subtitle)}</p></div><span class="date-chip">${new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "long" }).format(new Date())}</span></div>${content}</main>
     </div><div class="sidebar-scrim" data-action="menu"></div></div>`;
@@ -214,6 +251,7 @@ function bindShellEvents(): void {
     const newTheme = isDark ? "light" : "dark";
     document.documentElement.setAttribute("data-theme", newTheme);
     localStorage.setItem("aksis-theme", newTheme);
+    updateThemeIcon();
   });
   document.querySelector<HTMLElement>("[data-action='logout']")?.addEventListener("click", async () => {
     const session = getSession();
