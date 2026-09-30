@@ -151,3 +151,194 @@ body>main>#gate.portal-gate{margin:24px 16px!important}
 
 .brand{display:flex;align-items:center;gap:12px;min-width:0}
 
+/* Unified AKSIS PWA Header with 1 downward curve */
+.aksis-pwa-header, header.parent-header, header.waste-header, header.portal-header {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: max(20px, env(safe-area-inset-top)) 24px 30px !important;
+  background: radial-gradient(ellipse at 20% 0%, #29634d, transparent 75%), #144837 !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-bottom-left-radius: 50% 26px !important;
+  border-bottom-right-radius: 50% 26px !important;
+  box-shadow: 0 8px 25px rgba(20, 72, 55, 0.2) !important;
+  margin-bottom: 0 !important;
+  width: 100% !important;
+}
+
+.aksis-pwa-header .brand, header.parent-header .brand, header.waste-header .brand, header.portal-header .portal-brand {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+
+.aksis-pwa-header .brand img, header.parent-header .brand img, header.waste-header .brand img, header.portal-header .portal-brand img {
+  width: 48px !important;
+  height: 48px !important;
+  object-fit: contain !important;
+}
+
+.aksis-pwa-header .brand-text, header.parent-header .brand > div, header.portal-header .portal-brand > div {
+  display: flex !important;
+  flex-direction: column !important;
+  line-height: 1.15 !important;
+}
+
+.aksis-pwa-header .brand-title, header.parent-header .brand-title, header.portal-header .portal-brand b {
+  font-size: 1.5rem !important;
+  font-weight: 800 !important;
+  color: #ffffff !important;
+  letter-spacing: 0.02em !important;
+  margin: 0 !important;
+}
+
+.aksis-pwa-header .brand-subtitle, header.parent-header .brand-subtitle, header.waste-header .page-title span, header.portal-header .portal-brand strong, header.portal-header .portal-school {
+  font-size: 0.92rem !important;
+  font-weight: 500 !important;
+  color: #cde8dc !important;
+  margin-top: 3px !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+/* Empty header right */
+.aksis-pwa-header .header-right, header.parent-header .header-actions, header.portal-header .book-mark, header.portal-header .activity-mark {
+  display: none !important;
+}
+
+/* Unified Camera Scanner Box (Piket Sampah Style) */
+.scanner-stage, .scanner-card {
+  position: relative !important;
+  background: radial-gradient(ellipse at 90% 0%, #2e5944, transparent 65%), linear-gradient(135deg, #112e24, #1a4233) !important;
+  border-radius: 24px !important;
+  overflow: hidden !important;
+  padding: 20px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 8px 26px rgba(16, 46, 35, 0.25) !important;
+  margin: 16px 0 !important;
+}
+
+.scanner-heading {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  width: 100% !important;
+  z-index: 2;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.scanner-heading strong, .scanner-heading div > strong {
+  font-size: 0.95rem !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+}
+
+.scanner-heading span, .scanner-heading div > span {
+  display: block;
+  font-size: 0.74rem !important;
+  color: #b4cfc0 !important;
+  margin-top: 2px;
+}
+
+.camera-switch, #btn-switch-camera {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border-radius: 12px !important;
+  color: #ffffff !important;
+  padding: 6px 12px !important;
+  font-size: 0.78rem !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  cursor: pointer !important;
+  min-height: 36px !important;
+}
+
+#scanner-placeholder {
+  text-align: center;
+  padding: 16px 0 8px;
+  width: 100%;
+}
+
+.scan-reticle {
+  position: relative;
+  border: 0 !important;
+  width: 96px !important;
+  height: 96px !important;
+  margin: 0 auto 12px !important;
+  color: #52e07b !important;
+  display: grid;
+  place-items: center;
+}
+
+.scan-reticle svg {
+  width: 100% !important;
+  height: 100% !important;
+  filter: drop-shadow(0 0 10px rgba(82, 224, 123, 0.4));
+}
+
+.scan-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  background: #66fb92;
+  box-shadow: 0 0 12px #64ff9c;
+  animation: scan-sweep 3s ease-in-out infinite;
+}
+
+#btn-toggle-camera, .camera-button {
+  background: #d4f2e6 !important;
+  color: #0d3829 !important;
+  font-weight: 700 !important;
+  border-radius: 99px !important;
+  padding: 12px 28px !important;
+  border: none !important;
+  font-size: 0.9rem !important;
+  width: 100% !important;
+  max-width: 280px !important;
+  margin: 12px auto 0 !important;
+  cursor: pointer !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15) !important;
+  transition: transform 0.15s ease, background 0.15s ease !important;
+}
+
+#btn-toggle-camera:hover, .camera-button:hover {
+  background: #c3eedb !important;
+  transform: translateY(-1px);
+}
+
+.scan-state, .waiting {
+  background: rgba(0, 0, 0, 0.25) !important;
+  color: #d6ede1 !important;
+  font-size: 0.75rem !important;
+  border-radius: 30px !important;
+  padding: 7px 16px !important;
+  margin-top: 12px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.scan-state .live-dot, .waiting i {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #39c778 !important;
+  box-shadow: 0 0 0 4px rgba(57, 199, 120, 0.2) !important;
+}
+
+@keyframes scan-sweep {
+  0%, 100% { transform: translateY(-28px); opacity: 0.4; }
+  50% { transform: translateY(28px); opacity: 1; }
+}
+

@@ -12,12 +12,15 @@
 </head>
 <body>
   <div class="activity-shell">
-    <header class="portal-header">
-      <div class="portal-brand">
-        <img src="/logo.png" alt="Logo AKSIS">
-        <div><b>AKSIS</b><strong>Ekstrakurikuler</strong><span class="portal-school">Pembina Kegiatan</span></div>
+    <header class="aksis-pwa-header">
+      <div class="brand">
+        <img src="/logo.png" alt="AKSIS Logo">
+        <div class="brand-text">
+          <div class="brand-title">AKSIS</div>
+          <div class="brand-subtitle">Ekstrakurikuler</div>
+        </div>
       </div>
-      <div class="activity-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6 5.6 18.4"/><circle cx="12" cy="12" r="9"/></svg></div>
+      <div class="header-right"></div>
     </header>
 
     <main id="app-container">
@@ -56,13 +59,29 @@
           <div><span class="stat-icon blue"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><strong id="session-total">0</strong><span>Total</span></div>
         </div>
 
-        <div class="scanner-card">
-          <div class="scanner-heading"><span class="round-icon"><svg viewBox="0 0 24 24"><path d="M5 3H3v4M19 3h2v4M5 21H3v-4m16 4h2v-4M7 7h3v3H7zm7 0h3v3h-3zM7 14h3v3H7zm7 0h1v1h2v2h-3z"/></svg></span><div><strong>Pindai Identitas Siswa</strong><span>QR kartu atau nomor siswa</span></div></div>
-          <div id="qr-reader"></div>
-          <button id="btn-toggle-camera" type="button" class="camera-button"><svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>Buka Kamera Scanner</button>
+        <div class="scanner-stage">
+          <div class="scanner-heading">
+            <div>
+              <strong>Scan QR Siswa</strong>
+              <span>Arahkan kamera ke QR kartu siswa</span>
+            </div>
+            <button id="btn-switch-camera" type="button" class="camera-switch" style="display:none" aria-label="Ganti kamera">↻ <span>Kamera belakang</span></button>
+          </div>
+          <div id="qr-reader" style="display:none"></div>
+          <div id="scanner-placeholder">
+            <div class="scan-reticle" aria-hidden="true">
+              <svg viewBox="0 0 80 80" fill="none"><path d="M24 5H5v19M56 5h19v19M5 56v19h19M75 56v19H56" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><path d="M20 20h14v14H20zM46 20h14v14H46zM20 46h14v14H20zM46 46h6v6h8v8H46z" stroke="currentColor" stroke-width="3"/></svg>
+              <span class="scan-line"></span>
+            </div>
+            <p id="scanner-hint">Presensi mudah, rapi, dan otomatis.</p>
+          </div>
+          <button id="btn-toggle-camera" type="button" class="camera-button">
+            Buka Kamera Scanner
+          </button>
+          <div class="scan-state"><span class="live-dot"></span><span id="scan-status">Siap memindai identitas siswa</span></div>
+          
           <div class="scan-divider"><span>atau cari manual</span></div>
           <form id="form-scan"><div class="scan-input-wrap"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input aria-label="QR kartu atau nomor siswa" type="text" id="scan-input" placeholder="QR / NIS / NISN siswa" autocomplete="off"></div></form>
-          <p class="waiting"><i></i> Menunggu pindai identitas…</p>
         </div>
         <p id="scan-error" class="error-msg"></p>
 

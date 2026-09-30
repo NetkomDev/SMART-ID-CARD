@@ -124,7 +124,8 @@ function switchView(next: View) {
   el("scanner-hint").textContent = next === "input" ? "Identitas siswa berhasil diverifikasi" : "Kartu kecil, langkah besar untuk bumi yang lebih bersih.";
   el("scan-status").textContent = next === "input" ? "✓ Siswa terdeteksi · siap mencatat setoran" : "Siap memindai identitas siswa";
   document.body.classList.toggle("show-ranking", next === "ranking");
-  el("header-subtitle").textContent = "Bank Sampah Sekolah";
+  const subEl = document.getElementById("header-subtitle");
+  if (subEl) subEl.textContent = "Piket Sampah";
   if (next === "ranking") window.scrollTo({ top: 0, behavior: "instant" });
   for (const [id, active] of [["btn-ranking", next === "ranking"], ["btn-deposit", next !== "ranking"]] as const) {
     el(id).classList.toggle("active", active);

@@ -123,16 +123,17 @@ async function stopCameraScanner() {
     try { await html5QrCode.stop(); } catch (e) {}
     isScanning = false;
     document.getElementById("qr-reader")!.style.display = "none";
-    document.getElementById("btn-toggle-camera")!.innerHTML = `
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-      Buka Kamera Scanner
-    `;
+    const ph = document.getElementById("scanner-placeholder");
+    if (ph) ph.style.display = "block";
+    document.getElementById("btn-toggle-camera")!.textContent = "Buka Kamera Scanner";
   }
 }
 
 async function startCameraScanner() {
   if (!html5QrCode) html5QrCode = new Html5Qrcode("qr-reader");
   try {
+    const ph = document.getElementById("scanner-placeholder");
+    if (ph) ph.style.display = "none";
     document.getElementById("qr-reader")!.style.display = "block";
     const config = { fps: 10, qrbox: { width: 250, height: 250 } };
     const onScanSuccess = async (decodedText: string) => {
@@ -148,11 +149,13 @@ async function startCameraScanner() {
     }
 
     isScanning = true;
-    document.getElementById("btn-toggle-camera")!.innerHTML = "Tutup Kamera";
+    document.getElementById("btn-toggle-camera")!.textContent = "Tutup Kamera";
   } catch (err) {
     status.value = "Kamera tidak dapat diakses atau tidak ditemukan.";
     status.className = "error";
     document.getElementById("qr-reader")!.style.display = "none";
+    const ph = document.getElementById("scanner-placeholder");
+    if (ph) ph.style.display = "block";
   }
 }
 
@@ -171,7 +174,8 @@ async function start() {
       return;
     }
     gate.hidden = true; panel.hidden = false;
-    document.querySelector("#library-school")!.textContent = portal.context!.school_name;
+    const libSchool = document.querySelector("#library-school");
+    if (libSchool) libSchool.textContent = portal.context!.school_name;
     queued.textContent = String(queue().length); offerInstall(); card.focus();
     void loadDailySummary();
     if (queue().length) void sync().catch(showError);
