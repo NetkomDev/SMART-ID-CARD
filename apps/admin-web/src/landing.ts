@@ -96,8 +96,8 @@ export function renderLandingPage(navigate: (path: string) => void): void {
             </button>
 
             ${isLoggedIn 
-              ? `<button class="button primary" id="btn-go-dashboard">Ke Dashboard <span>→</span></button>`
-              : `<button class="button primary" id="btn-login-admin">Masuk <span>→</span></button>`
+              ? `<button class="button primary header-login-btn" id="btn-go-dashboard" title="Ke Dashboard" aria-label="Ke Dashboard"><span class="btn-icon">🔑</span><span class="btn-text">Dashboard</span> <span class="btn-arrow">→</span></button>`
+              : `<button class="button primary header-login-btn" id="btn-login-admin" title="Masuk Portal" aria-label="Masuk Portal"><span class="btn-icon">🔑</span><span class="btn-text">Masuk</span> <span class="btn-arrow">→</span></button>`
             }
           </div>
         </div>
