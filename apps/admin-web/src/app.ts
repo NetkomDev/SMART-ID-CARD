@@ -88,7 +88,17 @@ function loginView(): void {
         <div><p class="eyebrow dark">Portal Admin</p><h2>Selamat datang kembali</h2><p>Masuk menggunakan akun sekolah atau Super Admin Anda.</p></div>
         <div id="login-error" aria-live="polite"></div>
         <label>Email<input name="email" type="email" autocomplete="username" placeholder="admin@sekolah.sch.id" required /></label>
-        <label>Kata sandi<input name="password" type="password" autocomplete="current-password" minlength="8" placeholder="Minimal 8 karakter" required /></label>
+        <label>Kata sandi
+          <div style="position: relative; width: 100%;">
+            <input name="password" id="login-password-input" type="password" autocomplete="current-password" minlength="8" placeholder="Minimal 8 karakter" required style="padding-right: 2.75rem;" />
+            <button type="button" id="toggle-password-btn" title="Tampilkan/Sembunyikan password" aria-label="Tampilkan atau sembunyikan kata sandi" style="position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--muted); display: flex; align-items: center; justify-content: center; padding: 0.25rem; border-radius: 0.375rem; transition: color 0.2s ease;">
+              <svg id="eye-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+            </button>
+          </div>
+        </label>
         <button class="button primary wide" type="submit">Masuk ke AKSIS <span>→</span></button>
         <small>Sesi disimpan hanya selama tab browser aktif. AKSIS tidak pernah menyimpan service-role key di browser.</small>
       </form>
@@ -98,6 +108,19 @@ function loginView(): void {
   document.getElementById("back-to-landing")?.addEventListener("click", (e) => {
     e.preventDefault();
     navigate("/");
+  });
+
+  const toggleBtn = document.getElementById("toggle-password-btn");
+  const pwdInput = document.getElementById("login-password-input") as HTMLInputElement | null;
+  const eyeIcon = document.getElementById("eye-icon");
+
+  toggleBtn?.addEventListener("click", () => {
+    if (!pwdInput || !eyeIcon) return;
+    const isPassword = pwdInput.type === "password";
+    pwdInput.type = isPassword ? "text" : "password";
+    eyeIcon.innerHTML = isPassword
+      ? `<path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path><path d="M6.61 6.61A13.52 13.52 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"></path><line x1="2" x2="22" y1="2" y2="22"></line>`
+      : `<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle>`;
   });
   document.querySelector<HTMLFormElement>("#login-form")!.addEventListener("submit", async (event) => {
     event.preventDefault();
