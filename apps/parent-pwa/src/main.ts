@@ -68,6 +68,172 @@ let viewRevision = 0;
 let dashboardVisible = false;
 const number = (value: number | null) => value == null ? "—" : value.toLocaleString("id-ID", { maximumFractionDigits: 2 });
 
+function openPhotoCropperModal(studentId: string, studentName: string) {
+  const modal = document.createElement("div");
+  modal.className = "photo-modal-overlay";
+  modal.style.cssText = "position:fixed;inset:0;background:rgba(15,23,42,0.85);backdrop-filter:blur(6px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;";
+  
+  modal.innerHTML = `
+    <div style="background:white;border-radius:24px;width:100%;max-width:420px;max-height:92vh;overflow-y:auto;padding:24px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);font-family:sans-serif;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <h3 style="margin:0;font-size:1.1rem;font-weight:700;color:#0f172a;">Foto ID Card PVC 3:4</h3>
+        <button id="close-cropper-modal" style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:#64748b;padding:2px 8px;">&times;</button>
+      </div>
+
+      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:12px 14px;margin-bottom:16px;font-size:0.82rem;color:#1e40af;">
+        <strong style="display:block;margin-bottom:4px;color:#1e3a8a;">📌 Panduan Foto Resmi Sekolah:</strong>
+        <ul style="margin:0;padding-left:16px;line-height:1.45;">
+          <li>Gunakan seragam sekolah resmi & rapi</li>
+          <li>Wajah menghadap lurus ke depan</li>
+          <li>Latar belakang polos/satu warna</li>
+        </ul>
+      </div>
+
+      <div style="text-align:center;margin-bottom:16px;">
+        <input type="file" id="photo-file-input" accept="image/*" capture="user" style="display:none;" />
+        <button type="button" id="btn-select-photo" style="width:100%;padding:12px;border-radius:12px;background:#2563eb;color:white;font-weight:600;font-size:0.92rem;border:none;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;">
+          📷 Ambil / Pilih Foto ${esc(studentName)}
+        </button>
+      </div>
+
+      <div id="cropper-container" style="display:none;flex-direction:column;align-items:center;">
+        <div style="position:relative;width:240px;height:320px;border:3px dashed #2563eb;border-radius:16px;overflow:hidden;background:#f8fafc;box-shadow:0 4px 12px rgba(0,0,0,0.1);margin-bottom:12px;touch-action:none;cursor:move;">
+          <canvas id="cropper-canvas" width="240" height="320" style="width:240px;height:320px;"></canvas>
+          <div style="position:absolute;inset:0;border:2px solid rgba(37,99,235,0.4);pointer-events:none;border-radius:14px;"></div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;width:100%;justify-content:center;">
+          <button type="button" id="btn-zoom-out" style="padding:6px 14px;border-radius:8px;border:1px solid #cbd5e1;background:white;font-weight:600;cursor:pointer;">🔍 -</button>
+          <span style="font-size:0.82rem;color:#64748b;font-weight:500;">Geser & Zoom Foto</span>
+          <button type="button" id="btn-zoom-in" style="padding:6px 14px;border-radius:8px;border:1px solid #cbd5e1;background:white;font-weight:600;cursor:pointer;">🔍 +</button>
+        </div>
+
+        <button type="button" id="btn-save-photo" style="width:100%;padding:12px;border-radius:12px;background:#16a34a;color:white;font-weight:600;font-size:0.95rem;border:none;cursor:pointer;">
+          💾 Simpan Foto (Rasio 3:4 Pas PVC)
+        </button>
+      </div>
+
+      <div id="cropper-status" style="margin-top:12px;text-align:center;font-size:0.85rem;"></div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  const closeBtn = modal.querySelector("#close-cropper-modal") as HTMLButtonElement;
+  const fileInput = modal.querySelector("#photo-file-input") as HTMLInputElement;
+  const selectBtn = modal.querySelector("#btn-select-photo") as HTMLButtonElement;
+  const cropperContainer = modal.querySelector("#cropper-container") as HTMLDivElement;
+  const canvas = modal.querySelector("#cropper-canvas") as HTMLCanvasElement;
+  const ctx = canvas.getContext("2d")!;
+  const zoomInBtn = modal.querySelector("#btn-zoom-in") as HTMLButtonElement;
+  const zoomOutBtn = modal.querySelector("#btn-zoom-out") as HTMLButtonElement;
+  const saveBtn = modal.querySelector("#btn-save-photo") as HTMLButtonElement;
+  const statusDiv = modal.querySelector("#cropper-status") as HTMLDivElement;
+
+  let loadedImg: HTMLImageElement | null = null;
+  let scale = 1;
+  let offsetX = 0;
+  let offsetY = 0;
+  let isDragging = false;
+  let startX = 0;
+  let startY = 0;
+
+  closeBtn.onclick = () => modal.remove();
+  selectBtn.onclick = () => fileInput.click();
+
+  fileInput.onchange = () => {
+    const file = fileInput.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        loadedImg = img;
+        cropperContainer.style.display = "flex";
+        
+        const scaleX = 240 / img.width;
+        const scaleY = 320 / img.height;
+        scale = Math.max(scaleX, scaleY);
+        offsetX = (240 - img.width * scale) / 2;
+        offsetY = (320 - img.height * scale) / 2;
+        draw();
+      };
+      img.src = e.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  function draw() {
+    if (!loadedImg) return;
+    ctx.clearRect(0, 0, 240, 320);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, 240, 320);
+    ctx.drawImage(loadedImg, offsetX, offsetY, loadedImg.width * scale, loadedImg.height * scale);
+  }
+
+  zoomInBtn.onclick = () => { scale *= 1.15; draw(); };
+  zoomOutBtn.onclick = () => { scale /= 1.15; draw(); };
+
+  canvas.onpointerdown = (e) => {
+    isDragging = true;
+    startX = e.clientX - offsetX;
+    startY = e.clientY - offsetY;
+    try { canvas.setPointerCapture(e.pointerId); } catch {}
+  };
+
+  canvas.onpointermove = (e) => {
+    if (!isDragging) return;
+    offsetX = e.clientX - startX;
+    offsetY = e.clientY - startY;
+    draw();
+  };
+
+  canvas.onpointerup = canvas.onpointercancel = (e) => {
+    isDragging = false;
+    try { canvas.releasePointerCapture(e.pointerId); } catch {}
+  };
+
+  saveBtn.onclick = async () => {
+    if (!loadedImg) return;
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Menyimpan foto...";
+    statusDiv.style.color = "#2563eb";
+    statusDiv.textContent = "Memproses & mengunggah foto...";
+
+    try {
+      const outCanvas = document.createElement("canvas");
+      outCanvas.width = 600;
+      outCanvas.height = 800;
+      const outCtx = outCanvas.getContext("2d")!;
+      
+      const ratio = 600 / 240;
+      outCtx.fillStyle = "#ffffff";
+      outCtx.fillRect(0, 0, 600, 800);
+      outCtx.drawImage(loadedImg, offsetX * ratio, offsetY * ratio, loadedImg.width * scale * ratio, loadedImg.height * scale * ratio);
+
+      const base64Photo = outCanvas.toDataURL("image/jpeg", 0.88);
+
+      await request(`/parent/children/${studentId}/photo`, {
+        method: "POST",
+        body: JSON.stringify({ photo_url: base64Photo })
+      });
+
+      statusDiv.style.color = "#16a34a";
+      statusDiv.textContent = "✅ Foto berhasil disimpan! Status kartu otomatis SIAP CETAK.";
+      setTimeout(() => {
+        modal.remove();
+        void dashboard();
+      }, 1000);
+    } catch (err: any) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = "Coba Lagi";
+      statusDiv.style.color = "#dc2626";
+      statusDiv.textContent = "❌ Gagal menyimpan foto: " + (err.message || "Terjadi kesalahan");
+    }
+  };
+}
+
 function loginView(message = "Pindai QR dari admin sekolah untuk membuka aktivitas anak Anda.", isError = false) {
   viewRevision++;
   dashboardVisible = false;
@@ -242,8 +408,19 @@ async function dashboard(): Promise<boolean> {
       ` : ""}
 
       <div class="parent-content">
+        ${!profile.photo_url ? `
+          <div class="photo-warning-banner" style="background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%); border: 1.5px solid #fdba74; border-radius: 16px; padding: 16px 18px; margin-bottom: 18px; display: flex; align-items: center; gap: 14px; box-shadow: 0 4px 12px rgba(234,88,12,0.08);">
+            <div style="background: #ea580c; color: white; width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">📷</div>
+            <div style="flex: 1;">
+              <h4 style="margin: 0 0 4px; font-size: 0.95rem; font-weight: 700; color: #9a3412;">Aksi Diperlukan: Unggah Foto Siswa</h4>
+              <p style="margin: 0; font-size: 0.82rem; color: #c2410c;">Foto resmi sekolah diperlukan untuk pencetakan ID Card PVC ${esc(profile.first_name)}.</p>
+            </div>
+            <button type="button" id="btn-open-photo-modal" style="background: #ea580c; border: none; padding: 8px 16px; border-radius: 10px; color: white; font-weight: 700; font-size: 0.85rem; cursor: pointer; white-space: nowrap;">Unggah Foto</button>
+          </div>
+        ` : ""}
+
         <!-- Student Profile Card -->
-        <section class="student-profile-card">
+        <section class="student-profile-card" style="cursor:pointer;" title="Klik untuk mengubah foto siswa">
           <div class="student-avatar-wrap">
             ${profile.photo_url ? `
               <img src="${esc(profile.photo_url)}" class="student-avatar" alt="${esc(profile.full_name)}" />
@@ -439,6 +616,9 @@ async function dashboard(): Promise<boolean> {
 
     root.innerHTML = parentLayout(contentHTML, "home");
     bindGlobalEvents();
+
+    document.getElementById("btn-open-photo-modal")?.addEventListener("click", () => openPhotoCropperModal(selected.student_id, profile.full_name));
+    document.querySelector(".student-profile-card")?.addEventListener("click", () => openPhotoCropperModal(selected.student_id, profile.full_name));
 
     const drawer = document.querySelector<HTMLDialogElement>("#timeline-drawer")!;
     const openDrawer = (prefix = "") => {

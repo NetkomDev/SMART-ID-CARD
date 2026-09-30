@@ -1,11 +1,13 @@
 import { z } from "zod";
 
 const studentFields = {
-  nisn: z.string().regex(/^\d{10}$/).nullable().optional(),
+  nisn: z.string().trim().nullable().optional(),
   student_number: z.string().trim().min(1).max(50),
   full_name: z.string().trim().min(1).max(200),
   gender: z.enum(["MALE", "FEMALE", "OTHER", "UNDISCLOSED"]).optional(),
-  date_of_birth: z.iso.date(),
+  date_of_birth: z.string().trim().nullable().optional(),
+  pob: z.string().trim().nullable().optional(),
+  address: z.string().trim().nullable().optional(),
   is_active: z.boolean().optional()
 };
 

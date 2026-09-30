@@ -8,10 +8,12 @@ import { fromDatabaseError } from '../lib/errors.js';
 import { sendData } from '../lib/responses.js';
 import { paginationSchema,idParamsSchema } from '../schemas/common.js';
 const router=Router();router.use(requireAuth,requirePlatform);
-router.get('/candidates',validate({query:paginationSchema.extend({school_id:z.uuid(),class_id:z.uuid().optional()})}),asyncHandler(async(req,res)=>{
+router.get('/candidates',validate({query:paginationSchema.extend({school_id:z.uuid(),class_id:z.uuid().optional(),photo_status:z.enum(['ALL','COMPLETE','MISSING']).optional()})}),asyncHandler(async(req,res)=>{
  const page=Number(req.query.page),size=Number(req.query.page_size);
- let query=req.auth!.client.from('students').select(`id,student_number,full_name,student_class_history${req.query.class_id?'!inner':''}(class_id,is_current,classes(name)),student_cards(id,status,production_status)`,{count:'exact'}).eq('school_id',req.query.school_id).eq('is_active',true).is('deleted_at',null).order('full_name').range((page-1)*size,page*size-1);
+ let query=req.auth!.client.from('students').select(`id,student_number,full_name,photo_url,student_class_history${req.query.class_id?'!inner':''}(class_id,is_current,classes(name)),student_cards(id,status,production_status)`,{count:'exact'}).eq('school_id',req.query.school_id).eq('is_active',true).is('deleted_at',null).order('full_name').range((page-1)*size,page*size-1);
  if(req.query.class_id)query=query.eq('student_class_history.class_id',req.query.class_id).eq('student_class_history.is_current',true);
+ if(req.query.photo_status==='COMPLETE')query=query.not('photo_url','is',null).neq('photo_url','');
+ if(req.query.photo_status==='MISSING')query=query.or('photo_url.is.null,photo_url.eq.');
  if(req.query.search)query=query.ilike('full_name',`%${req.query.search}%`);
  const{data,error,count}=await query;if(error)throw fromDatabaseError(error);sendData(res,data,200,{page,page_size:size,total:count??0});
 }));

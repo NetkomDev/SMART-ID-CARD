@@ -32,6 +32,19 @@ router.get("/children/:id/today", requireAuth, validate({ params: idParamsSchema
   sendData(res, data);
 }));
 
+router.post("/children/:id/photo", requireAuth, validate({ params: idParamsSchema }), asyncHandler(async (req, res) => {
+  const { photo_url } = req.body as { photo_url: string };
+  if (!photo_url || typeof photo_url !== "string" || !photo_url.trim()) {
+    throw new ApiError(400, "VALIDATION_ERROR", "Photo data is required");
+  }
+  const { data, error } = await req.auth!.client.rpc("update_student_photo_by_parent", {
+    p_student_id: req.params.id,
+    p_photo_data: photo_url.trim()
+  });
+  if (error) throw fromDatabaseError(error);
+  sendData(res, data, 200);
+}));
+
 router.post("/link-tokens", requireAuth, requireTenant, requirePermission("parent.manage"),
   validate({ body: createParentTokenSchema }), asyncHandler(async (req, res) => {
     const token = randomBytes(32).toString("base64url");

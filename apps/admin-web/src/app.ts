@@ -488,24 +488,51 @@ async function attendancePage(): Promise<void> {
 }
 
 function studentImportPage(): void {
-  shell(`<section class="panel"><div class="panel-head"><h2>Import Data Siswa</h2><p>Pilih file CSV (Header: NIS, Nama, NISN, L/P, Tgl Lahir YYYY-MM-DD) untuk mengimport data siswa.</p></div>
+  shell(`<section class="panel">
+    <div class="panel-head">
+      <h2>Import Data Siswa (Format Dapodik)</h2>
+      <p>Unggah file CSV hasil ekspor Dapodik. Pastikan seluruh kolom wajib (Nama, NISN, Kelas, Tempat Lahir, Tanggal Lahir, Alamat, Jenis Kelamin) terisi lengkap.</p>
+    </div>
+    <div style="margin-bottom:1.5rem;padding:1rem;background:var(--bg-subtle,#f8fafc);border:1px solid var(--line,#e2e8f0);border-radius:0.75rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
+      <div>
+        <strong style="font-size:0.95rem;color:var(--text)">Format Excel / CSV Standar Dapodik</strong>
+        <p style="font-size:0.8rem;color:var(--muted);margin:0.2rem 0 0;">Kolom: Nama Lengkap, NISN, Kelas, Tempat Lahir, Tanggal Lahir (YYYY-MM-DD), Alamat, Jenis Kelamin (L/P)</p>
+      </div>
+      <button type="button" id="btn-download-template" class="button secondary" style="display:inline-flex;align-items:center;gap:0.5rem;">
+        📥 Unduh Template CSV Dapodik
+      </button>
+    </div>
+
     <form id="import-form" class="login-form" style="margin:0;">
-      <label>File CSV <input type="file" id="csv-file" accept=".csv" required /></label>
+      <label>File CSV Dapodik <input type="file" id="csv-file" accept=".csv" required /></label>
       <div id="import-preview"></div>
-      <div style="display:flex;gap:1rem;margin-top:1rem;">
-        <button class="button primary" type="submit" id="import-submit">Preview Data</button>
+      <div style="display:flex;gap:1rem;margin-top:1.5rem;">
+        <button class="button primary" type="submit" id="import-submit">Preview & Validasi Data</button>
         <a href="/students" data-link class="button secondary">Batal</a>
       </div>
     </form>
-  </section>`, "Import Siswa", "Tambahkan data siswa secara massal menggunakan file CSV.");
+  </section>`, "Import Siswa", "Tambahkan data siswa secara massal menggunakan file Dapodik CSV.");
 
   setTimeout(() => {
     const form = document.getElementById("import-form") as HTMLFormElement;
     const fileInput = document.getElementById("csv-file") as HTMLInputElement;
     const preview = document.getElementById("import-preview") as HTMLDivElement;
     const submitBtn = document.getElementById("import-submit") as HTMLButtonElement;
+    const downloadBtn = document.getElementById("btn-download-template") as HTMLButtonElement;
+    
     let parsedData: any[] = [];
     let isPreview = true;
+
+    downloadBtn?.addEventListener("click", () => {
+      const templateContent = "Nama Lengkap,NISN,Kelas,Tempat Lahir,Tanggal Lahir,Alamat,Jenis Kelamin\n" +
+        "Ahmad Subagja,0012345678,X IPA 1,Jakarta,2008-05-14,Jl. Merdeka No. 10 Jakarta,L\n" +
+        "Siti Nurhaliza,0087654321,X IPA 1,Bandung,2008-08-20,Jl. Mawar No. 5 Bandung,P\n";
+      const blob = new Blob([templateContent], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "template_dapodik_aksis.csv";
+      link.click();
+    });
 
     form?.addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -513,17 +540,141 @@ function studentImportPage(): void {
         const file = fileInput.files?.[0];
         if (!file) return;
         const text = await file.text();
-        const rows = text.split("\\n").map(r => r.trim()).filter(Boolean);
-        parsedData = rows.slice(1).map(row => {
-          const cols = row.split(",");
-          return { student_number: cols[0], full_name: cols[1], nisn: cols[2] || undefined, gender: cols[3] === "L" ? "MALE" : cols[3] === "P" ? "FEMALE" : "OTHER", date_of_birth: cols[4] };
+        const lines = text.split(/\r?\n/).map(r => r.trim()).filter(Boolean);
+        if (lines.length < 2) {
+          preview.innerHTML = `<div class="banner error" style="margin-top:1rem;color:#dc2626;background:#fef2f2;padding:1rem;border-radius:0.5rem;">File CSV kosong atau tidak memiliki baris data.</div>`;
+          return;
+        }
+
+        const headers = lines[0]!.split(",").map(h => h.trim().toLowerCase());
+        const getIdx = (name: string) => headers.findIndex(h => h.includes(name));
+
+        const nameIdx = getIdx("nama");
+        const nisnIdx = getIdx("nisn");
+        const classIdx = getIdx("kelas");
+        const pobIdx = getIdx("tempat");
+        const dobIdx = getIdx("tanggal") !== -1 ? getIdx("tanggal") : getIdx("tgl");
+        const addrIdx = getIdx("alamat");
+        const genderIdx = getIdx("jenis") !== -1 ? getIdx("jenis") : getIdx("kelamin");
+
+        parsedData = [];
+        const validationErrors: Array<{ rowNum: number; name: string; missing: string[] }> = [];
+
+        lines.slice(1).forEach((line, index) => {
+          const rowNum = index + 2;
+          const cols = line.split(",").map(c => c.trim().replace(/^"|"$/g, ''));
+          const fullName = cols[nameIdx !== -1 ? nameIdx : 0] || "";
+          const nisn = cols[nisnIdx !== -1 ? nisnIdx : 1] || "";
+          const pob = cols[pobIdx !== -1 ? pobIdx : 3] || "";
+          const dob = cols[dobIdx !== -1 ? dobIdx : 4] || "";
+          const address = cols[addrIdx !== -1 ? addrIdx : 5] || "";
+          const rawGender = (cols[genderIdx !== -1 ? genderIdx : 6] || "").toUpperCase();
+
+          const missingFields: string[] = [];
+          if (!fullName) missingFields.push("Nama Lengkap");
+          if (!nisn) missingFields.push("NISN");
+          if (!pob) missingFields.push("Tempat Lahir");
+          if (!dob) missingFields.push("Tanggal Lahir");
+          if (!address) missingFields.push("Alamat");
+          if (!rawGender) missingFields.push("Jenis Kelamin");
+
+          if (missingFields.length > 0) {
+            validationErrors.push({ rowNum, name: fullName || "(Tanpa Nama)", missing: missingFields });
+          } else {
+            const gender = rawGender.startsWith("L") || rawGender === "MALE" ? "MALE" : rawGender.startsWith("P") || rawGender === "FEMALE" ? "FEMALE" : "OTHER";
+            parsedData.push({
+              student_number: nisn,
+              nisn,
+              full_name: fullName,
+              pob,
+              date_of_birth: dob,
+              address,
+              gender
+            });
+          }
         });
-        preview.innerHTML = `<div class="table-wrap" style="margin-top:1rem"><table><thead><tr><th>NIS</th><th>Nama Lengkap</th><th>Gender</th><th>Tgl Lahir</th></tr></thead><tbody>${parsedData.slice(0, 5).map(s => `<tr><td>${escapeHtml(s.student_number)}</td><td>${escapeHtml(s.full_name)}</td><td>${escapeHtml(s.gender)}</td><td>${escapeHtml(s.date_of_birth)}</td></tr>`).join("")}</tbody></table></div><p style="margin-top:1rem;font-size:0.8rem;color:var(--muted)">Menampilkan 5 data pertama dari total ${parsedData.length} data siap di-import.</p>`;
-        submitBtn.textContent = "Simpan ke Database";
-        isPreview = false;
+
+        if (validationErrors.length > 0) {
+          preview.innerHTML = `
+            <div style="margin-top:1.5rem;padding:1.25rem;background:#fef2f2;border:1.5px solid #fca5a5;border-radius:0.75rem;">
+              <h3 style="margin:0 0 0.5rem;color:#991b1b;font-size:1.05rem;display:flex;align-items:center;gap:0.5rem;">
+                ⚠️ Validasi Dapodik Gagal: ${validationErrors.length} Baris Data Bermasalah
+              </h3>
+              <p style="margin:0 0 1rem;font-size:0.88rem;color:#b91c1c;">
+                Seluruh kolom wajib (Nama, NISN, Tempat Lahir, Tanggal Lahir, Alamat, Jenis Kelamin) harus terisi sesuai standar Dapodik sebelum dapat disimpan ke database.
+              </p>
+              <div class="table-wrap" style="max-height:250px;overflow-y:auto;border:1px solid #fecaca;border-radius:0.5rem;background:white;">
+                <table style="font-size:0.85rem;">
+                  <thead>
+                    <tr style="background:#fee2e2;color:#991b1b;">
+                      <th style="padding:8px 12px;">Baris #</th>
+                      <th style="padding:8px 12px;">Nama Siswa</th>
+                      <th style="padding:8px 12px;">Kolom Kosong / Bermasalah</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${validationErrors.map(err => `
+                      <tr>
+                        <td style="padding:8px 12px;font-weight:600;color:#991b1b;">Baris ${err.rowNum}</td>
+                        <td style="padding:8px 12px;">${escapeHtml(err.name)}</td>
+                        <td style="padding:8px 12px;color:#dc2626;font-weight:500;">
+                          ${err.missing.join(", ")}
+                        </td>
+                      </tr>
+                    `).join("")}
+                  </tbody>
+                </table>
+              </div>
+              <p style="margin-top:0.75rem;font-size:0.82rem;color:#7f1d1d;">
+                💡 Silakan perbaiki file Excel/CSV Dapodik Anda lalu unggah kembali file yang sudah lengkap.
+              </p>
+            </div>
+          `;
+          submitBtn.disabled = true;
+          submitBtn.textContent = "Gagal Validasi - Perbaiki File";
+        } else {
+          preview.innerHTML = `
+            <div style="margin-top:1.5rem;padding:1rem;background:#f0fdf4;border:1px solid #86efac;border-radius:0.75rem;">
+              <h4 style="margin:0 0 0.5rem;color:#166534;display:flex;align-items:center;gap:0.5rem;">
+                ✅ Validasi Lolos 100% (${parsedData.length} Siswa Siap Di-import)
+              </h4>
+              <p style="margin:0 0 0.75rem;font-size:0.85rem;color:#15803d;">
+                Data Dapodik telah terverifikasi lengkap. Status awal kartu siswa akan diset ke <strong>BLOCKED / Waiting Photo</strong> hingga orang tua mengunggah foto via PWA.
+              </p>
+              <div class="table-wrap" style="max-height:300px;overflow-y:auto;background:white;border:1px solid #bbf7d0;border-radius:0.5rem;">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>NISN</th>
+                      <th>Nama Lengkap</th>
+                      <th>Tempat / Tgl Lahir</th>
+                      <th>Alamat</th>
+                      <th>JK</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${parsedData.slice(0, 10).map(s => `
+                      <tr>
+                        <td><strong>${escapeHtml(s.nisn)}</strong></td>
+                        <td>${escapeHtml(s.full_name)}</td>
+                        <td>${escapeHtml(s.pob || "-")}, ${escapeHtml(s.date_of_birth || "-")}</td>
+                        <td><small>${escapeHtml(s.address || "-")}</small></td>
+                        <td>${s.gender === "MALE" ? "L" : s.gender === "FEMALE" ? "P" : "-"}</td>
+                      </tr>
+                    `).join("")}
+                  </tbody>
+                </table>
+              </div>
+              ${parsedData.length > 10 ? `<p style="margin-top:0.5rem;font-size:0.8rem;color:#15803d;">Menampilkan 10 data pertama dari total ${parsedData.length} data.</p>` : ''}
+            </div>
+          `;
+          submitBtn.disabled = false;
+          submitBtn.textContent = `Simpan ${parsedData.length} Siswa ke Database`;
+          isPreview = false;
+        }
       } else {
         submitBtn.disabled = true;
-        submitBtn.textContent = "Menyimpan...";
+        submitBtn.textContent = "Menyimpan ke Database...";
         try {
           for (const student of parsedData) {
             await api("/students", { method: "POST", body: JSON.stringify(student) });
