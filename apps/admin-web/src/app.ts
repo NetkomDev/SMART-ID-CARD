@@ -84,7 +84,7 @@ function loginView(): void {
     </section>
     <section class="login-panel">
       <form class="login-form" id="login-form">
-        <div style="margin-bottom:0.5rem;"><a href="/" id="back-to-landing" style="font-size:0.85rem;color:var(--muted);font-weight:600;display:inline-flex;align-items:center;gap:0.4rem;">← Kembali ke Beranda AKSIS.CO.ID</a></div>
+        <div style="margin-bottom:0.5rem;"><a href="/" id="back-to-landing" style="font-size:0.85rem;color:var(--muted);font-weight:600;display:inline-flex;align-items:center;gap:0.4rem;">← Kembali ke Beranda AKSIS</a></div>
         <div><p class="eyebrow dark">Portal Admin</p><h2>Selamat datang kembali</h2><p>Masuk menggunakan akun sekolah atau Super Admin Anda.</p></div>
         <div id="login-error" aria-live="polite"></div>
         <label>Email<input name="email" type="email" autocomplete="username" placeholder="admin@sekolah.sch.id" required /></label>

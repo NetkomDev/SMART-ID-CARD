@@ -1,83 +1,65 @@
 import { getSession } from "./lib/session";
 
-const showcaseData: Record<string, { title: string, subtitle: string, icon: string, features: string[], badge: string, cta: string }> = {
+const showcaseData: Record<string, { title: string, subtitle: string, icon: string, features: string[], badge: string }> = {
   idcard: {
-    title: "Smart ID Card Pelajar & Produksi Batch",
-    subtitle: "Integrasi seamless dengan data Dapodik sekolah dan fitur pasfoto 3:4 yang diunggah mandiri oleh orang tua.",
+    title: "Smart ID Card Pelajar Serbaguna",
+    subtitle: "Kartu identitas resmi siswa yang serbaguna, elegan, dan terintegrasi dengan seluruh fasilitas sekolah.",
     icon: "💳",
-    badge: "PRODUKSI MASSAL INTEGRATED DAPODIK",
+    badge: "KARTU PINTAR TERINTEGRASI",
     features: [
-      "Import data siswa otomatis dari file CSV/Excel Dapodik dengan deteksi pemisah kolom cerdas.",
-      "Orang tua mengunggah foto pas 3:4 dari PWA dengan pemotong foto (cropper) aspek rasio tepat.",
-      "Filter status foto 'Siap Cetak' di Super Admin untuk pembentukan batch antrean produksi.",
-      "Cetak kartu pintar fisik dilengkapi QR Code unik dan nomor seri yang terenkripsi aman."
-    ],
-    cta: "Kelola Kartu Pelajar"
+      "Satu kartu untuk presensi gerbang, perpustakaan, bank sampah, hingga kegiatan ekstrakurikuler.",
+      "Desain kartu pintar berkualitas tinggi yang tahan lama dan berstandar nasional.",
+      "Sinkronisasi otomatis dengan data Dapodik sekolah untuk akurasi identitas siswa.",
+      "Memudahkan manajemen sekolah dalam mengelola data induk siswa secara terpusat."
+    ]
   },
   presensi: {
-    title: "Presensi Gerbang IoT & LED Board Display",
-    subtitle: "Pencatatan kehadiran masuk & pulang siswa secara tepat waktu melalui terminal tap RFID/QR gerbang.",
+    title: "Presensi Gerbang IoT Real-time & Display LED",
+    subtitle: "Sistem pencatatan kehadiran gerbang otomatis yang cepat, akurat, dan transparan.",
     icon: "🚪",
-    badge: "IOT GATE ATTENDANCE & DISPLAY",
+    badge: "IOT GATE SYSTEM & LED DISPLAY",
     features: [
-      "Pencatatan waktu hadir & pulang kurang dari 1 detik per siswa.",
-      "Terhubung langsung dengan display LED Board gerbang sekolah untuk sapaan siswa dan pengumuman.",
-      "Notifikasi instan ke Portal PWA Orang Tua saat anak tiba di sekolah atau waktu pulang.",
-      "Deteksi keterlambatan otomatis sesuai jam masuk operasional sekolah."
-    ],
-    cta: "Lihat Terminal Gerbang"
+      "Kecepatan pemindaian presensi di bawah 1 detik tanpa memicu antrean di gerbang sekolah.",
+      "Terhubung langsung dengan tampilan papan LED Board gerbang untuk pesan menyambut siswa.",
+      "Pencatatan waktu hadir & pulang secara akurat untuk memupuk kedisiplinan siswa.",
+      "Menghemat waktu piket guru dan memberikan laporan presensi yang transparan."
+    ]
   },
   sampah: {
-    title: "Piket Bank Sampah Edukatif Sekolah",
-    subtitle: "Membangun karakter dan kepedulian lingkungan hidup siswa melalui penimbangan sampah terpilah.",
+    title: "Bank Sampah Edukatif Sekolah",
+    subtitle: "Program sekolah hijau yang membangun karakter kepedulian lingkungan hidup siswa secara nyata.",
     icon: "♻",
-    badge: "ECOLOGICAL WASTE BANK TERMINAL",
+    badge: "ECOLOGICAL WASTE MANAGEMENT",
     features: [
-      "Pencatatan setoran sampah anorganik (botol, plastik) dan organik (daun, kompos) per siswa.",
-      "Terminal piket khusus tanpa password bagi siswa piket / petugas bank sampah.",
-      "Akumulasi total kilogram sampah per siswa dan per kelas sebagai indikator kelas ramah lingkungan.",
-      "Laporan statistik dampak ekologis bulanan untuk penilaian akreditasi sekolah."
-    ],
-    cta: "Portal Bank Sampah"
+      "Pencatatan setoran sampah anorganik dan organik secara terukur per siswa.",
+      "Menumbuhkan budaya pilah sampah dan tanggung jawab lingkungan sejak dini.",
+      "Perekapan akumulasi kilogram sampah terolah per kelas secara otomatis.",
+      "Mendukung indikator penilaian sekolah adiwiyata dan akreditasi lingkungan."
+    ]
   },
   perpus: {
-    title: "Terminal Kunjungan Perpustakaan Digital",
-    subtitle: "Registrasi kedatangan siswa ke perpustakaan sekolah tanpa antrean dan tanpa formulir kertas.",
+    title: "Terminal Perpustakaan Digital",
+    subtitle: "Registrasi kunjungan perpustakaan instan untuk meningkatkan literasi membaca siswa.",
     icon: "▤",
-    badge: "LIBRARY VISIT SCANNER",
+    badge: "DIGITAL LIBRARY TERMINAL",
     features: [
-      "Siswa cukup menempelkan Smart ID Card ke scanner perpustakaan saat masuk.",
-      "Terminal responsif yang otomatis menampilkan sapaan nama siswa dan kelasnya.",
-      "Rekapitulasi statistik kunjungan perpustakaan harian, mingguan, dan bulanan per kelas.",
-      "Mendukung integrasi data dengan Laporan Rekapitulasi Wali Kelas."
-    ],
-    cta: "Buka Terminal Perpus"
+      "Proses pencatatan kunjungan perpus cepat dan praktis cukup dengan menempelkan kartu siswa.",
+      "Menghilangkan pencatatan manual di buku tamu kertas yang sering hilang atau rusak.",
+      "Analisis statistik grafik minat baca dan frekuensi kunjungan perpustakaan per kelas.",
+      "Laporan terintegrasi untuk mendukung penilaian kinerja literasi sekolah."
+    ]
   },
   ekskul: {
-    title: "Presensi Ekskul & Rekapitulasi eRapor",
-    subtitle: "Manajemen kegiatan ekstrakurikuler lengkap dengan kalkulasi predikat keaktifan otomatis.",
+    title: "Presensi Ekskul & Otomatisasi eRapor",
+    subtitle: "Perekapan aktivitas ekstrakurikuler yang langsung siap dimasukkan ke laporan pendidikan siswa.",
     icon: "⭐",
     badge: "EXTRACURRICULAR & RAPOR RECAP",
     features: [
-      "Pencatatan presensi sesi kegiatan ekskul (Pramuka, Paskibra, PMR, Olahraga, KTI, dll).",
-      "Kalkulasi otomatis persentase kehadiran per ekskul (misal: Pramuka 100%, Silat 85%).",
-      "Pemberian predikat keaktifan otomatis (Sangat Baik ≥90%, Baik 75-89%, Cukup 60-74%, Kurang <60%).",
-      "Export CSV khusus eRapor dan cetakan Laporan Wali Kelas resmi lengkap dengan kolom tanda tangan."
-    ],
-    cta: "Buka Laporan Wali Kelas"
-  },
-  pwa: {
-    title: "Portal PWA Tanpa Password untuk Orang Tua",
-    subtitle: "Akses informasi siswa secara aman dan instan langsung dari layar utama smartphone.",
-    icon: "📱",
-    badge: "ZERO-PASSWORD PWA PORTALS",
-    features: [
-      "Cukup pindai QR sekolah satu kali lalu simpan ke HomeScreen (Add to Home Screen).",
-      "Orang tua masuk dengan memasukkan NISN & Tanggal Lahir anak tanpa pusing mengingat password.",
-      "Fitur upload foto siswa 3:4 mandiri untuk proses pencetakan Smart ID Card sekolah.",
-      "Pantau presensi gerbang, setoran sampah, kunjungan perpus, dan kegiatan ekskul anak secara transparan."
-    ],
-    cta: "Jelajahi Portal PWA"
+      "Pencatatan presensi sesi kegiatan ekstrakurikuler sekolah secara tertib.",
+      "Kalkulasi persentase kehadiran dan predikat keaktifan otomatis (Sangat Baik, Baik, Cukup, Kurang).",
+      "Memudahkan Wali Kelas dalam menulis laporan perkembangan siswa tanpa rekapitulasi manual.",
+      "Fitur eksport data resmi yang siap diserahkan ke Wali Kelas dan Kepala Sekolah."
+    ]
   }
 };
 
@@ -93,17 +75,17 @@ export function renderLandingPage(navigate: (path: string) => void): void {
       <header class="landing-header">
         <div class="landing-header-inner">
           <a href="/" class="landing-brand" id="landing-brand-link">
-            <img src="/logo.png" alt="AKSIS.CO.ID Logo" class="landing-logo-img" />
+            <img src="/logo.png" alt="AKSIS Logo" class="landing-logo-img" />
             <div class="landing-brand-text">
-              <span class="brand-title">AKSIS.CO.ID</span>
+              <span class="brand-title">AKSIS</span>
               <span class="brand-sub">Smart School Ecosystem</span>
             </div>
           </a>
 
           <nav class="landing-nav">
             <a href="#fitur" class="landing-nav-link">Fitur Utama</a>
-            <a href="#modul" class="landing-nav-link">Modul Operasional</a>
-            <a href="#kartu" class="landing-nav-link">Smart ID Card</a>
+            <a href="#modul" class="landing-nav-link">Modul Fitur</a>
+            <a href="#keunggulan" class="landing-nav-link">Keunggulan</a>
             <a href="#simulasi" class="landing-nav-link">Kalkulator</a>
           </nav>
 
@@ -114,8 +96,7 @@ export function renderLandingPage(navigate: (path: string) => void): void {
 
             ${isLoggedIn 
               ? `<button class="button primary" id="btn-go-dashboard">Ke Dashboard <span>→</span></button>`
-              : `<button class="button secondary" id="btn-portal-pwa">Portal PWA</button>
-                 <button class="button primary" id="btn-login-admin">🔑 Masuk Admin <span>→</span></button>`
+              : `<button class="button primary" id="btn-login-admin">Masuk <span>→</span></button>`
             }
           </div>
         </div>
@@ -131,7 +112,7 @@ export function renderLandingPage(navigate: (path: string) => void): void {
         <div class="landing-hero-content">
           <div class="hero-badge">
             <span class="badge-dot"></span>
-            <span>DOMAIN RESMI: WWW.AKSIS.CO.ID &bull; PLATFORM SEKOLAH CERDAS INTEGRATED IOT</span>
+            <span>PLATFORM SEKOLAH CERDAS INTEGRATED IOT</span>
           </div>
 
           <h1 class="hero-title">
@@ -139,16 +120,8 @@ export function renderLandingPage(navigate: (path: string) => void): void {
           </h1>
 
           <p class="hero-subtitle">
-            AKSIS.CO.ID menghubungkan sistem presensi gerbang IoT real-time, pencetakan ID Card otomatis Dapodik, terminal bank sampah edukatif, presensi perpustakaan, hingga portal PWA orang tua dalam satu platform terpadu.
+            AKSIS menghubungkan sistem presensi gerbang IoT real-time, pencetakan ID Card otomatis Dapodik, terminal bank sampah edukatif, presensi perpustakaan, hingga portal PWA orang tua dalam satu platform terpadu.
           </p>
-
-          <div class="hero-cta-group">
-            ${isLoggedIn
-              ? `<button class="button primary hero-btn" id="hero-btn-dashboard">⚡ Masuk ke Dashboard Admin <span>→</span></button>`
-              : `<button class="button primary hero-btn" id="hero-btn-login">🔑 Masuk Portal Admin <span>→</span></button>
-                 <button class="button secondary hero-btn" id="hero-btn-pwa">📱 Akses Portal PWA Orang Tua</button>`
-            }
-          </div>
 
           <!-- Hero Metrics Bar -->
           <div class="hero-metrics">
@@ -159,17 +132,17 @@ export function renderLandingPage(navigate: (path: string) => void): void {
             <div class="metric-divider"></div>
             <div class="metric-card">
               <span class="metric-value">100% Sync</span>
-              <span class="metric-label">Format Data Excel Dapodik</span>
+              <span class="metric-label">Terhubung Data Dapodik</span>
             </div>
             <div class="metric-divider"></div>
             <div class="metric-card">
-              <span class="metric-value">6 Modul</span>
+              <span class="metric-value">5 Modul</span>
               <span class="metric-label">Integrasi Aktivitas Sekolah</span>
             </div>
             <div class="metric-divider"></div>
             <div class="metric-card">
-              <span class="metric-value">0 Password</span>
-              <span class="metric-label">Portal PWA Instan QR</span>
+              <span class="metric-value">Otomatis</span>
+              <span class="metric-label">Rekap Rapor Wali Kelas</span>
             </div>
           </div>
         </div>
@@ -178,46 +151,46 @@ export function renderLandingPage(navigate: (path: string) => void): void {
       <!-- Feature Grid Section -->
       <section class="landing-section" id="fitur">
         <div class="section-head">
-          <span class="eyebrow">KEUNGGULAN UTAMA PLATFORM</span>
-          <h2>Ekosistem Digital Sekolah Tanpa Hambatan</h2>
-          <p>Dirancang khusus untuk memenuhi standar operasional sekolah modern Indonesia.</p>
+          <span class="eyebrow">SOLUSI TERLENGKAP SEKOLAH CERDAS</span>
+          <h2>Mengapa Sekolah Menggunakan AKSIS?</h2>
+          <p>Dirancang untuk meningkatkan efisiensi operasional, kedisiplinan siswa, dan mutu manajemen sekolah modern.</p>
         </div>
 
         <div class="feature-grid">
           <article class="feature-card">
             <div class="feature-icon sage">💳</div>
-            <h3>Smart ID Card & Produksi Batch</h3>
-            <p>Integrasi format Dapodik dengan foto 3:4 yang diunggah langsung oleh orang tua via PWA. Pencetakan kartu batch efisien dengan kode QR & serial unik.</p>
+            <h3>Smart ID Card Multiguna</h3>
+            <p>Satu kartu identitas siswa elegan yang terintegrasi dengan presensi gerbang, perpustakaan, bank sampah, dan aktivitas ekstrakurikuler.</p>
           </article>
 
           <article class="feature-card">
             <div class="feature-icon lime">🚪</div>
-            <h3>Presensi Gerbang IoT & LED Board</h3>
-            <p>Pencatatan waktu hadir & pulang secara instan melalui terminal tap RFID/QR. Terhubung langsung dengan pengumuman di LED Board gerbang sekolah.</p>
+            <h3>Presensi Gerbang IoT & Display LED</h3>
+            <p>Pencatatan kehadiran masuk & pulang super cepat bebas antrean, terhubung langsung dengan papan informasi LED gerbang sekolah.</p>
           </article>
 
           <article class="feature-card">
             <div class="feature-icon blue">♻</div>
-            <h3>Bank Sampah Edukatif & Lingkungan</h3>
-            <p>Mendorong karakter peduli lingkungan siswa. Petugas piket mencatat setoran sampah anorganik & organik per kelas secara akurat.</p>
+            <h3>Bank Sampah Edukatif</h3>
+            <p>Mendorong karakter peduli lingkungan hidup. Pencatatan setoran sampah terpilah per kelas untuk mendukung sekolah hijau adiwiyata.</p>
           </article>
 
           <article class="feature-card">
             <div class="feature-icon sand">▤</div>
             <h3>Terminal Perpustakaan Digital</h3>
-            <p>Pencatatan kunjungan perpus cepat tanpa antrean. Cukup pindai kartu siswa saat memasuki area perpustakaan sekolah.</p>
+            <p>Registrasi kedatangan ke perpustakaan secara digital tanpa antrean dan buku tamu kertas, meningkatkan budaya literasi siswa.</p>
           </article>
 
           <article class="feature-card">
             <div class="feature-icon sage">⭐</div>
-            <h3>Presensi Ekskul & Rekap Wali Kelas</h3>
-            <p>Pencatatan sesi ekstrakurikuler otomatis dengan penilaian predikat keaktifan (Sangat Baik / Baik / Cukup) yang siap dimasukkan ke eRapor.</p>
+            <h3>Rekapitulasi Ekskul & eRapor</h3>
+            <p>Penilaian predikat keaktifan ekskul otomatis yang memudahkan Wali Kelas dalam menulis laporan perkembangan pendidikan siswa.</p>
           </article>
 
           <article class="feature-card">
-            <div class="feature-icon lime">📱</div>
-            <h3>Portal PWA Orang Tua Tanpa Password</h3>
-            <p>Orang tua dan petugas cukup memindai QR sekolah satu kali lalu menyimpan aplikasi ke layar utama smartphone tanpa ribet pusing lupa password.</p>
+            <div class="feature-icon lime">🛡</div>
+            <h3>Manajemen Data Aman & Terpusat</h3>
+            <p>Sistem cloud terenkripsi yang memastikan seluruh data presensi dan aktivitas sekolah tersimpan rapi dan dapat diakses kapan saja.</p>
           </article>
         </div>
       </section>
@@ -225,9 +198,9 @@ export function renderLandingPage(navigate: (path: string) => void): void {
       <!-- Interactive Module Showcase -->
       <section class="landing-section showcase-section" id="modul">
         <div class="section-head">
-          <span class="eyebrow">MODUL OPERASIONAL AKSIS</span>
-          <h2>Jelajahi Cara Kerja Setiap Modul</h2>
-          <p>Pilih modul di bawah untuk melihat rincian alur kerja operasionalnya.</p>
+          <span class="eyebrow">MODUL LAYANAN AKSIS</span>
+          <h2>Jelajahi Fitur & Keunggulan Layanan</h2>
+          <p>Pilih modul di bawah untuk melihat rincian manfaat operasional bagi sekolah Anda.</p>
         </div>
 
         <div class="showcase-tabs">
@@ -236,7 +209,6 @@ export function renderLandingPage(navigate: (path: string) => void): void {
           <button class="showcase-tab" data-tab="sampah">♻ Bank Sampah</button>
           <button class="showcase-tab" data-tab="perpus">▤ Perpustakaan</button>
           <button class="showcase-tab" data-tab="ekskul">⭐ Ekskul & eRapor</button>
-          <button class="showcase-tab" data-tab="pwa">📱 PWA Orang Tua</button>
         </div>
 
         <div class="showcase-content-box" id="showcase-display">
@@ -244,43 +216,31 @@ export function renderLandingPage(navigate: (path: string) => void): void {
         </div>
       </section>
 
-      <!-- Produksi Workflow Section -->
-      <section class="landing-section" id="kartu">
+      <!-- Competitive Advantage Section -->
+      <section class="landing-section" id="keunggulan">
         <div class="section-head">
-          <span class="eyebrow">ALUR WORKFLOW SIMPEL</span>
-          <h2>4 Langkah Mudah Produksi ID Card Pelajar</h2>
-          <p>Tanpa perlu input manual satu per satu. Semuanya otomatis dan terstruktur.</p>
+          <span class="eyebrow">NILAI TAMBAH MANAJEMEN SEKOLAH</span>
+          <h2>Keunggulan Utama Platform AKSIS</h2>
+          <p>Solusi terpadu yang memberikan manfaat nyata bagi Kepala Sekolah, Guru, Siswa, dan Orang Tua.</p>
         </div>
 
-        <div class="workflow-steps">
-          <div class="workflow-step">
-            <div class="step-num">01</div>
-            <h4>Unggah Dapodik</h4>
-            <p>Admin Sekolah mengunduh template CSV Excel AKSIS lalu copy-paste data Dapodik dan mengunggahnya ke dashboard.</p>
+        <div class="feature-grid">
+          <div class="feature-card">
+            <div class="feature-icon sage">📈</div>
+            <h3>Efisiensi Waktu & Beban Kerja Guru</h3>
+            <p>Otomatisasi rekapitulasi kehadiran dan kegiatan ekskul menghemat puluhan jam kerja guru dan wali kelas setiap bulannya.</p>
           </div>
 
-          <div class="workflow-arrow">→</div>
-
-          <div class="workflow-step">
-            <div class="step-num">02</div>
-            <h4>Upload Foto Ortu</h4>
-            <p>Orang tua login ke PWA menggunakan NISN & Tgl Lahir anak, lalu mengunggah foto pas 3:4 dengan pemotong foto otomatis.</p>
+          <div class="feature-card">
+            <div class="feature-icon lime">🎯</div>
+            <h3>Peningkatan Kedisiplinan Siswa</h3>
+            <p>Pencatatan presensi IoT gerbang yang transparan membentuk budaya hadir tepat waktu dan sikap bertanggung jawab pada siswa.</p>
           </div>
 
-          <div class="workflow-arrow">→</div>
-
-          <div class="workflow-step">
-            <div class="step-num">03</div>
-            <h4>Cetak Batch Admin</h4>
-            <p>Super Admin memfilter siswa dengan status foto siap cetak, membuat batch antrean, lalu mencetak kartu fisik dengan QR.</p>
-          </div>
-
-          <div class="workflow-arrow">→</div>
-
-          <div class="workflow-step">
-            <div class="step-num">04</div>
-            <h4>Aktif Digunakan</h4>
-            <p>Kartu fisik diserahkan ke siswa dan langsung dapat digunakan di seluruh terminal RFID/QR gerbang, perpus, & sampah.</p>
+          <div class="feature-card">
+            <div class="feature-icon blue">✨</div>
+            <h3>Citra Sekolah Modern & Digital</h3>
+            <p>Penggunaan Smart ID Card dan Display LED Gerbang memberikan kesan profesional dan modern bagi sekolah di mata masyarakat.</p>
           </div>
         </div>
       </section>
@@ -290,7 +250,7 @@ export function renderLandingPage(navigate: (path: string) => void): void {
         <div class="calculator-card">
           <div class="calculator-info">
             <span class="eyebrow">SIMULATOR EFISIENSI SEKOLAH</span>
-            <h2>Kalkulator Efisiensi AKSIS.CO.ID</h2>
+            <h2>Kalkulator Efisiensi AKSIS</h2>
             <p>Geser jumlah siswa sekolah Anda untuk melihat proyeksi efisiensi operasional bulanan.</p>
 
             <div class="slider-group">
@@ -323,35 +283,35 @@ export function renderLandingPage(navigate: (path: string) => void): void {
       <footer class="landing-footer">
         <div class="footer-top">
           <div class="footer-brand">
-            <img src="/logo.png" alt="AKSIS.CO.ID" class="footer-logo" />
-            <h3>AKSIS.CO.ID</h3>
+            <img src="/logo.png" alt="AKSIS" class="footer-logo" />
+            <h3>AKSIS</h3>
             <p>Ekosistem Digital Sekolah Cerdas & Integrated Smart ID Card Pelajar Indonesia.</p>
           </div>
 
           <div class="footer-links">
             <div class="link-group">
-              <h4>Navigasi Akses</h4>
+              <h4>Navigasi Layanan</h4>
               <a href="#fitur">Fitur Utama</a>
-              <a href="#modul">Modul Sekolah</a>
-              <a href="#simulasi">Kalkulator Sim</a>
+              <a href="#modul">Modul Layanan</a>
+              <a href="#keunggulan">Keunggulan AKSIS</a>
+              <a href="#simulasi">Kalkulator Efisiensi</a>
             </div>
 
             <div class="link-group">
-              <h4>Portal Utama</h4>
-              <a href="/login" id="footer-login">Portal Admin Sekolah</a>
-              <a href="/pwa-portals" id="footer-pwa">Portal PWA Orang Tua</a>
+              <h4>Akses Sistem</h4>
+              <a href="/login" id="footer-login">Portal Masuk Admin</a>
             </div>
 
             <div class="link-group">
-              <h4>Domain Resmi</h4>
-              <p class="domain-badge">🌐 www.aksis.co.id</p>
+              <h4>Platform AKSIS</h4>
+              <p class="domain-badge">Smart School Ecosystem</p>
               <small>Hak Cipta &copy; 2026 AKSIS Platform. Seluruh Hak Dilindungi Undang-Undang.</small>
             </div>
           </div>
         </div>
 
         <div class="footer-bottom">
-          <p>AKSIS.CO.ID &mdash; Solusi Presensi IoT, Smart ID Card, dan Ekosistem Sekolah Terpadu.</p>
+          <p>AKSIS &mdash; Solusi Presensi IoT, Smart ID Card, dan Ekosistem Sekolah Terpadu.</p>
         </div>
       </footer>
     </div>
@@ -379,7 +339,7 @@ function renderShowcase(tabKey: string, navigate: (path: string) => void): void 
         </ul>
 
         <div class="showcase-cta">
-          <button class="button primary" id="showcase-action-btn">${data.cta} <span>→</span></button>
+          <button class="button primary" id="showcase-action-btn">Masuk ke Sistem <span>→</span></button>
         </div>
       </div>
 
@@ -387,15 +347,15 @@ function renderShowcase(tabKey: string, navigate: (path: string) => void): void 
         <div class="visual-glass-card">
           <div class="visual-header">
             <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
-            <span class="visual-title">AKSIS.CO.ID &bull; ${data.title}</span>
+            <span class="visual-title">AKSIS &bull; ${data.title}</span>
           </div>
           <div class="visual-body">
             <div class="visual-mock-badge">${data.icon}</div>
             <h4>${data.title}</h4>
-            <p>Terintegrasi secara otomatis dengan database sekolah & portal PWA.</p>
+            <p>Terintegrasi secara otomatis dengan database sekolah & ekosistem terpadu.</p>
             <div class="visual-stat-row">
               <div><span>Status</span><strong>ONLINE &bull; READY</strong></div>
-              <div><span>Akurasi</span><strong>100% Sync</strong></div>
+              <div><span>Integrasi</span><strong>100% Real-time</strong></div>
             </div>
           </div>
         </div>
@@ -425,19 +385,12 @@ function mountLandingEvents(navigate: (path: string) => void): void {
 
   // Navigation handlers
   const handleLogin = (e: Event) => { e.preventDefault(); navigate("/login"); };
-  const handlePwa = (e: Event) => { e.preventDefault(); navigate("/pwa-portals"); };
   const handleDashboard = (e: Event) => { e.preventDefault(); navigate("/"); };
 
   document.getElementById("btn-login-admin")?.addEventListener("click", handleLogin);
-  document.getElementById("hero-btn-login")?.addEventListener("click", handleLogin);
   document.getElementById("footer-login")?.addEventListener("click", handleLogin);
 
-  document.getElementById("btn-portal-pwa")?.addEventListener("click", handlePwa);
-  document.getElementById("hero-btn-pwa")?.addEventListener("click", handlePwa);
-  document.getElementById("footer-pwa")?.addEventListener("click", handlePwa);
-
   document.getElementById("btn-go-dashboard")?.addEventListener("click", handleDashboard);
-  document.getElementById("hero-btn-dashboard")?.addEventListener("click", handleDashboard);
   document.getElementById("landing-brand-link")?.addEventListener("click", (e) => {
     e.preventDefault();
     if (getSession()) navigate("/");
