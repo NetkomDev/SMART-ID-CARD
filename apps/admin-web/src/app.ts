@@ -524,9 +524,11 @@ function studentImportPage(): void {
     let isPreview = true;
 
     downloadBtn?.addEventListener("click", () => {
-      const templateContent = "Nama Lengkap,NISN,Kelas,Tempat Lahir,Tanggal Lahir,Alamat,Jenis Kelamin\n" +
-        "Ahmad Subagja,0012345678,X IPA 1,Jakarta,2008-05-14,Jl. Merdeka No. 10 Jakarta,L\n" +
-        "Siti Nurhaliza,0087654321,X IPA 1,Bandung,2008-08-20,Jl. Mawar No. 5 Bandung,P\n";
+      // \uFEFF (UTF-8 BOM) + sep=; directive guarantees Microsoft Excel (Windows & macOS) opens columns A to G directly
+      const templateContent = "\uFEFFsep=;\n" +
+        "Nama Lengkap;NISN;Kelas;Tempat Lahir;Tanggal Lahir;Alamat;Jenis Kelamin\n" +
+        "Ahmad Subagja;0012345678;X IPA 1;Jakarta;2008-05-14;Jl. Merdeka No. 10 Jakarta;L\n" +
+        "Siti Nurhaliza;0087654321;X IPA 1;Bandung;2008-08-20;Jl. Mawar No. 5 Bandung;P\n";
       const blob = new Blob([templateContent], { type: "text/csv;charset=utf-8;" });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
@@ -540,13 +542,53 @@ function studentImportPage(): void {
         const file = fileInput.files?.[0];
         if (!file) return;
         const text = await file.text();
-        const lines = text.split(/\r?\n/).map(r => r.trim()).filter(Boolean);
+        
+        let cleanText = text.replace(/^\uFEFF/, "").trim();
+        let lines = cleanText.split(/\r?\n/).map(r => r.trim()).filter(Boolean);
+        
+        if (lines.length > 0 && lines[0]!.toLowerCase().startsWith("sep=")) {
+          lines.shift();
+        }
+
         if (lines.length < 2) {
           preview.innerHTML = `<div class="banner error" style="margin-top:1rem;color:#dc2626;background:#fef2f2;padding:1rem;border-radius:0.5rem;">File CSV kosong atau tidak memiliki baris data.</div>`;
           return;
         }
 
-        const headers = lines[0]!.split(",").map(h => h.trim().toLowerCase());
+        const headerLine = lines[0]!;
+        const semiCount = (headerLine.match(/;/g) || []).length;
+        const commaCount = (headerLine.match(/,/g) || []).length;
+        const tabCount = (headerLine.match(/\t/g) || []).length;
+
+        let delimiter = ",";
+        if (semiCount >= commaCount && semiCount >= tabCount) delimiter = ";";
+        else if (tabCount >= commaCount) delimiter = "\t";
+
+        const parseLine = (lineStr: string): string[] => {
+          const result: string[] = [];
+          let current = "";
+          let inQuotes = false;
+          for (let i = 0; i < lineStr.length; i++) {
+            const char = lineStr[i];
+            if (char === '"') {
+              if (inQuotes && lineStr[i + 1] === '"') {
+                current += '"';
+                i++;
+              } else {
+                inQuotes = !inQuotes;
+              }
+            } else if (char === delimiter && !inQuotes) {
+              result.push(current.trim());
+              current = "";
+            } else {
+              current += char;
+            }
+          }
+          result.push(current.trim());
+          return result;
+        };
+
+        const headers = parseLine(headerLine).map(h => h.toLowerCase());
         const getIdx = (name: string) => headers.findIndex(h => h.includes(name));
 
         const nameIdx = getIdx("nama");
@@ -562,7 +604,7 @@ function studentImportPage(): void {
 
         lines.slice(1).forEach((line, index) => {
           const rowNum = index + 2;
-          const cols = line.split(",").map(c => c.trim().replace(/^"|"$/g, ''));
+          const cols = parseLine(line).map(c => c.replace(/^"|"$/g, ''));
           const fullName = cols[nameIdx !== -1 ? nameIdx : 0] || "";
           const nisn = cols[nisnIdx !== -1 ? nisnIdx : 1] || "";
           const pob = cols[pobIdx !== -1 ? pobIdx : 3] || "";
