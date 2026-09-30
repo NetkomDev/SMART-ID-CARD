@@ -496,7 +496,7 @@ function studentImportPage(): void {
     <div style="margin-bottom:1.5rem;padding:1rem;background:var(--bg-subtle,#f8fafc);border:1px solid var(--line,#e2e8f0);border-radius:0.75rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
       <div>
         <strong style="font-size:0.95rem;color:var(--text)">Format Excel / CSV Standar Dapodik</strong>
-        <p style="font-size:0.8rem;color:var(--muted);margin:0.2rem 0 0;">Kolom: Nama Lengkap, NISN, Kelas, Tempat Lahir, Tanggal Lahir (YYYY-MM-DD), Alamat, Jenis Kelamin (L/P)</p>
+        <p style="font-size:0.8rem;color:var(--muted);margin:0.2rem 0 0;">Kolom: No., Nama Lengkap, NISN, Kelas, Tempat Lahir, Tanggal Lahir (YYYY-MM-DD), Alamat, Jenis Kelamin (L/P)</p>
       </div>
       <button type="button" id="btn-download-template" class="button secondary" style="display:inline-flex;align-items:center;gap:0.5rem;">
         📥 Unduh Template CSV Dapodik
@@ -524,11 +524,11 @@ function studentImportPage(): void {
     let isPreview = true;
 
     downloadBtn?.addEventListener("click", () => {
-      // \uFEFF (UTF-8 BOM) + sep=; directive guarantees Microsoft Excel (Windows & macOS) opens columns A to G directly
+      // \uFEFF (UTF-8 BOM) + sep=; directive guarantees Microsoft Excel (Windows & macOS) opens columns A to H directly
       const templateContent = "\uFEFFsep=;\n" +
-        "Nama Lengkap;NISN;Kelas;Tempat Lahir;Tanggal Lahir;Alamat;Jenis Kelamin\n" +
-        "Ahmad Subagja;0012345678;X IPA 1;Jakarta;2008-05-14;Jl. Merdeka No. 10 Jakarta;L\n" +
-        "Siti Nurhaliza;0087654321;X IPA 1;Bandung;2008-08-20;Jl. Mawar No. 5 Bandung;P\n";
+        "No.;Nama Lengkap;NISN;Kelas;Tempat Lahir;Tanggal Lahir;Alamat;Jenis Kelamin\n" +
+        "1;Ahmad Subagja;0012345678;X IPA 1;Jakarta;2008-05-14;Jl. Merdeka No. 10 Jakarta;L\n" +
+        "2;Siti Nurhaliza;0087654321;X IPA 1;Bandung;2008-08-20;Jl. Mawar No. 5 Bandung;P\n";
       const blob = new Blob([templateContent], { type: "text/csv;charset=utf-8;" });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
