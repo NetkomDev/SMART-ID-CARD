@@ -105,14 +105,58 @@ router.get("/class-report/:classId", requirePermission("report.read"), validate(
   for (const r of libData ?? []) libMap.set(r.student_id, (libMap.get(r.student_id) ?? 0) + 1);
 
   // Extracurricular memberships per student
-  const { data: ekskulData } = await req.auth!.client.from("extracurricular_members")
-    .select("student_id, extracurriculars(name)").eq("school_id", schoolId).in("student_id", studentIds);
-  const ekskulMap = new Map<string, string[]>();
-  for (const r of ekskulData ?? []) {
-    const name = ((Array.isArray(r.extracurriculars) ? (r.extracurriculars as any[])[0]?.name : (r.extracurriculars as any)?.name) ?? "—") as string;
-    const arr = ekskulMap.get(r.student_id) ?? [];
-    arr.push(name);
-    ekskulMap.set(r.student_id, arr);
+  const { data: ekskulMembersData } = await req.auth!.client.from("extracurricular_members")
+    .select("student_id, extracurricular_id, extracurriculars(id, name)").eq("school_id", schoolId).in("student_id", studentIds).eq("status", "ACTIVE");
+
+  // Total sessions held per extracurricular
+  const { data: sessionsData } = await req.auth!.client.from("extracurricular_sessions")
+    .select("extracurricular_id").eq("school_id", schoolId).neq("status", "CANCELLED");
+  const totalSessionsMap = new Map<string, number>();
+  for (const sess of sessionsData ?? []) {
+    totalSessionsMap.set(sess.extracurricular_id, (totalSessionsMap.get(sess.extracurricular_id) ?? 0) + 1);
+  }
+
+  // Student attendance count (PRESENT) per extracurricular
+  const { data: ekskulAttData } = await req.auth!.client.from("extracurricular_attendance")
+    .select("student_id, extracurricular_id").eq("school_id", schoolId).eq("status", "PRESENT").in("student_id", studentIds);
+  const studentAttMap = new Map<string, number>();
+  for (const att of ekskulAttData ?? []) {
+    const key = `${att.student_id}_${att.extracurricular_id}`;
+    studentAttMap.set(key, (studentAttMap.get(key) ?? 0) + 1);
+  }
+
+  const ekskulDetailsMap = new Map<string, { id: string, name: string, attended: number, total: number, percentage: number, predicate: string }[]>();
+  const ekskulStringMap = new Map<string, string[]>();
+
+  for (const r of ekskulMembersData ?? []) {
+    const exObj = Array.isArray(r.extracurriculars) ? (r.extracurriculars as any[])[0] : r.extracurriculars;
+    const exId = r.extracurricular_id;
+    const name = (exObj?.name ?? "—") as string;
+    const totalSess = totalSessionsMap.get(exId) ?? 0;
+    const key = `${r.student_id}_${exId}`;
+    const attendedSess = studentAttMap.get(key) ?? 0;
+    
+    let pct = 100;
+    let predicate = "Sangat Baik";
+    if (totalSess > 0) {
+      pct = Math.min(100, Math.round((attendedSess / totalSess) * 100));
+      if (pct >= 90) predicate = "Sangat Baik";
+      else if (pct >= 75) predicate = "Baik";
+      else if (pct >= 60) predicate = "Cukup";
+      else predicate = "Kurang";
+    } else {
+      predicate = "Aktif";
+    }
+
+    const detailObj = { id: exId, name, attended: attendedSess, total: totalSess, percentage: pct, predicate };
+    const detailsArr = ekskulDetailsMap.get(r.student_id) ?? [];
+    detailsArr.push(detailObj);
+    ekskulDetailsMap.set(r.student_id, detailsArr);
+
+    const formattedStr = totalSess > 0 ? `${name} ${pct}% (${attendedSess}/${totalSess})` : `${name} (Aktif)`;
+    const strArr = ekskulStringMap.get(r.student_id) ?? [];
+    strArr.push(formattedStr);
+    ekskulStringMap.set(r.student_id, strArr);
   }
 
   const result = students.map(s => ({
@@ -120,7 +164,8 @@ router.get("/class-report/:classId", requirePermission("report.read"), validate(
     attendance_count: attMap.get(s.id) ?? 0,
     waste_kg: wasteMap.get(s.id) ?? 0,
     library_visits: libMap.get(s.id) ?? 0,
-    extracurriculars: ekskulMap.get(s.id) ?? []
+    extracurriculars: ekskulStringMap.get(s.id) ?? [],
+    extracurricular_details: ekskulDetailsMap.get(s.id) ?? []
   }));
 
   sendData(res, result);

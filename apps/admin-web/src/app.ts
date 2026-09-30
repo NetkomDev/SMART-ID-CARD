@@ -1345,19 +1345,50 @@ async function reportsPage(): Promise<void> {
         actions.innerHTML = "";
         modal.style.display = "block";
         try {
-          const res = await api<{ full_name: string, student_number: string, nisn: string, attendance_count: number, waste_kg: number, library_visits: number, extracurriculars: string[] }[]>(`/reports/class-report/${classId}`);
+          interface StudentReportItem {
+            full_name: string;
+            student_number: string;
+            nisn: string;
+            attendance_count: number;
+            waste_kg: number;
+            library_visits: number;
+            extracurriculars: string[];
+            extracurricular_details?: {
+              id: string;
+              name: string;
+              attended: number;
+              total: number;
+              percentage: number;
+              predicate: string;
+            }[];
+          }
+
+          const res = await api<StudentReportItem[]>(`/reports/class-report/${classId}`);
           
           const students = res.data ?? [];
           const totStudents = students.length;
           const totAttendance = students.reduce((a, s) => a + (s.attendance_count || 0), 0);
           const totWaste = students.reduce((a, s) => a + (s.waste_kg || 0), 0);
           const totLibrary = students.reduce((a, s) => a + (s.library_visits || 0), 0);
-          const totEkskul = students.reduce((a, s) => a + (s.extracurriculars?.length || 0), 0);
+          const totEkskul = students.reduce((a, s) => a + (s.extracurricular_details?.length || s.extracurriculars?.length || 0), 0);
 
           const studentRows = students.map((s, i) => {
-            const ekskulTags = s.extracurriculars && s.extracurriculars.length > 0
-              ? `<div class="ekskul-pill-container">${s.extracurriculars.map(e => `<span class="ekskul-pill">★ ${escapeHtml(e)}</span>`).join("")}</div>`
-              : `<span class="ekskul-pill-none">&mdash;</span>`;
+            const details = s.extracurricular_details ?? [];
+            const ekskulTags = details.length > 0
+              ? `<div class="ekskul-pill-container">${details.map(d => {
+                  let predClass = "sangat-baik";
+                  if (d.predicate === "Baik") predClass = "baik";
+                  else if (d.predicate === "Cukup") predClass = "cukup";
+                  else if (d.predicate === "Kurang") predClass = "kurang";
+
+                  const label = d.total > 0 ? `${escapeHtml(d.name)} ${d.percentage}%` : `${escapeHtml(d.name)}`;
+                  const tooltip = `${escapeHtml(d.name)}: ${d.attended}/${d.total} Sesi (${d.percentage}%) - Predikat: ${d.predicate}`;
+                  return `<span class="ekskul-pill ${predClass}" title="${tooltip}">★ ${label}</span>`;
+                }).join("")}</div>`
+              : (s.extracurriculars && s.extracurriculars.length > 0
+                  ? `<div class="ekskul-pill-container">${s.extracurriculars.map(e => `<span class="ekskul-pill">★ ${escapeHtml(e)}</span>`).join("")}</div>`
+                  : `<span class="ekskul-pill-none">&mdash;</span>`);
+
             return `<tr>
               <td>${i + 1}</td>
               <td><strong>${escapeHtml(s.full_name)}</strong></td>
@@ -1397,7 +1428,7 @@ async function reportsPage(): Promise<void> {
                     <th style="border:1px solid var(--line);padding:0.55rem;width:10%;text-align:center;">Hadir</th>
                     <th style="border:1px solid var(--line);padding:0.55rem;width:10%;text-align:center;">Sampah</th>
                     <th style="border:1px solid var(--line);padding:0.55rem;width:10%;text-align:center;">Perpus</th>
-                    <th style="border:1px solid var(--line);padding:0.55rem;width:27%;">Kegiatan Ekskul</th>
+                    <th style="border:1px solid var(--line);padding:0.55rem;width:27%;">Kegiatan Ekskul & Presensi</th>
                   </tr></thead>
                   <tbody>${studentRows || '<tr><td colspan="7" style="text-align:center;padding:1.5rem;">Tidak ada data siswa di kelas ini.</td></tr>'}</tbody>
                 </table>
@@ -1406,18 +1437,19 @@ async function reportsPage(): Promise<void> {
             </div>`;
 
           actions.innerHTML = `
-            <button class="button secondary" id="do-export-csv">📥 Unduh CSV</button>
+            <button class="button secondary" id="do-export-csv">📥 Unduh CSV Rapor</button>
             <button class="button primary" id="do-print">🖨 Cetak / Print PDF</button>
           `;
 
           document.getElementById("do-export-csv")?.addEventListener("click", () => {
             const csvRows: string[] = [];
-            csvRows.push("\uFEFFNo;Nama Siswa;NISN;Kehadiran (Hadir);Sampah (Kg);Kunjungan Perpus;Jumlah Ekskul;Daftar Ekskul");
+            csvRows.push("\uFEFFNo;Nama Siswa;NISN;Kehadiran (Hadir);Sampah (Kg);Kunjungan Perpus;Jumlah Ekskul;Detail Ekskul & Presensi Rapor");
             students.forEach((s, idx) => {
-              const ekskulListStr = s.extracurriculars && s.extracurriculars.length > 0
-                ? s.extracurriculars.join("; ")
-                : "-";
-              csvRows.push(`${idx + 1};"${(s.full_name || '').replaceAll('"', '""')}";"${s.nisn}";${s.attendance_count};${s.waste_kg.toFixed(1)};${s.library_visits};${s.extracurriculars?.length || 0};"${ekskulListStr.replaceAll('"', '""')}"`);
+              const details = s.extracurricular_details ?? [];
+              const detailStr = details.length > 0
+                ? details.map(d => d.total > 0 ? `${d.name} (${d.percentage}% - ${d.predicate} [${d.attended}/${d.total} sesi])` : `${d.name} (${d.predicate})`).join("; ")
+                : (s.extracurriculars && s.extracurriculars.length > 0 ? s.extracurriculars.join("; ") : "-");
+              csvRows.push(`${idx + 1};"${(s.full_name || '').replaceAll('"', '""')}";"${s.nisn}";${s.attendance_count};${s.waste_kg.toFixed(1)};${s.library_visits};${details.length || s.extracurriculars?.length || 0};"${detailStr.replaceAll('"', '""')}"`);
             });
             const blob = new Blob([csvRows.join("\n")], { type: "text/csv;charset=utf-8;" });
             const url = URL.createObjectURL(blob);
@@ -1444,7 +1476,11 @@ async function reportsPage(): Promise<void> {
                 .report-summary-item span { font-size: 0.65rem; color: #666; text-transform: uppercase; font-weight: 700; }
                 .report-summary-item strong { font-size: 1rem; color: #111; margin-top: 2px; }
                 .ekskul-pill-container { display: flex; flex-wrap: wrap; gap: 0.25rem; }
-                .ekskul-pill { display: inline-block; padding: 0.15rem 0.45rem; border-radius: 99px; font-size: 0.72rem; font-weight: 600; background: #eef7d5; color: #1e3b2b; border: 1px solid #c4e373; white-space: nowrap; }
+                .ekskul-pill { display: inline-block; padding: 0.15rem 0.45rem; border-radius: 99px; font-size: 0.72rem; font-weight: 600; white-space: nowrap; }
+                .ekskul-pill.sangat-baik { background: #eef7d5; color: #1e3b2b; border: 1px solid #c4e373; }
+                .ekskul-pill.baik { background: #e3f2fd; color: #0d47a1; border: 1px solid #90caf9; }
+                .ekskul-pill.cukup { background: #fff3e0; color: #e65100; border: 1px solid #ffb74d; }
+                .ekskul-pill.kurang { background: #ffebee; color: #b71c1c; border: 1px solid #ef9a9a; }
                 .ekskul-pill-none { color: #888; font-style: italic; }
                 .signature-section { display: flex; justify-content: space-between; margin-top: 3rem; page-break-inside: avoid; font-size: 0.85rem; }
                 .signature-box { width: 220px; text-align: center; }
@@ -1452,6 +1488,13 @@ async function reportsPage(): Promise<void> {
                 @media print { body { padding: 0; } }
               </style></head><body>
                 ${printArea}
+                <div style="margin-top:1.5rem;font-size:0.75rem;color:#555;background:#f9f9f9;padding:0.6rem 0.8rem;border-radius:4px;border:1px solid #eee;">
+                  <strong>Keterangan Predikat Keaktifan Ekskul:</strong>
+                  <span style="color:#1e3b2b;font-weight:600;margin-left:0.5rem;">● Sangat Baik (&ge;90%)</span>
+                  <span style="color:#0d47a1;font-weight:600;margin-left:0.5rem;">● Baik (75-89%)</span>
+                  <span style="color:#e65100;font-weight:600;margin-left:0.5rem;">● Cukup (60-74%)</span>
+                  <span style="color:#b71c1c;font-weight:600;margin-left:0.5rem;">● Kurang (&lt;60%)</span>
+                </div>
                 <div class="signature-section">
                   <div class="signature-box">
                     <p>Mengetahui,<br/>Kepala Sekolah</p>

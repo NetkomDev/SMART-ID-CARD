@@ -397,10 +397,48 @@ code { background: var(--bg); padding: .2rem .35rem; border-radius: .3rem; font-
   line-height: 1.25;
 }
 
-[data-theme="dark"] .ekskul-pill {
-  background: rgba(201, 224, 76, 0.15);
+.ekskul-pill.sangat-baik {
+  background: rgba(185, 222, 85, 0.22);
+  color: #173b27;
+  border-color: rgba(185, 222, 85, 0.5);
+}
+[data-theme="dark"] .ekskul-pill.sangat-baik {
+  background: rgba(201, 224, 76, 0.18);
   color: #c9e04c;
-  border-color: rgba(201, 224, 76, 0.35);
+  border-color: rgba(201, 224, 76, 0.4);
+}
+
+.ekskul-pill.baik {
+  background: rgba(100, 181, 246, 0.2);
+  color: #0d47a1;
+  border-color: rgba(100, 181, 246, 0.45);
+}
+[data-theme="dark"] .ekskul-pill.baik {
+  background: rgba(100, 181, 246, 0.15);
+  color: #90caf9;
+  border-color: rgba(100, 181, 246, 0.35);
+}
+
+.ekskul-pill.cukup {
+  background: rgba(255, 183, 77, 0.2);
+  color: #e65100;
+  border-color: rgba(255, 183, 77, 0.45);
+}
+[data-theme="dark"] .ekskul-pill.cukup {
+  background: rgba(255, 183, 77, 0.15);
+  color: #ffb74d;
+  border-color: rgba(255, 183, 77, 0.35);
+}
+
+.ekskul-pill.kurang {
+  background: rgba(229, 115, 115, 0.2);
+  color: #b71c1c;
+  border-color: rgba(229, 115, 115, 0.45);
+}
+[data-theme="dark"] .ekskul-pill.kurang {
+  background: rgba(229, 115, 115, 0.15);
+  color: #ef9a9a;
+  border-color: rgba(229, 115, 115, 0.35);
 }
 
 .ekskul-pill-none {
