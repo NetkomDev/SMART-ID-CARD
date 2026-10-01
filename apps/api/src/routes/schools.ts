@@ -8,7 +8,7 @@ import { requireRole } from "../middleware/tenant.js";
 
 const router = Router();
 
-const schoolColumns = "id, code, name, status, timezone, waste_start_time, waste_end_time, waste_organic_points_per_kg, waste_inorganic_points_per_kg, is_active, created_at, updated_at";
+const schoolColumns = "id, code, name, status, timezone, waste_start_time, waste_end_time, waste_organic_points_per_kg, waste_inorganic_points_per_kg, principal_name, principal_signature_url, is_active, created_at, updated_at";
 const coreSchoolColumns = "id, code, name, status, timezone, is_active, created_at, updated_at";
 
 function isMissingColumn(error: { code?: string } | null): boolean {
@@ -52,18 +52,20 @@ router.get("/current", asyncHandler(async (req, res) => {
   sendData(res, data);
 }));
 
-const wasteSettings = z.object({
+const schoolSettings = z.object({
   waste_start_time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/).nullable().optional(),
   waste_end_time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/).nullable().optional(),
   waste_organic_points_per_kg: z.number().min(0).max(10000).nullable().optional(),
-  waste_inorganic_points_per_kg: z.number().min(0).max(10000).nullable().optional()
+  waste_inorganic_points_per_kg: z.number().min(0).max(10000).nullable().optional(),
+  principal_name: z.string().max(200).nullable().optional(),
+  principal_signature_url: z.string().url().max(1000).nullable().optional().or(z.literal(''))
 }).strict().refine(value => Object.keys(value).length > 0, "Pengaturan tidak boleh kosong");
-router.patch("/current", requireRole("SCHOOL_ADMIN"), validate({ body: wasteSettings }), asyncHandler(async (req, res) => {
+router.patch("/current", requireRole("SCHOOL_ADMIN"), validate({ body: schoolSettings }), asyncHandler(async (req, res) => {
   const { data, error } = await req.auth!.client
     .from("schools")
     .update(req.body)
     .eq("id", req.tenant!.schoolId)
-    .select("waste_start_time, waste_end_time, waste_organic_points_per_kg, waste_inorganic_points_per_kg")
+    .select("waste_start_time, waste_end_time, waste_organic_points_per_kg, waste_inorganic_points_per_kg, principal_name, principal_signature_url")
     .single();
   if (error) throw fromDatabaseError(error);
   sendData(res, data);

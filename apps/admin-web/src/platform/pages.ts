@@ -138,6 +138,101 @@ async function production(root:HTMLElement,content:HTMLElement,schools:School[],
  }
  content.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach(b=>b.onclick=()=>void open(b.dataset.tab!).catch(e=>feedback(root,e)));await open('new');
 }
-function front(c:Row,qr:string){const s=c.print_snapshot??{};return `<header>${esc(s.school_name)}</header><div class="id-body"><div class="id-person"><img class="id-logo" src="${location.origin}/logo.png" alt="AKSIS"><strong>${esc(s.student_name)}</strong><span>No. siswa: ${esc(s.student_number)}</span>${s.class_name?`<span>${esc(s.class_name)}</span>`:''}</div><img class="id-qr" src="${qr}" alt="QR kartu"></div><footer>${esc(c.card_serial)}</footer>`;}
-function back(c:Row){return `<header>KARTU IDENTITAS SISWA</header><div class="id-back"><strong>${esc(c.print_snapshot?.school_name)}</strong><p>Kartu ini digunakan untuk layanan sekolah. Jika ditemukan, serahkan kepada pihak sekolah.</p><p>QR dan chip terhubung ke identitas kartu yang sama.</p></div><footer>${esc(c.card_serial)}</footer>`;}
-function printStyles(media:string){return `@page{size:${media==='card'?'85.6mm 54mm':'A4 portrait'};margin:${media==='card'?'0':'8mm'}}*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;${media==='sheet'?'display:grid;grid-template-columns:repeat(2,85.6mm);gap:2mm 5mm;align-content:start;':''}}.id-card{width:85.6mm;height:54mm;overflow:hidden;border:.2mm solid #cbd5e1;break-inside:avoid;${media==='card'?'break-after:page;':''}color:#102345;background:#fff;print-color-adjust:exact;-webkit-print-color-adjust:exact}header{height:9mm;padding:2mm;background:#075baf;color:white;font-size:11pt;font-weight:bold;overflow:hidden}.id-body{height:37mm;display:flex;align-items:center;justify-content:space-between;padding:2mm 3mm;gap:2mm}.id-person{display:flex;flex-direction:column;gap:1mm;flex:1;min-width:0}.id-person strong{font-size:10pt;overflow-wrap:anywhere}.id-person span{font-size:8pt}.id-logo{width:14mm;height:13mm;object-fit:contain;align-self:start}.id-qr{width:28mm;height:28mm;flex:none}footer{font-size:5.5pt;text-align:center;height:7mm;padding:1mm;overflow:hidden}.id-back{height:37mm;padding:4mm;font-size:9pt}p{margin:2mm 0}`;}
+function getTheme(s: any) {
+  const n = String(s.school_name || '').toUpperCase() + " " + String(s.school_code || '').toUpperCase();
+  if (n.includes("SMA") || n.includes("SMK")) return "#8caeed";
+  if (n.includes("SMP") || n.includes("MTS")) return "#2563eb";
+  return "#dc2626";
+}
+
+function front(c:Row,qr:string){
+  const s=c.print_snapshot??{};
+  const theme = getTheme(s);
+  const photo = s.photo_url ? esc(s.photo_url) : `${location.origin}/logo.png`;
+  return `<div class="id-front" style="--theme:${theme}">
+    <header>
+      <div class="h-title">KARTU PELAJAR</div>
+      <div class="h-school">${esc(s.school_name)}</div>
+    </header>
+    <div class="id-body">
+      <div class="photo-container"><img class="id-photo" src="${photo}" alt="Foto"></div>
+      <div class="id-name">${esc(s.student_name)}</div>
+      <div class="id-nisn">NISN: ${esc(s.nisn || s.student_number)}</div>
+      
+      <div class="id-details">
+        <div class="detail-row"><span>Kelas</span>: ${esc(s.class_name || '-')}</div>
+        <div class="detail-row"><span>TTL</span>: ${esc(s.pob || '-')} / ${esc(s.date_of_birth || '-')}</div>
+        <div class="detail-row"><span>Alamat</span>: <span class="addr">${esc(s.address || '-')}</span></div>
+      </div>
+    </div>
+    <footer>
+      <img class="id-qr" src="${qr}" alt="QR">
+      <div class="f-serial">${esc(c.card_serial)}</div>
+    </footer>
+  </div>`;
+}
+
+function back(c:Row){
+  const s=c.print_snapshot??{};
+  const theme = getTheme(s);
+  const sig = s.principal_signature_url ? `<img src="${esc(s.principal_signature_url)}" class="sig-img">` : `<div class="sig-placeholder"></div>`;
+  return `<div class="id-back" style="--theme:${theme}">
+    <header>TATA TERTIB</header>
+    <div class="b-body">
+      <ol>
+        <li>Kartu ini adalah tanda bukti sah sebagai siswa ${esc(s.school_name)}.</li>
+        <li>Kartu wajib dibawa dan dipakai selama berada di lingkungan sekolah.</li>
+        <li>Kartu ini terintegrasi dengan sistem presensi dan layanan digital sekolah.</li>
+        <li>Jika kartu ini ditemukan, mohon dikembalikan ke pihak sekolah.</li>
+      </ol>
+      <div class="b-sign">
+        <div class="sign-title">Mengetahui,<br>Kepala Sekolah</div>
+        ${sig}
+        <div class="sign-name">${esc(s.principal_name || '.......................')}</div>
+      </div>
+    </div>
+    <div class="b-footer">${esc(s.school_name)}</div>
+  </div>`;
+}
+
+function printStyles(media:string){
+  return `@page{size:${media==='card'?'54mm 85.6mm':'A4 portrait'};margin:${media==='card'?'0':'8mm'}}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;${media==='sheet'?'display:grid;grid-template-columns:repeat(3,54mm);gap:4mm;align-content:start;':''}}
+  .id-card{width:54mm;height:85.6mm;overflow:hidden;border:1px solid #cbd5e1;break-inside:avoid;${media==='card'?'break-after:page;':''}background:#fff;print-color-adjust:exact;-webkit-print-color-adjust:exact;position:relative;}
+  
+  .id-front, .id-back { width: 100%; height: 100%; display: flex; flex-direction: column; }
+  header { background: var(--theme); color: #fff; text-align: center; padding: 3mm 2mm; flex: none; }
+  .h-title { font-size: 7pt; font-weight: 600; letter-spacing: 1px; opacity: 0.9; }
+  .h-school { font-size: 9pt; font-weight: 800; margin-top: 1px; line-height: 1.1; }
+  
+  .id-body { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 4mm 3mm 0; }
+  .photo-container { width: 22mm; height: 28mm; border: 2px solid var(--theme); border-radius: 4px; padding: 1px; background: #fff; margin-bottom: 3mm; }
+  .id-photo { width: 100%; height: 100%; object-fit: cover; border-radius: 2px; }
+  
+  .id-name { font-size: 8.5pt; font-weight: 800; color: #0f172a; text-align: center; text-transform: uppercase; line-height: 1.2; margin-bottom: 1mm; width: 100%; }
+  .id-nisn { font-size: 7pt; font-weight: 600; color: var(--theme); margin-bottom: 3mm; background: #f1f5f9; padding: 1mm 3mm; border-radius: 12px; }
+  
+  .id-details { width: 100%; font-size: 5.5pt; color: #334155; line-height: 1.3; margin-top: auto; margin-bottom: 2mm; }
+  .detail-row { display: flex; margin-bottom: 0.5mm; }
+  .detail-row > span:first-child { width: 10mm; font-weight: 600; flex: none; }
+  .addr { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  
+  .id-front footer { display: flex; align-items: center; justify-content: space-between; padding: 2mm 3mm; background: #f8fafc; border-top: 1px solid #e2e8f0; height: 12mm; }
+  .id-qr { width: 10mm; height: 10mm; mix-blend-mode: multiply; }
+  .f-serial { font-size: 5pt; color: #94a3b8; font-family: monospace; }
+  
+  .id-back header { font-size: 9pt; padding: 2.5mm; }
+  .b-body { flex: 1; padding: 3mm; display: flex; flex-direction: column; }
+  .b-body ol { margin: 0; padding-left: 3.5mm; font-size: 5.5pt; color: #1e293b; line-height: 1.4; text-align: justify; }
+  .b-body li { margin-bottom: 1mm; }
+  
+  .b-sign { margin-top: auto; text-align: center; }
+  .sign-title { font-size: 6pt; color: #334155; margin-bottom: 1mm; }
+  .sig-img { height: 12mm; object-fit: contain; max-width: 30mm; mix-blend-mode: multiply; }
+  .sig-placeholder { height: 12mm; }
+  .sign-name { font-size: 6.5pt; font-weight: 700; text-decoration: underline; color: #0f172a; margin-top: 1mm; }
+  
+  .b-footer { font-size: 5.5pt; text-align: center; padding: 1.5mm; background: var(--theme); color: #fff; opacity: 0.9; }
+  `;
+}

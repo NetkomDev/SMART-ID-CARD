@@ -292,13 +292,27 @@ async function studentsPage(): Promise<void> {
   let currentSearch = "";
 
   shell(`<section class="dashboard-grid" style="grid-template-columns: 320px 1fr; align-items: start;">
-    <article class="panel">
-      <div class="panel-head">
-        <h2>Master Kelas</h2>
-        <button id="btn-add-class" class="button secondary" style="padding:0.3rem 0.6rem;font-size:0.75rem;">+ Tambah</button>
-      </div>
-      <div id="classes-data">${skeleton(4)}</div>
-    </article>
+    <div style="display:flex; flex-direction:column; gap:1.5rem;">
+      <article class="panel">
+        <div class="panel-head">
+          <h2>Master Kelas</h2>
+          <button id="btn-add-class" class="button secondary" style="padding:0.3rem 0.6rem;font-size:0.75rem;">+ Tambah</button>
+        </div>
+        <div id="classes-data">${skeleton(4)}</div>
+      </article>
+      <article class="panel">
+        <div class="panel-head">
+          <h2>Kepala Sekolah</h2>
+        </div>
+        <form id="principal-form" class="sa-form" style="margin-top:0.5rem;display:flex;flex-direction:column;gap:1rem;">
+          <label>Nama Lengkap Kepala Sekolah<input type="text" id="principal-name" placeholder="Nama beserta gelar" /></label>
+          <label>Upload Tanda Tangan<input type="file" id="principal-signature-file" accept="image/*" /></label>
+          <img id="signature-preview" style="max-height: 80px; object-fit: contain; border: 1px dashed var(--line); padding: 4px; display: none; background: #f8fafc;" alt="Preview" />
+          <input type="hidden" id="principal-signature-base64" />
+          <button type="submit" class="button primary">Simpan</button>
+        </form>
+      </article>
+    </div>
     <article class="panel">
       <div class="panel-head" style="flex-wrap: wrap; gap: 0.75rem;">
         <div style="display:flex; align-items:center; gap:0.75rem; flex:1; min-width: 250px;">
@@ -626,6 +640,78 @@ async function studentsPage(): Promise<void> {
     timer = window.setTimeout(() => void loadStudents((event.target as HTMLInputElement).value), 300);
   });
   
+  const principalForm = document.getElementById("principal-form") as HTMLFormElement;
+  const principalNameInput = document.getElementById("principal-name") as HTMLInputElement;
+  const signatureFileInput = document.getElementById("principal-signature-file") as HTMLInputElement;
+  const signaturePreview = document.getElementById("signature-preview") as HTMLImageElement;
+  const signatureBase64 = document.getElementById("principal-signature-base64") as HTMLInputElement;
+  
+  signatureFileInput.onchange = (e) => {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const MAX_WIDTH = 400;
+      let width = img.width;
+      let height = img.height;
+      if (width > MAX_WIDTH) {
+        height = Math.round(height * (MAX_WIDTH / width));
+        width = MAX_WIDTH;
+      }
+      canvas.width = width; canvas.height = height;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img, 0, 0, width, height);
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imgData.data;
+      for (let i = 0; i < data.length; i += 4) {
+        if (data[i]! > 180 && data[i+1]! > 180 && data[i+2]! > 180) data[i+3] = 0;
+        else { data[i] = 15; data[i+1] = 23; data[i+2] = 42; } // Make ink dark slate
+      }
+      ctx.putImageData(imgData, 0, 0);
+      const pngBase64 = canvas.toDataURL('image/png');
+      signaturePreview.src = pngBase64;
+      signaturePreview.style.display = 'block';
+      signatureBase64.value = pngBase64;
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
+  };
+
+  api<any>("/schools/current").then(res => {
+    if (res.data) {
+      principalNameInput.value = res.data.principal_name || "";
+      if (res.data.principal_signature_url) {
+        signaturePreview.src = res.data.principal_signature_url;
+        signaturePreview.style.display = 'block';
+        signatureBase64.value = res.data.principal_signature_url;
+      }
+    }
+  }).catch(() => {});
+  
+  principalForm.onsubmit = async (e) => {
+    e.preventDefault();
+    const btn = principalForm.querySelector("button")!;
+    btn.disabled = true;
+    btn.textContent = "Menyimpan...";
+    try {
+      await api("/schools/current", {
+        method: "PATCH",
+        body: JSON.stringify({
+          principal_name: principalNameInput.value.trim() || null,
+          principal_signature_url: signatureBase64.value.trim() || null
+        })
+      });
+      alert("Data Kepala Sekolah berhasil disimpan.");
+    } catch (err: any) {
+      alert("Gagal menyimpan data: " + (err.message || "Kesalahan tidak diketahui"));
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Simpan";
+    }
+  };
+
   await loadClasses();
   void loadStudents();
 }
