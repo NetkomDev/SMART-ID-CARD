@@ -1791,7 +1791,12 @@ async function pwaPortalsPage() {
     const [classesRes, firstStudents] = await Promise.all([
       api<SchoolClass[]>("/classes/summary"), api<Student[]>("/students?page=1&page_size=500")
     ]);
-    const classes = classesRes.data;
+    const classes = [...(classesRes.data ?? [])].sort((a, b) => {
+      const gA = a.grade_level ?? 0;
+      const gB = b.grade_level ?? 0;
+      if (gA !== gB) return gA - gB;
+      return a.name.localeCompare(b.name, "id", { numeric: true, sensitivity: "base" });
+    });
     const students = [...firstStudents.data];
     const total = firstStudents.meta?.total ?? students.length;
     for (let page = 2; students.length < total; page++) {

@@ -14,7 +14,9 @@ router.get("/", validate({ query: paginationSchema }), asyncHandler(async (req, 
   const { page, page_size: pageSize, search } = req.query as unknown as { page: number; page_size: number; search?: string };
   let query = req.auth!.client.from("classes").select(selection, { count: "exact" })
     .eq("school_id", req.tenant!.schoolId).is("deleted_at", null)
-    .range((page - 1) * pageSize, page * pageSize - 1).order("name");
+    .range((page - 1) * pageSize, page * pageSize - 1)
+    .order("grade_level", { ascending: true })
+    .order("name", { ascending: true });
   if (search) query = query.or(`name.ilike.%${search}%,code.ilike.%${search}%`);
   const { data, error, count } = await query;
   if (error) throw fromDatabaseError(error);
@@ -23,7 +25,9 @@ router.get("/", validate({ query: paginationSchema }), asyncHandler(async (req, 
 
 router.get("/summary", asyncHandler(async (req, res) => {
   const { data: classes, error: classError } = await req.auth!.client.from("classes")
-    .select("id, name, grade_level").eq("school_id", req.tenant!.schoolId).is("deleted_at", null).order("name");
+    .select("id, name, grade_level").eq("school_id", req.tenant!.schoolId).is("deleted_at", null)
+    .order("grade_level", { ascending: true })
+    .order("name", { ascending: true });
   if (classError) throw fromDatabaseError(classError);
 
   const { data: counts, error: countError } = await req.auth!.client.from("student_class_history")
@@ -35,7 +39,14 @@ router.get("/summary", asyncHandler(async (req, res) => {
     countMap.set(row.class_id, (countMap.get(row.class_id) ?? 0) + 1);
   }
 
-  sendData(res, (classes ?? []).map(c => ({ ...c, student_count: countMap.get(c.id) ?? 0 })));
+  const sortedClasses = [...(classes ?? [])].sort((a, b) => {
+    const gA = a.grade_level ?? 0;
+    const gB = b.grade_level ?? 0;
+    if (gA !== gB) return gA - gB;
+    return a.name.localeCompare(b.name, "id", { numeric: true, sensitivity: "base" });
+  });
+
+  sendData(res, sortedClasses.map(c => ({ ...c, student_count: countMap.get(c.id) ?? 0 })));
 }));
 
 router.get("/:id", validate({ params: idParamsSchema }), asyncHandler(async (req, res) => {
