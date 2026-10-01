@@ -240,3 +240,69 @@
     min-width: 0;
   }
 }
+
+/* Platform IAM Table Custom Layout & Cell Scroll */
+.table-iam-wrap table {
+  table-layout: fixed;
+  width: 100%;
+}
+.table-iam-wrap th:nth-child(1) { width: 20%; }
+.table-iam-wrap th:nth-child(2) { width: 18%; }
+.table-iam-wrap th:nth-child(3) { width: 18%; }
+.table-iam-wrap th:nth-child(4) { width: 24%; }
+.table-iam-wrap th:nth-child(5) { width: 11%; }
+.table-iam-wrap th:nth-child(6) { width: 9%; }
+
+.cell-scroll {
+  overflow-x: auto;
+  white-space: nowrap;
+  max-width: 100%;
+  scrollbar-width: thin;
+  padding-bottom: 2px;
+}
+.cell-scroll::-webkit-scrollbar {
+  height: 4px;
+}
+.cell-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+/* Clickable Status Toggle Button */
+.status-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+.status-toggle-btn.active {
+  background: #dcfce7;
+  color: #15803d;
+  border-color: #86efac;
+}
+.status-toggle-btn.active:hover {
+  background: #bbf7d0;
+  border-color: #4ade80;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(22, 101, 52, 0.15);
+}
+.status-toggle-btn.inactive {
+  background: #fee2e2;
+  color: #b91c1c;
+  border-color: #fca5a5;
+}
+.status-toggle-btn.inactive:hover {
+  background: #fecaca;
+  border-color: #f87171;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(153, 27, 27, 0.15);
+}
+
