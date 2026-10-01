@@ -5,11 +5,26 @@ import { canAccess, isPlatformRoute } from "./lib/permissions";
 import { clearSession, getSession, setSchoolId, setSession } from "./lib/session";
 import type { AcademicYear, Attendance, AuthContext, Card, Device, Extracurricular, LedContent, School, SchoolClass, Student } from "./lib/types";
 import { renderLandingPage } from "./landing";
-// @ts-ignore
-import QRCode from "qrcode/lib/browser.js";
 
 const savedTheme = localStorage.getItem("aksis-theme") || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
 document.documentElement.setAttribute("data-theme", savedTheme);
+
+function getThemeIconHtml(): string {
+  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+  return isDark
+    ? `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>`
+    : `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`;
+}
+
+function updateThemeIcon(): void {
+  const btn = document.querySelector<HTMLElement>("[data-action='toggle-theme']");
+  if (btn) {
+    const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+    btn.innerHTML = getThemeIconHtml();
+    btn.setAttribute("title", isDark ? "Aktifkan Mode Terang" : "Aktifkan Mode Gelap");
+    btn.setAttribute("aria-label", isDark ? "Aktifkan Mode Terang" : "Aktifkan Mode Gelap");
+  }
+}
 
 type AppState = {
   school?: School;
@@ -185,23 +200,6 @@ function shell(content: string, title: string, subtitle: string): void {
   const schoolSwitchHtml = isSuperAdmin ? "" : `
     <div class="school-switch"><div><small>Sekolah aktif</small><strong>${escapeHtml(state.school?.name)}</strong></div></div>
   `;
-
-function getThemeIconHtml(): string {
-  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
-  return isDark
-    ? `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>`
-    : `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`;
-}
-
-function updateThemeIcon(): void {
-  const btn = document.querySelector<HTMLElement>("[data-action='toggle-theme']");
-  if (btn) {
-    const isDark = document.documentElement.getAttribute("data-theme") === "dark";
-    btn.innerHTML = getThemeIconHtml();
-    btn.setAttribute("title", isDark ? "Aktifkan Mode Terang" : "Aktifkan Mode Gelap");
-    btn.setAttribute("aria-label", isDark ? "Aktifkan Mode Terang" : "Aktifkan Mode Gelap");
-  }
-}
 
   getApp().innerHTML = `<div class="app-shell">
     <aside class="sidebar" id="sidebar">
@@ -572,7 +570,10 @@ async function studentsPage(): Promise<void> {
                     <td>${escapeHtml(item.pob || "—")}, ${escapeHtml(item.date_of_birth ?? "—")}</td>
                     <td>${escapeHtml(item.address || "—")}</td>
                     <td>${item.gender === 'MALE' ? 'L' : item.gender === 'FEMALE' ? 'P' : escapeHtml(item.gender ?? '—')}</td>
-                    <td><span class="status ${item.is_active ? "success" : "neutral"}">${item.is_active ? "Aktif" : "Nonaktif"}</span></td>
+                    <td>
+                      <span class="status ${item.is_active ? "success" : "neutral"}">${item.is_active ? "Aktif" : "Nonaktif"}</span>
+                      ${!item.is_active ? '' : hasPhoto ? '<span class="status success" style="margin-top:2px;font-size:0.68rem;padding:2px 6px;display:inline-block;">Siap Cetak ✓</span>' : '<span class="status warning" style="margin-top:2px;font-size:0.68rem;padding:2px 6px;display:inline-block;background:#fef3c7;color:#b45309;" title="Ingatkan orang tua untuk unggah foto via PWA Orang Tua">Butuh Foto ⚠️</span>'}
+                    </td>
                     <td>
                       <div style="display:flex;gap:4px;">
                         <button class="button secondary btn-edit-student" data-student='${JSON.stringify(item).replace(/'/g, "&#39;")}' style="padding:0.2rem 0.5rem;font-size:0.75rem;">Edit</button>
@@ -740,14 +741,24 @@ async function academicYearsPage(): Promise<void> {
 async function cardsPage(): Promise<void> {
   shell(`<section class="stats-grid">${Array.from({ length: 3 }, () => skeleton(1)).join("")}</section>`, "Kartu Siswa", "Pantau identitas kartu fisik (NFC) dan status lifecycle-nya.");
   try {
-    const { data: summary } = await api<{ active: number, pending: number, blocked: number }>("/cards/summary");
+    const { data: summary } = await api<{ active: number, pending: number, blocked: number, missing_photo?: number }>("/cards/summary");
+    const missingPhoto = summary.missing_photo ?? 0;
 
-    shell(`<section class="stats-grid" style="grid-template-columns: repeat(3, 1fr);">
+    shell(`<section class="stats-grid" style="grid-template-columns: repeat(4, 1fr);">
       <article class="stat-card sage"><div><span>Kartu Aktif (Siap Tap)</span><strong>${summary.active} Kartu</strong></div><span class="trend">💳</span></article>
       <article class="stat-card ${summary.pending > 0 ? 'lime' : 'neutral'}"><div><span>Dalam Produksi (Belum Suntik Chip)</span><strong>${summary.pending} Kartu</strong></div><span class="trend">⏳</span></article>
+      <article class="stat-card ${missingPhoto > 0 ? 'sand' : 'neutral'}"><div><span>Butuh Foto (Belum Siap Cetak)</span><strong>${missingPhoto} Siswa</strong></div><span class="trend">⚠️</span></article>
       <article class="stat-card ${summary.blocked > 0 ? 'red' : 'neutral'}"><div><span>Kartu Diblokir / Hilang</span><strong>${summary.blocked} Kartu</strong></div><span class="trend">!</span></article>
     </section>
     
+    ${missingPhoto > 0 ? `<div style="margin: 1rem 0; padding: 0.85rem 1.25rem; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 0.75rem; font-size: 0.85rem; color: #92400e; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;">
+      <div style="display:flex;align-items:center;gap:0.75rem;">
+        <span style="font-size: 1.2rem;">📸</span>
+        <div><strong>Perhatian Foto Siswa Belum Lengkap:</strong> Terdapat <strong>${missingPhoto} siswa</strong> yang belum memiliki foto resmi. Kartu siswa baru bisa masuk antrean cetak Super Admin setelah foto diunggah via PWA Orang Tua.</div>
+      </div>
+      <a href="/students" class="button secondary" style="white-space:nowrap;padding:0.4rem 0.8rem;font-size:0.75rem;">Lihat Daftar Siswa &rarr;</a>
+    </div>` : ''}
+
     <div style="margin: 1rem 0; padding: 0.85rem 1.25rem; background: var(--accent-light, rgba(59,130,246,0.1)); border: 1px solid var(--line); border-radius: 0.75rem; font-size: 0.85rem; display: flex; align-items: center; gap: 0.75rem;">
       <span style="font-size: 1.2rem;">ℹ️</span>
       <div>
@@ -1883,6 +1894,8 @@ async function pwaPortalsPage() {
           const isDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname.startsWith('192.168.') || location.hostname.startsWith('10.') || location.hostname.startsWith('172.');
           const base = configured[d.key] || (isDev ? `${location.protocol}//${location.hostname}:${d.port}/` : `${location.origin}/${d.key}/`);
           const url = new URL(base); url.hash = new URLSearchParams({ token: result.data.token }).toString();
+          // @ts-ignore
+          const QRCode = (await import("qrcode/lib/browser.js")).default;
           const dataUrl = await QRCode.toDataURL(url.toString(), { width: 320, margin: 3, errorCorrectionLevel: "M" });
           await loadAccess();
           if (revision !== current || state.school?.id !== schoolId) return;

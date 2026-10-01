@@ -2,7 +2,6 @@ import { gateIntro, gateHelp, schoolLabel } from "../../shared/portal-ui";
 
 import { PortalError, PortalSession } from "../../shared/portal-session";
 import { setupInstallPrompt, offerInstall } from "../../shared/install-prompt";
-import { Html5Qrcode } from "html5-qrcode";
 import "./style.css";
 
 const portal = new PortalSession("TEACHER", import.meta.env.VITE_API_BASE_URL ?? "/api/v1");
@@ -40,14 +39,17 @@ async function loadSessionSummary() {
   }
 }
 
-let loginScanner: Html5Qrcode | null = null;
+let loginScanner: any = null;
 document.getElementById("btn-start-login-scan")?.addEventListener("click", async () => {
   document.getElementById("btn-start-login-scan")!.style.display = "none";
   document.getElementById("btn-login-retry")!.style.display = "none";
   document.getElementById("login-scanner-container")!.style.display = "block";
   try {
-    loginScanner ??= new Html5Qrcode("login-qr-reader");
-    await loginScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: (w, h) => ({ width: Math.min(250, w * .8, h * .8), height: Math.min(250, w * .8, h * .8) }) }, decoded => {
+    if (!loginScanner) {
+      const { Html5Qrcode } = await import("html5-qrcode");
+      loginScanner = new Html5Qrcode("login-qr-reader");
+    }
+    await loginScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: (w: number, h: number) => ({ width: Math.min(250, w * .8, h * .8), height: Math.min(250, w * .8, h * .8) }) }, (decoded: string) => {
       try {
         const url = new URL(decoded);
         if (url.hash.includes("token=") || url.searchParams.has("token")) {
@@ -68,7 +70,7 @@ document.getElementById("btn-cancel-login-scan")?.addEventListener("click", asyn
   document.getElementById("btn-start-login-scan")!.style.display = "block";
 });
 
-let html5QrCode: Html5Qrcode | null = null;
+let html5QrCode: any = null;
 let isScanning = false;
 
 async function stopCameraScanner() {
@@ -83,7 +85,10 @@ async function stopCameraScanner() {
 }
 
 async function startCameraScanner() {
-  if (!html5QrCode) html5QrCode = new Html5Qrcode("qr-reader");
+  if (!html5QrCode) {
+    const { Html5Qrcode } = await import("html5-qrcode");
+    html5QrCode = new Html5Qrcode("qr-reader");
+  }
   try {
     const ph = document.getElementById("scanner-placeholder");
     if (ph) ph.style.display = "none";

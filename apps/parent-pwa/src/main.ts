@@ -2,8 +2,6 @@ import { gateIntro, gateHelp } from "../../shared/portal-ui";
 import "./styles.css";
 import { PortalSession } from "../../shared/portal-session";
 import { setupInstallPrompt, offerInstall } from "../../shared/install-prompt";
-import { Html5Qrcode } from "html5-qrcode";
-
 const portal = new PortalSession("PARENT", import.meta.env.VITE_API_BASE_URL ?? "/api/v1");
 setupInstallPrompt("Portal Orang Tua", import.meta.env.BASE_URL, import.meta.env.PROD);
 
@@ -62,7 +60,7 @@ const root = document.querySelector<HTMLDivElement>("#app")!;
 const esc = (v: unknown) => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 const request = <T>(path: string, init: RequestInit = {}) => portal.request<T>(path, init);
 
-let loginScanner: Html5Qrcode | null = null;
+let loginScanner: any = null;
 let selectedChildId = "";
 let viewRevision = 0;
 let dashboardVisible = false;
@@ -265,8 +263,11 @@ function loginView(message = "Pindai QR dari admin sekolah untuk membuka aktivit
     document.getElementById("retry-portal")!.style.display = "none";
     document.getElementById("login-scanner-container")!.style.display = "block";
     try {
-      loginScanner ??= new Html5Qrcode("login-qr-reader");
-      await loginScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, decoded => {
+      if (!loginScanner) {
+        const { Html5Qrcode } = await import("html5-qrcode");
+        loginScanner = new Html5Qrcode("login-qr-reader");
+      }
+      await loginScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, (decoded: string) => {
         try {
           const url = new URL(decoded);
           if (url.hash.includes("token=") || url.searchParams.has("token")) {

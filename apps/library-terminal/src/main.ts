@@ -2,7 +2,6 @@ import { gateIntro, gateHelp } from "../../shared/portal-ui";
 import "./style.css";
 import { PortalError, PortalSession } from "../../shared/portal-session";
 import { setupInstallPrompt, offerInstall } from "../../shared/install-prompt";
-import { Html5Qrcode } from "html5-qrcode";
 const portal = new PortalSession("LIBRARY_STAFF", import.meta.env.VITE_API_BASE_URL ?? "/api/v1");
 setupInstallPrompt("Perpustakaan", import.meta.env.BASE_URL, import.meta.env.PROD);
 type Visit = { event_id: string; card_uid: string; occurred_at: string; local_sequence: number; metadata: Record<string, unknown> };
@@ -28,12 +27,15 @@ const cancelBtn = document.createElement("button"); cancelBtn.textContent = "Bat
 scannerContainer.append(readerDiv, cancelBtn);
 gate.append(message, retry, scannerContainer, scanBtn); gate.insertAdjacentHTML("beforeend", gateHelp); document.querySelector("header")!.after(gate);
 
-let loginScanner: Html5Qrcode | null = null;
+let loginScanner: any = null;
 scanBtn.onclick = async () => {
   scanBtn.style.display = "none"; retry.style.display = "none"; scannerContainer.style.display = "block";
   try {
-    loginScanner ??= new Html5Qrcode("login-qr-reader");
-    await loginScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, decoded => {
+    if (!loginScanner) {
+      const { Html5Qrcode } = await import("html5-qrcode");
+      loginScanner = new Html5Qrcode("login-qr-reader");
+    }
+    await loginScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, (decoded: string) => {
       try {
         const url = new URL(decoded);
         if (url.hash.includes("token=") || url.searchParams.has("token")) {
@@ -115,7 +117,7 @@ const showError = (error: unknown) => {
 document.querySelector<HTMLButtonElement>("#sync")!.onclick = () => void sync().catch(showError);
 window.addEventListener("online", () => { if (portal.connected) void sync().catch(showError); });
 
-let html5QrCode: Html5Qrcode | null = null;
+let html5QrCode: any = null;
 let isScanning = false;
 
 async function stopCameraScanner() {
@@ -130,7 +132,10 @@ async function stopCameraScanner() {
 }
 
 async function startCameraScanner() {
-  if (!html5QrCode) html5QrCode = new Html5Qrcode("qr-reader");
+  if (!html5QrCode) {
+    const { Html5Qrcode } = await import("html5-qrcode");
+    html5QrCode = new Html5Qrcode("qr-reader");
+  }
   try {
     const ph = document.getElementById("scanner-placeholder");
     if (ph) ph.style.display = "none";

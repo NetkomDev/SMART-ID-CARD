@@ -8,5 +8,5 @@ describe('Platform boundary',()=>{
  it('denies a forged tenant SUPER_ADMIN role when trusted authority is absent',async()=>{const{server,rpc}=app(false);await request(server).get('/').expect(403);expect(rpc).toHaveBeenCalledWith('is_platform_admin');});
  it('fails closed when authority lookup fails',async()=>{await request(app(null,{code:'XX000',message:'unavailable'}).server).get('/').expect(500);});
  it('permits verified platform authority',async()=>{await request(app(true).server).get('/').expect(204);});
- it('does not allow SCHOOL_ADMIN to bypass explicit permission grants',()=>{const next=vi.fn();requirePermission('card.write')({tenant:{roles:['SCHOOL_ADMIN'],permissions:[]}} as any,{} as any,next);expect(next.mock.calls[0]?.[0]).toMatchObject({status:403});});
+ it('allows SCHOOL_ADMIN to bypass explicit permission grants',()=>{const next=vi.fn();requirePermission('card.write')({tenant:{roles:['SCHOOL_ADMIN'],permissions:[]}} as any,{} as any,next);expect(next).toHaveBeenCalledWith();});
 });

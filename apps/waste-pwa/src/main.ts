@@ -2,7 +2,6 @@ import { gateIntro, gateHelp, escapePortal as esc } from "../../shared/portal-ui
 import "./style.css";
 import { PortalError, PortalSession } from "../../shared/portal-session";
 import { setupInstallPrompt, offerInstall } from "../../shared/install-prompt";
-import { Html5Qrcode } from "html5-qrcode";
 import { calculateWasteMeasurement, type WasteType, type WasteUnit } from "./waste-calculation.js";
 
 const portal = new PortalSession("WASTE_STAFF", import.meta.env.VITE_API_BASE_URL ?? "/api/v1");
@@ -17,14 +16,17 @@ login.classList.add("portal-gate");
 login.innerHTML = gateIntro("Piket Bank Sampah", "Catat setoran dan lihat kontribusi sekolah melalui akses resmi dari admin.");
 login.append(loginForm); login.insertAdjacentHTML("beforeend", gateHelp);
 
-let loginScanner: Html5Qrcode | null = null;
+let loginScanner: any = null;
 el("btn-start-login-scan").addEventListener("click", async () => {
   el("btn-start-login-scan").style.display = "none";
   el("btn-login-retry").style.display = "none";
   el("login-scanner-container").style.display = "block";
   try {
-    loginScanner ??= new Html5Qrcode("login-qr-reader");
-    await loginScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: (w, h) => ({ width: Math.min(250, w * .8, h * .8), height: Math.min(250, w * .8, h * .8) }) }, decoded => {
+    if (!loginScanner) {
+      const { Html5Qrcode } = await import("html5-qrcode");
+      loginScanner = new Html5Qrcode("login-qr-reader");
+    }
+    await loginScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: (w: number, h: number) => ({ width: Math.min(250, w * .8, h * .8), height: Math.min(250, w * .8, h * .8) }) }, (decoded: string) => {
       try {
         const url = new URL(decoded);
         if (url.hash.includes("token=") || url.searchParams.has("token")) {
@@ -60,7 +62,7 @@ let view: View = "login", classId = "", className = "", student: Student | null 
 let dashboard: Dashboard | null = null, dashboardRequest = 0;
 let activePortalId = "";
 let scanning = false, cameraBusy = false, cameraStart: Promise<void> | null = null, facing: "environment" | "user" = "environment";
-let scanner: Html5Qrcode | null = null, resolving = false, saving = false;
+let scanner: any = null, resolving = false, saving = false;
 type PendingDeposit = { event_id: string; class_id: string; student_id: string; organic_kg: number; inorganic_kg: number; source: string };
 let pending: PendingDeposit | null = null;
 const pendingKey = () => `aksis.waste.pending.${portal.context?.id ?? ""}`;
@@ -91,11 +93,14 @@ async function startCamera() {
   el<HTMLButtonElement>("btn-toggle-camera").disabled = true;
   cameraStart = (async () => {
     try {
-      scanner ??= new Html5Qrcode("qr-reader");
+      if (!scanner) {
+        const { Html5Qrcode } = await import("html5-qrcode");
+        scanner = new Html5Qrcode("qr-reader");
+      }
       el("scan-error").textContent = "";
       el("qr-reader").style.display = "block";
       el("scanner-placeholder").hidden = true;
-      await scanner.start({ facingMode: facing }, { fps: 10, qrbox: (w, h) => ({ width: Math.min(220, w * .7, h * .7), height: Math.min(220, w * .7, h * .7) }) }, decoded => {
+      await scanner.start({ facingMode: facing }, { fps: 10, qrbox: (w: number, h: number) => ({ width: Math.min(220, w * .7, h * .7), height: Math.min(220, w * .7, h * .7) }) }, (decoded: string) => {
         if (resolving || view !== "scan") return;
         input("scan-input").value = decoded;
         void resolveStudent();

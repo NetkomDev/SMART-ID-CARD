@@ -48,7 +48,16 @@ router.get("/summary", requirePermission("card.read"), asyncHandler(async (req, 
 
   if (blockedError) throw fromDatabaseError(blockedError);
 
-  sendData(res, { active: activeCount ?? 0, pending: pendingCount ?? 0, blocked: blockedCount ?? 0 });
+  const { count: missingPhotoCount, error: missingPhotoError } = await req.auth!.client.from("students")
+    .select("id", { count: "exact", head: true })
+    .eq("school_id", req.tenant!.schoolId)
+    .eq("is_active", true)
+    .is("deleted_at", null)
+    .or("photo_url.is.null,photo_url.eq.");
+
+  if (missingPhotoError) throw fromDatabaseError(missingPhotoError);
+
+  sendData(res, { active: activeCount ?? 0, pending: pendingCount ?? 0, blocked: blockedCount ?? 0, missing_photo: missingPhotoCount ?? 0 });
 }));
 
 router.post("/resolve", requirePermission("student.read"), validate({ body: z.object({ qr_key: z.string().trim().min(16).max(128) }).strict() }), asyncHandler(async (req, res) => {

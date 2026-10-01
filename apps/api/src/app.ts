@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import compression from "compression";
 import cors from "cors";
 import express from "express";
 import { rateLimit } from "express-rate-limit";
@@ -42,6 +43,7 @@ export function createApp() {
   const app = express();
   app.disable("x-powered-by");
   app.use(helmet());
+  app.use(compression());
   app.use(cors({ origin: config.corsOrigins, credentials: true }));
   app.use(express.json({ limit: "1mb" }));
   app.use(collectMetrics);
