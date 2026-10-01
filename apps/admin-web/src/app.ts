@@ -730,14 +730,23 @@ async function academicYearsPage(): Promise<void> {
   } catch (error) { shell(errorState(error), "Tahun Ajaran", "Kelola tahun ajaran dan periode aktif."); }
 }
 async function cardsPage(): Promise<void> {
-  shell(`<section class="stats-grid">${Array.from({ length: 2 }, () => skeleton(1)).join("")}</section>`, "Kartu Siswa", "Pantau identitas kartu fisik (NFC) dan status lifecycle-nya.");
+  shell(`<section class="stats-grid">${Array.from({ length: 3 }, () => skeleton(1)).join("")}</section>`, "Kartu Siswa", "Pantau identitas kartu fisik (NFC) dan status lifecycle-nya.");
   try {
-    const { data: summary } = await api<{ active: number, blocked: number }>("/cards/summary");
+    const { data: summary } = await api<{ active: number, pending: number, blocked: number }>("/cards/summary");
 
-    shell(`<section class="stats-grid">
-      <article class="stat-card sage"><div><span>Kartu Aktif</span><strong>${summary.active} Kartu</strong></div><span class="trend">💳</span></article>
-      <article class="stat-card ${summary.blocked > 0 ? 'red' : 'neutral'}"><div><span>Kartu Diblokir/Hilang</span><strong>${summary.blocked} Kartu</strong></div><span class="trend">!</span></article>
+    shell(`<section class="stats-grid" style="grid-template-columns: repeat(3, 1fr);">
+      <article class="stat-card sage"><div><span>Kartu Aktif (Siap Tap)</span><strong>${summary.active} Kartu</strong></div><span class="trend">💳</span></article>
+      <article class="stat-card ${summary.pending > 0 ? 'lime' : 'neutral'}"><div><span>Dalam Produksi (Belum Suntik Chip)</span><strong>${summary.pending} Kartu</strong></div><span class="trend">⏳</span></article>
+      <article class="stat-card ${summary.blocked > 0 ? 'red' : 'neutral'}"><div><span>Kartu Diblokir / Hilang</span><strong>${summary.blocked} Kartu</strong></div><span class="trend">!</span></article>
     </section>
+    
+    <div style="margin: 1rem 0; padding: 0.85rem 1.25rem; background: var(--accent-light, rgba(59,130,246,0.1)); border: 1px solid var(--line); border-radius: 0.75rem; font-size: 0.85rem; display: flex; align-items: center; gap: 0.75rem;">
+      <span style="font-size: 1.2rem;">ℹ️</span>
+      <div>
+        <strong>Aturan Status Kartu:</strong> Status <code>ACTIVE</code> (Aktif) hanya terpasang secara otomatis ketika kartu fisik telah dicetak dan chip NFC di dalamnya disuntik & terverifikasi oleh Super Admin via Card Station. Admin Sekolah dapat mengubah status ke <code>BLOCKED</code> atau <code>LOST</code> bila kartu hilang/rusak.
+      </div>
+    </div>
+
     <section class="dashboard-grid" style="grid-template-columns: 1fr;">
       <article class="panel">
         <div class="panel-head"><h2>Daftar Kartu Terdaftar</h2><p>Identitas UID dan Serial NFC</p></div>
@@ -748,17 +757,49 @@ async function cardsPage(): Promise<void> {
     let page = 1;
     const loadCards = async () => {
       try {
-        const response = await api<Card[]>(`/cards?page=${page}&page_size=50`);
+        const response = await api<(Card & { production_status?: string })[]>(`/cards?page=${page}&page_size=50`);
         const cards = response.data;
         const cardRows = cards.map(item => {
           const student = relation(item.students) as any;
           const studentHtml = student ? `<strong>${escapeHtml(student.full_name)}</strong><small>${escapeHtml(student.student_number)}</small>` : `<strong style="color:var(--muted)">Belum terhubung</strong>`;
-          return `<tr><td>${studentHtml}</td><td><strong>${escapeHtml(item.card_serial)}</strong><small><code>${escapeHtml(item.card_uid)}</code></small></td><td><span class="status ${item.status === "ACTIVE" ? "success" : "warning"}">${escapeHtml(item.status)}</span></td><td>${escapeHtml(item.expires_at ? new Date(item.expires_at).toLocaleDateString("id-ID") : "—")}</td><td><button class="button secondary" data-action="status" data-id="${item.id}" style="padding:0.3rem 0.6rem;font-size:0.75rem;">Status</button></td></tr>`;
+          
+          const prodStatus = item.production_status || 'LEGACY';
+          let prodBadge = `<span class="status success">Verified (Chip Disuntik)</span>`;
+          if (prodStatus === 'DRAFT') prodBadge = `<span class="status warning">Draft Batch</span>`;
+          else if (prodStatus === 'PRINTED') prodBadge = `<span class="status warning">Cetak Fisik</span>`;
+          else if (prodStatus === 'READY_TO_WRITE' || prodStatus === 'WRITING') prodBadge = `<span class="status warning">Siap Suntik Chip</span>`;
+          else if (prodStatus === 'FAILED') prodBadge = `<span class="status error">Gagal Chip</span>`;
+          else if (prodStatus === 'CANCELLED') prodBadge = `<span class="status neutral">Dibatalkan</span>`;
+
+          const uidDisplay = item.card_uid ? `<code>${escapeHtml(item.card_uid)}</code>` : `<span style="color:var(--text-light); font-size:0.75rem; font-style:italic;">Belum disuntik chip</span>`;
+
+          return `<tr>
+            <td>${studentHtml}</td>
+            <td><strong>${escapeHtml(item.card_serial)}</strong><br/>${uidDisplay}</td>
+            <td>${prodBadge}</td>
+            <td><span class="status ${item.status === "ACTIVE" ? "success" : "warning"}">${escapeHtml(item.status)}</span></td>
+            <td>${escapeHtml(item.expires_at ? new Date(item.expires_at).toLocaleDateString("id-ID") : "—")}</td>
+            <td><button class="button secondary" data-action="status" data-id="${item.id}" style="padding:0.3rem 0.6rem;font-size:0.75rem;">Status</button></td>
+          </tr>`;
         }).join("");
 
         const total = response.meta?.total ?? 0;
         document.querySelector("#cards-data")!.innerHTML = cards.length
-          ? `<div class="table-wrap"><table><thead><tr><th>Siswa Pemilik</th><th>Serial & UID</th><th>Status</th><th>Kedaluwarsa</th><th>Aksi</th></tr></thead><tbody>${cardRows}</tbody></table></div>
+          ? `<div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Siswa Pemilik</th>
+                    <th>Serial & UID Chip</th>
+                    <th>Status Produksi (Chip)</th>
+                    <th>Status Kartu</th>
+                    <th>Kedaluwarsa</th>
+                    <th>Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>${cardRows}</tbody>
+              </table>
+            </div>
              <div class="table-footer" style="display:flex;justify-content:space-between;align-items:center;">
                <button class="button secondary" id="cards-prev" ${page === 1 ? "disabled" : ""}>Sebelumnya</button>
                <span>Menampilkan Halaman ${page} dari ${Math.ceil(total/50) || 1} (${total} data)</span>
@@ -773,9 +814,13 @@ async function cardsPage(): Promise<void> {
           const id = (e.currentTarget as HTMLButtonElement).dataset.id!;
           const current = cards.find(c => c.id === id);
           if(!current) return;
-          const newStatus = prompt("Masukkan status baru (ACTIVE, LOST, BLOCKED, EXPIRED):\nPerhatian: Mengubah menjadi LOST/BLOCKED tidak dapat mencetak kartu baru dari sini, gunakan module Produksi Kartu Siswa jika ingin mencetak ulang.", current.status);
+          const newStatus = prompt("Masukkan status baru (BLOCKED, LOST, EXPIRED):\nCatatan: Status ACTIVE hanya diaktifkan otomatis oleh Super Admin setelah chip disuntik via Card Station.\nPerhatian: Mengubah status ke LOST/BLOCKED akan menonaktifkan kartu.", current.status);
           if(newStatus && ["ACTIVE", "LOST", "BLOCKED", "EXPIRED"].includes(newStatus) && newStatus !== current.status) {
-            const reason = prompt("Alasan perubahan status:") || "Diperbarui admin";
+            if (newStatus === "ACTIVE" && (current as any).production_status !== "VERIFIED" && (current as any).production_status !== "LEGACY") {
+              alert(`Gagal: Kartu belum disuntik chip NFC oleh Super Admin (Status Produksi: ${(current as any).production_status || 'DRAFT'}).\n\nKartu fisik harus dicetak dan disuntik chip terlebih dahulu melalui Card Station Super Admin.`);
+              return;
+            }
+            const reason = prompt("Alasan perubahan status:") || "Diperbarui admin sekolah";
             try {
               btn.disabled = true;
               await api(`/cards/${id}`, { method: "PATCH", body: JSON.stringify({ status: newStatus, reason }) });

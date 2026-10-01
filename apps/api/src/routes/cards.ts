@@ -9,7 +9,7 @@ import { cardListQuerySchema, createCardSchema, updateCardSchema } from "../sche
 import { idParamsSchema } from "../schemas/common.js";
 
 const router = Router();
-const selection = "id, school_id, student_id, card_uid, card_serial, qr_key, status, issued_at, revoked_at, expires_at, created_at, updated_at, students(full_name, student_number)";
+const selection = "id, school_id, student_id, card_uid, card_serial, qr_key, status, production_status, issued_at, revoked_at, expires_at, created_at, updated_at, students(full_name, student_number)";
 
 router.get("/", requirePermission("card.read"), validate({ query: cardListQuerySchema }), asyncHandler(async (req, res) => {
   const { page, page_size: pageSize, student_id: studentId, status } = req.query as unknown as {
@@ -33,14 +33,22 @@ router.get("/summary", requirePermission("card.read"), asyncHandler(async (req, 
   
   if (activeError) throw fromDatabaseError(activeError);
 
+  const { count: pendingCount, error: pendingError } = await req.auth!.client.from("student_cards")
+    .select("id", { count: "exact", head: true })
+    .eq("school_id", req.tenant!.schoolId)
+    .in("production_status", ["DRAFT", "PRINTED", "READY_TO_WRITE", "WRITING", "FAILED"]);
+
+  if (pendingError) throw fromDatabaseError(pendingError);
+
   const { count: blockedCount, error: blockedError } = await req.auth!.client.from("student_cards")
     .select("id", { count: "exact", head: true })
     .eq("school_id", req.tenant!.schoolId)
-    .in("status", ["BLOCKED", "LOST"]);
+    .in("status", ["BLOCKED", "LOST"])
+    .not("production_status", "in", "(DRAFT,PRINTED,READY_TO_WRITE,WRITING,FAILED)");
 
   if (blockedError) throw fromDatabaseError(blockedError);
 
-  sendData(res, { active: activeCount ?? 0, blocked: blockedCount ?? 0 });
+  sendData(res, { active: activeCount ?? 0, pending: pendingCount ?? 0, blocked: blockedCount ?? 0 });
 }));
 
 router.post("/resolve", requirePermission("student.read"), validate({ body: z.object({ qr_key: z.string().trim().min(16).max(128) }).strict() }), asyncHandler(async (req, res) => {
