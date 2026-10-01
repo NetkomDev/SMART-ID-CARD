@@ -13,7 +13,7 @@ import { paginationSchema } from '../schemas/common.js';
 const router = Router();
 router.use(requireAuth, requirePlatform);
 const schoolSchema = z.object({code:z.string().regex(/^[A-Z0-9][A-Z0-9_-]{1,49}$/),name:z.string().trim().min(1).max(200),timezone:z.enum(['Asia/Makassar','Asia/Jakarta','Asia/Jayapura']),idempotency_key:z.uuid()}).strict();
-const adminSchema = z.object({email:z.email(),password:z.string().min(12).max(128),full_name:z.string().trim().min(1).max(200),idempotency_key:z.uuid()}).strict();
+const adminSchema = z.object({email:z.email(),password:z.string().min(8).max(128),full_name:z.string().trim().min(1).max(200),idempotency_key:z.uuid()}).strict();
 const id = z.object({id:z.uuid()});
 router.get('/schools', validate({query:paginationSchema}), asyncHandler(async(req,res)=>{
   const page=Number(req.query.page),size=Number(req.query.page_size);
