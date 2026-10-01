@@ -183,7 +183,7 @@ function shell(content: string, title: string, subtitle: string): void {
   }
 
   const schoolSwitchHtml = isSuperAdmin ? "" : `
-    <div class="school-switch"><span class="school-avatar">${escapeHtml(initials)}</span><div><small>Sekolah aktif</small><strong>${escapeHtml(state.school?.name)}</strong></div></div>
+    <div class="school-switch"><div><small>Sekolah aktif</small><strong>${escapeHtml(state.school?.name)}</strong></div></div>
   `;
 
 function getThemeIconHtml(): string {
