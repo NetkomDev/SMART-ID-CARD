@@ -33,7 +33,7 @@ function getApp(): HTMLDivElement {
 }
 
 const navItems = [
-  ["/", "Ringkasan", "⌂"], ["/students", "Siswa & Kelas", "◎"], ["/student-import", "Import siswa", "↥"],
+  ["/", "Ringkasan", "⌂"], ["/students", "Siswa & Kelas", "◎"],
   ["/attendance", "Kehadiran", "✓"],
   ["/cards", "Kartu siswa", "▰"], ["/devices", "Perangkat", "⌁"], ["/waste", "Bank sampah", "♻"],
   ["/library", "Perpustakaan", "▤"], ["/extracurricular", "Ekstrakurikuler", "☆"], ["/led", "LED board", "▱"],
