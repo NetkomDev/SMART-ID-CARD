@@ -2,7 +2,7 @@
 .cc * { box-sizing:border-box; }
 .cc-header { display:flex; align-items:center; justify-content:space-between; gap:24px; margin-bottom:6px; }
 .cc-identity { display:flex; align-items:center; gap:14px; min-width:0; }
-.cc-brand { display:grid; place-items:center; width:46px; height:46px; border-radius:15px; background:#dff27d; color:#172d28; font-size:28px; font-weight:900; flex-shrink:0; }
+.cc-brand { display:block; width:48px; height:48px; object-fit:contain; flex-shrink:0; border-radius:12px; }
 .cc-eyebrow { display:block; font-size:10px; letter-spacing:.15em; font-weight:700; color:var(--cc-muted); }
 .cc-header h2 { font-size:26px; letter-spacing:-.04em; margin:4px 0; }
 .cc-identity p { font-size:13px; color:var(--cc-muted); margin:0; }
@@ -50,7 +50,7 @@ body.cc-tv-open { overflow:hidden; }
 .cc.cc-tv .cc-header h2 { font-size:clamp(26px,2.1vw,48px); }
 .cc.cc-tv .cc-identity p { font-size:clamp(13px,1vw,22px); }
 .cc.cc-tv .cc-eyebrow { font-size:clamp(10px,.66vw,16px); }
-.cc.cc-tv .cc-brand { width:clamp(42px,3.6vw,74px); height:clamp(42px,3.6vw,74px); font-size:clamp(25px,2.2vw,46px); }
+.cc.cc-tv .cc-brand { width:clamp(44px,3.8vw,76px); height:clamp(44px,3.8vw,76px); object-fit:contain; border-radius:18px; }
 .cc.cc-tv .cc-time strong { font-size:clamp(26px,2.25vw,50px); }
 .cc.cc-tv .cc-time span { font-size:clamp(11px,.78vw,18px); }
 .cc.cc-tv .cc-tv-button { background:#1c3026; border-color:#3b4d37; color:#d5e1c8; font-size:clamp(11px,.8vw,18px); }
