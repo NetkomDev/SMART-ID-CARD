@@ -290,6 +290,9 @@ function tablePage<T>(options: { title: string; subtitle: string; path: string; 
 }
 
 async function studentsPage(): Promise<void> {
+  let selectedClassId: string | null = null;
+  let currentSearch = "";
+
   shell(`<section class="dashboard-grid" style="grid-template-columns: 320px 1fr; align-items: start;">
     <article class="panel">
       <div class="panel-head">
@@ -299,12 +302,18 @@ async function studentsPage(): Promise<void> {
       <div id="classes-data">${skeleton(4)}</div>
     </article>
     <article class="panel">
-      <div class="panel-head">
-        <div class="search-box"><span>⌕</span><input id="table-search" type="search" placeholder="Cari nama/NISN/NIS…" aria-label="Cari data" /></div>
+      <div class="panel-head" style="flex-wrap: wrap; gap: 0.75rem;">
+        <div style="display:flex; align-items:center; gap:0.75rem; flex:1; min-width: 250px;">
+          <div class="search-box" style="flex:1;"><span>⌕</span><input id="table-search" type="search" placeholder="Cari nama/NISN/NIS…" aria-label="Cari data" /></div>
+        </div>
         <div style="display:flex;gap:0.5rem;">
           <a class="button secondary" data-link href="/class-promotion">↗ Naik Kelas Massal</a>
           <a class="button primary" data-link href="/student-import">↥ Import Siswa</a>
         </div>
+      </div>
+      <div id="active-filter-indicator" style="padding: 0.5rem 1rem; background: var(--accent-light, rgba(59,130,246,0.1)); border-bottom: 1px solid var(--line); display: none; justify-content: space-between; align-items: center; font-size: 0.875rem;">
+        <span>Terfilter berdasarkan: <strong id="filter-class-name"></strong></span>
+        <button id="btn-clear-filter" class="button secondary" style="padding: 0.15rem 0.5rem; font-size: 0.75rem;">Tampilkan Semua Siswa</button>
       </div>
       <div id="table-data">${skeleton(6)}</div>
     </article>
@@ -318,13 +327,19 @@ async function studentsPage(): Promise<void> {
         <input type="hidden" id="edit-student-id" />
         <label>Nama Lengkap<input type="text" id="edit-full-name" required /></label>
         <label>NISN<input type="text" id="edit-nisn" required /></label>
-        <label>Tempat Lahir<input type="text" id="edit-pob" required /></label>
-        <label>Tanggal Lahir (YYYY-MM-DD)<input type="date" id="edit-dob" required /></label>
-        <label>Alamat<input type="text" id="edit-address" required /></label>
+        <label>Tempat Lahir<input type="text" id="edit-pob" placeholder="Cth: Jakarta" /></label>
+        <label>Tanggal Lahir (YYYY-MM-DD)<input type="date" id="edit-dob" /></label>
+        <label>Alamat<input type="text" id="edit-address" placeholder="Cth: Jl. Merdeka No. 10" /></label>
         <label>Jenis Kelamin
           <select id="edit-gender" style="width:100%;padding:.85rem;border-radius:.75rem;border:1px solid var(--line);background:var(--bg);color:var(--text);">
             <option value="MALE">Laki-laki (L)</option>
             <option value="FEMALE">Perempuan (P)</option>
+          </select>
+        </label>
+        <label>Status Siswa
+          <select id="edit-status" style="width:100%;padding:.85rem;border-radius:.75rem;border:1px solid var(--line);background:var(--bg);color:var(--text);">
+            <option value="true">Aktif</option>
+            <option value="false">Nonaktif</option>
           </select>
         </label>
         <div style="display:flex;gap:1rem;margin-top:1.5rem;">
@@ -338,12 +353,71 @@ async function studentsPage(): Promise<void> {
   const loadClasses = async () => {
     try {
       const res = await api<(SchoolClass & { student_count: number })[]>("/classes/summary");
-      document.querySelector("#classes-data")!.innerHTML = res.data.length
-        ? `<div class="table-wrap"><table><thead><tr><th>Nama Kelas</th><th>Siswa</th><th>Aksi</th></tr></thead><tbody>${res.data.map(c => `<tr><td><strong>${escapeHtml(c.name)}</strong></td><td>${c.student_count} siswa</td><td><button class="button danger btn-delete-class" data-id="${c.id}" data-name="${escapeHtml(c.name)}" data-count="${c.student_count}" style="padding:0.2rem 0.5rem;font-size:0.75rem;">Hapus</button></td></tr>`).join("")}</tbody></table></div>`
+      const rawClasses = res.data ?? [];
+      
+      // Sort classes sequentially from top to bottom (e.g. VII-A, VII-B, VIII-A, VIII-B, IX-A, IX-B)
+      const sortedClasses = [...rawClasses].sort((a, b) => {
+        const gA = a.grade_level ?? 0;
+        const gB = b.grade_level ?? 0;
+        if (gA !== gB) return gA - gB;
+        return a.name.localeCompare(b.name, "id", { numeric: true, sensitivity: "base" });
+      });
+
+      const totalStudents = sortedClasses.reduce((sum, c) => sum + (c.student_count || 0), 0);
+      const isAllSelected = selectedClassId === null;
+
+      const allClassesHeader = `<div id="btn-all-classes" style="padding: 0.6rem 0.8rem; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; background: ${isAllSelected ? 'var(--accent-light, rgba(59, 130, 246, 0.15))' : 'var(--bg-subtle, rgba(0,0,0,0.02))'}; border-left: ${isAllSelected ? '4px solid var(--accent, #3b82f6)' : '4px solid transparent'}; border-radius: 0.5rem; cursor: pointer; transition: all 0.2s ease;">
+        <strong style="font-size:0.875rem; color:${isAllSelected ? 'var(--accent, #3b82f6)' : 'var(--text)'};">Semua Siswa</strong>
+        <span class="status ${isAllSelected ? 'success' : 'neutral'}" style="font-size:0.75rem;">${totalStudents} siswa</span>
+      </div>`;
+
+      const rowsHtml = sortedClasses.map(c => {
+        const isSelected = selectedClassId === c.id;
+        const activeStyle = isSelected
+          ? `background: var(--accent-light, rgba(59, 130, 246, 0.15)); border-left: 4px solid var(--accent, #3b82f6); font-weight: 600;`
+          : `cursor: pointer; transition: background 0.15s ease;`;
+        return `<tr class="class-row ${isSelected ? 'active-class-row' : ''}" data-class-id="${c.id}" data-class-name="${escapeHtml(c.name)}" style="${activeStyle}">
+          <td><strong style="color:${isSelected ? 'var(--accent, #3b82f6)' : 'var(--text)'};">${escapeHtml(c.name)}</strong></td>
+          <td>${c.student_count} siswa</td>
+          <td><button class="button danger btn-delete-class" data-id="${c.id}" data-name="${escapeHtml(c.name)}" data-count="${c.student_count}" style="padding:0.2rem 0.5rem;font-size:0.75rem;">Hapus</button></td>
+        </tr>`;
+      }).join("");
+
+      const tableContent = sortedClasses.length
+        ? `${allClassesHeader}<div class="table-wrap"><table><thead><tr><th>Nama Kelas</th><th>Siswa</th><th>Aksi</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>`
         : emptyState("Belum ada", "Tambahkan kelas.");
 
+      document.querySelector("#classes-data")!.innerHTML = tableContent;
+
+      // Click listener for "Semua Siswa" header button
+      document.getElementById("btn-all-classes")?.addEventListener("click", () => {
+        selectedClassId = null;
+        updateFilterIndicator(null);
+        void loadClasses();
+        void loadStudents(currentSearch);
+      });
+
+      // Click listener for class rows
+      document.querySelectorAll<HTMLTableRowElement>(".class-row").forEach(row => {
+        row.onclick = (e) => {
+          if ((e.target as HTMLElement).closest(".btn-delete-class")) return;
+          const classId = row.dataset.classId!;
+          const className = row.dataset.className!;
+          if (selectedClassId === classId) {
+            selectedClassId = null;
+            updateFilterIndicator(null);
+          } else {
+            selectedClassId = classId;
+            updateFilterIndicator(className);
+          }
+          void loadClasses();
+          void loadStudents(currentSearch);
+        };
+      });
+
       document.querySelectorAll<HTMLButtonElement>(".btn-delete-class").forEach(btn => {
-        btn.onclick = async () => {
+        btn.onclick = async (e) => {
+          e.stopPropagation();
           const id = btn.dataset.id!;
           const name = btn.dataset.name!;
           const count = Number(btn.dataset.count);
@@ -354,7 +428,9 @@ async function studentsPage(): Promise<void> {
           if (!confirm(`Apakah Anda yakin ingin menghapus kelas "${name}"?`)) return;
           try {
             await api(`/classes/${id}`, { method: "DELETE" });
+            if (selectedClassId === id) selectedClassId = null;
             await loadClasses();
+            await loadStudents(currentSearch);
           } catch (err: any) {
             alert("Gagal menghapus kelas: " + (err.message || "Terjadi kesalahan"));
           }
@@ -364,6 +440,25 @@ async function studentsPage(): Promise<void> {
       document.querySelector("#classes-data")!.innerHTML = errorState(err);
     }
   };
+
+  const updateFilterIndicator = (className: string | null) => {
+    const indicator = document.getElementById("active-filter-indicator");
+    const nameEl = document.getElementById("filter-class-name");
+    if (!indicator || !nameEl) return;
+    if (className) {
+      nameEl.textContent = className;
+      indicator.style.display = "flex";
+    } else {
+      indicator.style.display = "none";
+    }
+  };
+
+  document.getElementById("btn-clear-filter")?.addEventListener("click", () => {
+    selectedClassId = null;
+    updateFilterIndicator(null);
+    void loadClasses();
+    void loadStudents(currentSearch);
+  });
 
   document.getElementById("btn-add-class")?.addEventListener("click", async () => {
     const className = prompt("Masukkan nama kelas baru (Cth: Kelas X-C):");
@@ -405,19 +500,28 @@ async function studentsPage(): Promise<void> {
     saveBtn.textContent = "Menyimpan...";
 
     try {
+      const full_name = (document.getElementById("edit-full-name") as HTMLInputElement).value.trim();
+      const nisn = (document.getElementById("edit-nisn") as HTMLInputElement).value.trim() || null;
+      const pob = (document.getElementById("edit-pob") as HTMLInputElement).value.trim() || null;
+      const date_of_birth = (document.getElementById("edit-dob") as HTMLInputElement).value || null;
+      const address = (document.getElementById("edit-address") as HTMLInputElement).value.trim() || null;
+      const gender = (document.getElementById("edit-gender") as HTMLSelectElement).value;
+      const is_active = (document.getElementById("edit-status") as HTMLSelectElement).value === "true";
+
       await api(`/students/${id}`, {
         method: "PATCH",
         body: JSON.stringify({
-          full_name: (document.getElementById("edit-full-name") as HTMLInputElement).value,
-          nisn: (document.getElementById("edit-nisn") as HTMLInputElement).value,
-          pob: (document.getElementById("edit-pob") as HTMLInputElement).value,
-          date_of_birth: (document.getElementById("edit-dob") as HTMLInputElement).value,
-          address: (document.getElementById("edit-address") as HTMLInputElement).value,
-          gender: (document.getElementById("edit-gender") as HTMLSelectElement).value
+          full_name,
+          nisn,
+          pob,
+          date_of_birth,
+          address,
+          gender,
+          is_active
         })
       });
       closeModal();
-      await loadStudents();
+      await loadStudents(currentSearch);
     } catch (err: any) {
       alert("Gagal memperbarui data siswa: " + (err.message || "Terjadi kesalahan"));
     } finally {
@@ -427,11 +531,53 @@ async function studentsPage(): Promise<void> {
   };
 
   const loadStudents = async (search = "") => {
+    currentSearch = search;
     try {
-      const response = await api<Student[]>(`/students?page=1&page_size=30${search ? `&search=${encodeURIComponent(search)}` : ""}`);
+      let queryUrl = `/students?page=1&page_size=50`;
+      if (selectedClassId) queryUrl += `&class_id=${encodeURIComponent(selectedClassId)}`;
+      if (search) queryUrl += `&search=${encodeURIComponent(search)}`;
+
+      const response = await api<(Student & { class_name?: string; pob?: string; address?: string })[]>(queryUrl);
+      
+      // UI table matched with Template_dapodik_aksis: Nama Lengkap, NISN, Kelas, Tempat / Tgl Lahir, Alamat, Gender, Status, Aksi
       document.querySelector("#table-data")!.innerHTML = response.data.length
-        ? `<div class="table-wrap"><table><thead><tr><th>Nama Lengkap</th><th>NISN</th><th>Tempat / Tgl Lahir</th><th>Gender</th><th>Status</th><th>Aksi</th></tr></thead><tbody>${response.data.map(item => `<tr><td><strong>${escapeHtml(item.full_name)}</strong><br/><small>${escapeHtml(item.student_number)}</small></td><td>${escapeHtml(item.nisn ?? "—")}</td><td>${escapeHtml((item as any).pob || "—")}, ${escapeHtml(item.date_of_birth ?? "—")}</td><td>${item.gender === 'MALE' ? 'L' : item.gender === 'FEMALE' ? 'P' : escapeHtml(item.gender)}</td><td><span class="status ${item.is_active ? "success" : "neutral"}">${item.is_active ? "Aktif" : "Nonaktif"}</span></td><td><div style="display:flex;gap:4px;"><button class="button secondary btn-edit-student" data-student='${JSON.stringify(item).replace(/'/g, "&#39;")}' style="padding:0.2rem 0.5rem;font-size:0.75rem;">Edit</button><button class="button danger btn-delete-student" data-id="${item.id}" data-name="${escapeHtml(item.full_name)}" style="padding:0.2rem 0.5rem;font-size:0.75rem;">Hapus</button></div></td></tr>`).join("")}</tbody></table></div><div class="table-footer">Menampilkan ${response.data.length} dari ${response.meta?.total ?? response.data.length} data</div>`
-        : emptyState("Data belum tersedia", "Tambahkan data siswa pertama.");
+        ? `<div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Nama Lengkap</th>
+                  <th>NISN</th>
+                  <th>Kelas</th>
+                  <th>Tempat / Tgl Lahir</th>
+                  <th>Alamat</th>
+                  <th>Gender</th>
+                  <th>Status</th>
+                  <th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${response.data.map(item => `
+                  <tr>
+                    <td><strong>${escapeHtml(item.full_name)}</strong></td>
+                    <td>${escapeHtml(item.nisn ?? "—")}</td>
+                    <td><span class="status neutral" style="font-weight:600;">${escapeHtml(item.class_name ?? "—")}</span></td>
+                    <td>${escapeHtml(item.pob || "—")}, ${escapeHtml(item.date_of_birth ?? "—")}</td>
+                    <td>${escapeHtml(item.address || "—")}</td>
+                    <td>${item.gender === 'MALE' ? 'L' : item.gender === 'FEMALE' ? 'P' : escapeHtml(item.gender ?? '—')}</td>
+                    <td><span class="status ${item.is_active ? "success" : "neutral"}">${item.is_active ? "Aktif" : "Nonaktif"}</span></td>
+                    <td>
+                      <div style="display:flex;gap:4px;">
+                        <button class="button secondary btn-edit-student" data-student='${JSON.stringify(item).replace(/'/g, "&#39;")}' style="padding:0.2rem 0.5rem;font-size:0.75rem;">Edit</button>
+                        <button class="button danger btn-delete-student" data-id="${item.id}" data-name="${escapeHtml(item.full_name)}" style="padding:0.2rem 0.5rem;font-size:0.75rem;">Hapus</button>
+                      </div>
+                    </td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+          <div class="table-footer">Menampilkan ${response.data.length} dari ${response.meta?.total ?? response.data.length} data</div>`
+        : emptyState("Data belum tersedia", selectedClassId ? "Tidak ada siswa dalam kelas ini." : "Tambahkan data siswa pertama.");
 
       document.querySelectorAll<HTMLButtonElement>(".btn-edit-student").forEach(btn => {
         btn.onclick = () => {
@@ -443,6 +589,7 @@ async function studentsPage(): Promise<void> {
           (document.getElementById("edit-dob") as HTMLInputElement).value = item.date_of_birth || "";
           (document.getElementById("edit-address") as HTMLInputElement).value = item.address || "";
           (document.getElementById("edit-gender") as HTMLSelectElement).value = item.gender || "MALE";
+          (document.getElementById("edit-status") as HTMLSelectElement).value = item.is_active !== false ? "true" : "false";
           modal.style.display = "flex";
         };
       });
@@ -454,7 +601,8 @@ async function studentsPage(): Promise<void> {
           if (!confirm(`Apakah Anda yakin ingin menghapus data siswa "${name}"?`)) return;
           try {
             await api(`/students/${id}`, { method: "DELETE" });
-            await loadStudents();
+            await loadStudents(currentSearch);
+            await loadClasses();
           } catch (err: any) {
             alert("Gagal menghapus siswa: " + (err.message || "Terjadi kesalahan"));
           }
@@ -464,7 +612,10 @@ async function studentsPage(): Promise<void> {
   };
 
   let timer = 0;
-  document.querySelector<HTMLInputElement>("#table-search")?.addEventListener("input", (event) => { window.clearTimeout(timer); timer = window.setTimeout(() => void loadStudents((event.target as HTMLInputElement).value), 300); });
+  document.querySelector<HTMLInputElement>("#table-search")?.addEventListener("input", (event) => {
+    window.clearTimeout(timer);
+    timer = window.setTimeout(() => void loadStudents((event.target as HTMLInputElement).value), 300);
+  });
   
   await loadClasses();
   void loadStudents();
