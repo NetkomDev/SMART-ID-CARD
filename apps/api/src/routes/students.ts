@@ -9,7 +9,7 @@ import { idParamsSchema } from "../schemas/common.js";
 import { createStudentSchema, updateStudentSchema } from "../schemas/student.js";
 
 const router = Router();
-const selection = "id, school_id, nisn, student_number, full_name, gender, date_of_birth, pob, address, is_active, created_at, updated_at, student_class_history(class_id, is_current, classes(id, name, code))";
+const selection = "id, school_id, nisn, student_number, full_name, gender, date_of_birth, pob, address, photo_url, is_active, created_at, updated_at, student_class_history(class_id, is_current, classes(id, name, code))";
 
 const studentQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),

@@ -537,14 +537,15 @@ async function studentsPage(): Promise<void> {
       if (selectedClassId) queryUrl += `&class_id=${encodeURIComponent(selectedClassId)}`;
       if (search) queryUrl += `&search=${encodeURIComponent(search)}`;
 
-      const response = await api<(Student & { class_name?: string; pob?: string; address?: string })[]>(queryUrl);
+      const response = await api<(Student & { class_name?: string; pob?: string; address?: string; photo_url?: string | null })[]>(queryUrl);
       
-      // UI table matched with Template_dapodik_aksis: Nama Lengkap, NISN, Kelas, Tempat / Tgl Lahir, Alamat, Gender, Status, Aksi
+      // UI table matched with Template_dapodik_aksis: Foto, Nama Lengkap, NISN, Kelas, Tempat / Tgl Lahir, Alamat, Gender, Status, Aksi
       document.querySelector("#table-data")!.innerHTML = response.data.length
         ? `<div class="table-wrap">
             <table>
               <thead>
                 <tr>
+                  <th style="width:60px;text-align:center;">Foto</th>
                   <th>Nama Lengkap</th>
                   <th>NISN</th>
                   <th>Kelas</th>
@@ -556,8 +557,15 @@ async function studentsPage(): Promise<void> {
                 </tr>
               </thead>
               <tbody>
-                ${response.data.map(item => `
+                ${response.data.map(item => {
+                  const hasPhoto = Boolean(item.photo_url && String(item.photo_url).trim().length > 5);
+                  const initials = (item.full_name || '?').split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
+                  const photoCell = hasPhoto
+                    ? `<img src="${escapeHtml(item.photo_url!)}" alt="${escapeHtml(item.full_name)}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid #e2e8f0;" />`
+                    : `<div style="width:40px;height:40px;border-radius:50%;background:#fef3c7;color:#b45309;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;border:2px dashed #fbbf24;" title="Foto belum diunggah orang tua">${initials}</div>`;
+                  return `
                   <tr>
+                    <td style="text-align:center;">${photoCell}</td>
                     <td><strong>${escapeHtml(item.full_name)}</strong></td>
                     <td>${escapeHtml(item.nisn ?? "—")}</td>
                     <td><span class="status neutral" style="font-weight:600;">${escapeHtml(item.class_name ?? "—")}</span></td>
@@ -572,7 +580,7 @@ async function studentsPage(): Promise<void> {
                       </div>
                     </td>
                   </tr>
-                `).join("")}
+                `;}).join("")}
               </tbody>
             </table>
           </div>
@@ -764,12 +772,15 @@ async function cardsPage(): Promise<void> {
           const studentHtml = student ? `<strong>${escapeHtml(student.full_name)}</strong><small>${escapeHtml(student.student_number)}</small>` : `<strong style="color:var(--muted)">Belum terhubung</strong>`;
           
           const prodStatus = item.production_status || 'LEGACY';
-          let prodBadge = `<span class="status success">Verified (Chip Disuntik)</span>`;
-          if (prodStatus === 'DRAFT') prodBadge = `<span class="status warning">Draft Batch</span>`;
+          let prodBadge = '';
+          if (prodStatus === 'VERIFIED') prodBadge = `<span class="status success">✅ Verified (Chip Disuntik)</span>`;
+          else if (prodStatus === 'LEGACY') prodBadge = `<span class="status neutral" style="background:#e0f2fe;color:#0369a1;">Legacy (Pra-Sistem)</span>`;
+          else if (prodStatus === 'DRAFT') prodBadge = `<span class="status warning">Draft Batch</span>`;
           else if (prodStatus === 'PRINTED') prodBadge = `<span class="status warning">Cetak Fisik</span>`;
           else if (prodStatus === 'READY_TO_WRITE' || prodStatus === 'WRITING') prodBadge = `<span class="status warning">Siap Suntik Chip</span>`;
           else if (prodStatus === 'FAILED') prodBadge = `<span class="status error">Gagal Chip</span>`;
           else if (prodStatus === 'CANCELLED') prodBadge = `<span class="status neutral">Dibatalkan</span>`;
+          else prodBadge = `<span class="status neutral">${escapeHtml(prodStatus)}</span>`;
 
           const uidDisplay = item.card_uid ? `<code>${escapeHtml(item.card_uid)}</code>` : `<span style="color:var(--text-light); font-size:0.75rem; font-style:italic;">Belum disuntik chip</span>`;
 
