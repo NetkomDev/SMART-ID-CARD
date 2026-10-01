@@ -48,13 +48,18 @@ function getApp(): HTMLDivElement {
 }
 
 const navItems = [
-  ["/", "Ringkasan", "⌂"], ["/students", "Siswa & Kelas", "◎"],
-  ["/attendance", "Kehadiran", "✓"],
-  ["/cards", "Kartu siswa", "▰"], ["/devices", "Perangkat", "⌁"], ["/waste", "Bank sampah", "♻"],
-  ["/library", "Perpustakaan", "▤"], ["/extracurricular", "Ekstrakurikuler", "☆"], ["/led", "LED board", "▱"],
-  ["/reports", "Laporan Wali Kelas", "↗"],
+  ["/", "Ringkasan", "⌂"],
   ["/academic-years", "Tahun Ajaran", "📅"],
-  ["/pwa-portals", "Portal PWA & QR", "📱"]
+  ["/students", "Siswa & Kelas", "◎"],
+  ["/devices", "Perangkat", "⌁"],
+  ["/cards", "Kartu siswa", "▰"],
+  ["/pwa-portals", "Portal PWA & QR", "📱"],
+  ["/attendance", "Kehadiran", "✓"],
+  ["/reports", "Laporan Wali Kelas", "↗"],
+  ["/waste", "Bank sampah", "♻"],
+  ["/library", "Perpustakaan", "▤"],
+  ["/extracurricular", "Ekstrakurikuler", "☆"],
+  ["/led", "LED board", "▱"]
 ] as const;
 
 const superAdminNavItems = [
