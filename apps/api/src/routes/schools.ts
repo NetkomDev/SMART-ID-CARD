@@ -58,7 +58,7 @@ const schoolSettings = z.object({
   waste_organic_points_per_kg: z.number().min(0).max(10000).nullable().optional(),
   waste_inorganic_points_per_kg: z.number().min(0).max(10000).nullable().optional(),
   principal_name: z.string().max(200).nullable().optional(),
-  principal_signature_url: z.string().url().max(1000).nullable().optional().or(z.literal(''))
+  principal_signature_url: z.string().max(500000).nullable().optional().or(z.literal(''))
 }).strict().refine(value => Object.keys(value).length > 0, "Pengaturan tidak boleh kosong");
 router.patch("/current", requireRole("SCHOOL_ADMIN"), validate({ body: schoolSettings }), asyncHandler(async (req, res) => {
   const { data, error } = await req.auth!.client

@@ -20,9 +20,9 @@ DECLARE
 BEGIN
   -- Verify SUPER_ADMIN role using auth.users app_meta_data
   SELECT EXISTS (
-    SELECT 1 FROM auth.users 
-    WHERE id = auth.uid() 
-      AND raw_app_meta_data->>'platform_role' = 'SUPER_ADMIN'
+    SELECT 1 FROM auth.users au_check
+    WHERE au_check.id = auth.uid() 
+      AND au_check.raw_app_meta_data->>'platform_role' = 'SUPER_ADMIN'
   ) INTO v_is_super;
 
   IF NOT v_is_super THEN
@@ -69,6 +69,9 @@ BEGIN
 END;
 $$;
 
+GRANT EXECUTE ON FUNCTION platform_get_iam(int, int) TO authenticated;
+GRANT EXECUTE ON FUNCTION platform_get_iam(int, int) TO service_role;
+
 -- Function to completely delete a school user and their auth if needed, or just delete from school_users
 CREATE OR REPLACE FUNCTION platform_delete_school_user(p_id uuid)
 RETURNS void
@@ -81,9 +84,9 @@ DECLARE
 BEGIN
   -- Verify SUPER_ADMIN role
   SELECT EXISTS (
-    SELECT 1 FROM auth.users 
-    WHERE id = auth.uid() 
-      AND raw_app_meta_data->>'platform_role' = 'SUPER_ADMIN'
+    SELECT 1 FROM auth.users au_check
+    WHERE au_check.id = auth.uid() 
+      AND au_check.raw_app_meta_data->>'platform_role' = 'SUPER_ADMIN'
   ) INTO v_is_super;
 
   IF NOT v_is_super THEN
@@ -97,3 +100,7 @@ BEGIN
   WHERE id = p_id;
 END;
 $$;
+
+GRANT EXECUTE ON FUNCTION platform_delete_school_user(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION platform_delete_school_user(uuid) TO service_role;
+
