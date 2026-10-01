@@ -289,11 +289,11 @@ export function renderLandingPage(navigate: (path: string) => void): void {
         </div>
 
         <div class="contact-grid">
-          <a href="https://wa.me/6282293479347?text=Halo%20AKSIS,%20saya%20tertarik%20dengan%20layanan%20sekolah%20cerdas%20untuk%20sekolah%20kami." target="_blank" rel="noopener noreferrer" class="contact-card whatsapp">
+          <a href="https://wa.me/6285694488510?text=Halo%20AKSIS,%20saya%20tertarik%20dengan%20layanan%20sekolah%20cerdas%20untuk%20sekolah%20kami." target="_blank" rel="noopener noreferrer" class="contact-card whatsapp">
             <div class="contact-card-icon">💬</div>
             <div class="contact-card-info">
               <span class="contact-card-label">WhatsApp Official</span>
-              <strong class="contact-card-value">+62 822-9347-9347</strong>
+              <strong class="contact-card-value">+62 856-9448-8510</strong>
               <span class="contact-card-action">Hubungi via WhatsApp &rarr;</span>
             </div>
           </a>
@@ -310,7 +310,7 @@ export function renderLandingPage(navigate: (path: string) => void): void {
       </section>
 
       <!-- Floating WhatsApp Button -->
-      <a href="https://wa.me/6282293479347?text=Halo%20AKSIS,%20saya%20tertarik%20dengan%20layanan%20sekolah%20cerdas%20untuk%20sekolah%20kami." target="_blank" rel="noopener noreferrer" class="floating-wa-btn" title="Chat WhatsApp +62 822-9347-9347">
+      <a href="https://wa.me/6285694488510?text=Halo%20AKSIS,%20saya%20tertarik%20dengan%20layanan%20sekolah%20cerdas%20untuk%20sekolah%20kami." target="_blank" rel="noopener noreferrer" class="floating-wa-btn" title="Chat WhatsApp +62 856-9448-8510">
         <span class="wa-btn-icon">💬</span>
         <span class="wa-btn-text">Chat WhatsApp</span>
       </a>
@@ -335,7 +335,7 @@ export function renderLandingPage(navigate: (path: string) => void): void {
 
             <div class="link-group">
               <h4>Hubungi Kami</h4>
-              <a href="https://wa.me/6282293479347?text=Halo%20AKSIS,%20saya%20tertarik%20dengan%20layanan%20sekolah%20cerdas%20untuk%20sekolah%20kami." target="_blank" rel="noopener noreferrer">💬 +62 822-9347-9347</a>
+              <a href="https://wa.me/6285694488510?text=Halo%20AKSIS,%20saya%20tertarik%20dengan%20layanan%20sekolah%20cerdas%20untuk%20sekolah%20kami." target="_blank" rel="noopener noreferrer">💬 +62 856-9448-8510</a>
               <a href="mailto:info@aksis.co.id">✉ info@aksis.co.id</a>
               <a href="/login" id="footer-login">Portal Masuk Admin</a>
             </div>
@@ -377,7 +377,7 @@ function renderShowcase(tabKey: string, navigate: (path: string) => void): void 
         </ul>
 
         <div class="showcase-cta">
-          <a href="https://wa.me/6282293479347?text=Halo%20AKSIS,%20saya%20tertarik%20dengan%20modul%20${encodeURIComponent(data.title)}." target="_blank" rel="noopener noreferrer" class="button primary">Konsultasi Modul Ini <span>→</span></a>
+          <a href="https://wa.me/6285694488510?text=Halo%20AKSIS,%20saya%20tertarik%20dengan%20modul%20${encodeURIComponent(data.title)}." target="_blank" rel="noopener noreferrer" class="button primary">Konsultasi Modul Ini <span>→</span></a>
         </div>
       </div>
 
