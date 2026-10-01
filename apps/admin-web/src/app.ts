@@ -365,6 +365,27 @@ async function studentsPage(): Promise<void> {
         </div>
       </form>
     </div>
+  </div>
+  
+  <div id="add-class-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);z-index:9999;overflow-y:auto;padding:2rem;">
+    <div style="background:var(--bg);max-width:450px;margin:auto;border-radius:1rem;padding:2rem;position:relative;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1);">
+      <button id="close-add-class-modal" style="position:absolute;top:1rem;right:1rem;background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--text);">&times;</button>
+      <h2>Tambah Kelas</h2>
+      <form id="add-class-form" class="sa-form" style="margin-top:1rem;">
+        <label>Tingkat Pendidikan
+          <select id="add-class-level" required style="width:100%;padding:.85rem;border-radius:.75rem;border:1px solid var(--line);background:var(--bg);color:var(--text);">
+            <option value="">Pemuatan data...</option>
+          </select>
+        </label>
+        <label>Grup / Paralel (Pisahkan koma)
+          <input type="text" id="add-class-parallel" placeholder="Cth: A, B, C atau IPA 1, IPS 1" />
+          <span style="font-size:0.75rem; color:#64748b; margin-top: 0.25rem; display: block; line-height: 1.3;">Kosongkan jika tidak paralel. Jika diisi beberapa, akan otomatis dibuat massal.</span>
+        </label>
+        <div style="display:flex;gap:1rem;margin-top:1.5rem;">
+          <button class="button primary" type="submit" id="btn-save-new-class" style="flex:1;">Simpan Kelas</button>
+        </div>
+      </form>
+    </div>
   </div>`, "Siswa & Kelas", "Kelola daftar siswa dan struktur kelas aktif.");
 
   const loadClasses = async () => {
@@ -477,31 +498,53 @@ async function studentsPage(): Promise<void> {
     void loadStudents(currentSearch);
   });
 
-  document.getElementById("btn-add-class")?.addEventListener("click", async () => {
-    const className = prompt("Masukkan nama kelas baru (Cth: Kelas X-C):");
-    if (!className || !className.trim()) return;
+  const addClassModal = document.getElementById("add-class-modal") as HTMLDivElement;
+  const addClassForm = document.getElementById("add-class-form") as HTMLFormElement;
+  const levelSelect = document.getElementById("add-class-level") as HTMLSelectElement;
+  const parallelInput = document.getElementById("add-class-parallel") as HTMLInputElement;
 
+  document.getElementById("btn-add-class")?.addEventListener("click", () => {
+    addClassModal.style.display = "flex";
+  });
+  const closeAddClass = () => { addClassModal.style.display = "none"; };
+  document.getElementById("close-add-class-modal")?.addEventListener("click", closeAddClass);
+
+  addClassForm.onsubmit = async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById("btn-save-new-class") as HTMLButtonElement;
+    
     try {
+      btn.disabled = true;
+      btn.textContent = "Menyimpan...";
+      
       const years = await api<AcademicYear[]>("/academic-years");
       const activeYear = years.data.find(y => y.is_active) ?? years.data[0];
-      if (!activeYear) {
-        alert("Belum ada Tahun Ajaran aktif. Silakan buat Tahun Ajaran di menu Tahun Ajaran terlebih dahulu.");
-        return;
+      if (!activeYear) throw new Error("Belum ada Tahun Ajaran aktif.");
+
+      const level = levelSelect.value;
+      const parallels = parallelInput.value.split(",").map(s => s.trim()).filter(Boolean);
+      
+      const classNamesToCreate = parallels.length > 0 
+        ? parallels.map(p => `${level} ${p}`)
+        : [level];
+
+      for (const className of classNamesToCreate) {
+        const code = className.toLowerCase().replace(/\s+/g, "-");
+        await api("/classes", {
+          method: "POST",
+          body: JSON.stringify({ name: className, code, academic_year_id: activeYear.id })
+        });
       }
-      const code = className.trim().toLowerCase().replace(/\s+/g, "-");
-      await api("/classes", {
-        method: "POST",
-        body: JSON.stringify({
-          name: className.trim(),
-          code,
-          academic_year_id: activeYear.id
-        })
-      });
+      closeAddClass();
+      addClassForm.reset();
       await loadClasses();
     } catch (err: any) {
       alert("Gagal menambah kelas: " + (err.message || "Terjadi kesalahan"));
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Simpan Kelas";
     }
-  });
+  };
 
   const modal = document.getElementById("student-modal") as HTMLDivElement;
   const closeModal = () => { modal.style.display = "none"; };
@@ -692,6 +735,13 @@ async function studentsPage(): Promise<void> {
         signaturePreview.style.display = 'block';
         signatureBase64.value = res.data.principal_signature_url;
       }
+      
+      const n = (res.data.school_name + " " + res.data.school_code).toUpperCase();
+      let levels = ["1", "2", "3", "4", "5", "6"];
+      if (n.includes("SMP") || n.includes("MTS")) levels = ["VII", "VIII", "IX"];
+      else if (n.includes("SMA") || n.includes("SMK") || n.includes("MA")) levels = ["X", "XI", "XII"];
+      
+      levelSelect.innerHTML = levels.map(l => `<option value="${l}">Kelas ${l}</option>`).join("");
     }
   }).catch(() => {});
   
