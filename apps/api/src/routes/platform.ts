@@ -77,5 +77,88 @@ router.patch('/devices/:id',validate({params:id,body:z.object({status:z.enum(['A
 router.get('/audit',validate({query:paginationSchema}),asyncHandler(async(req,res)=>{const page=Number(req.query.page),size=Number(req.query.page_size);const{data,error,count}=await req.auth!.client.from('audit_logs').select('id,school_id,actor_user_id,action,resource_type,resource_id,occurred_at,before_data,after_data,schools(name)',{count:'exact'}).order('occurred_at',{ascending:false}).range((page-1)*size,page*size-1);if(error)throw fromDatabaseError(error);sendData(res,data,200,{page,page_size:size,total:count??0});}));
 router.get('/iam',validate({query:paginationSchema}),asyncHandler(async(req,res)=>{const page=Number(req.query.page),size=Number(req.query.page_size);const{data,error}=await req.auth!.client.rpc('platform_get_iam',{p_limit:size,p_offset:(page-1)*size});if(error)throw fromDatabaseError(error);const count=data&&data.length>0?data[0].total_count:0;sendData(res,data,200,{page,page_size:size,total:Number(count)});}));
 router.patch('/iam/:id',validate({params:id,body:z.object({status:z.enum(['ACTIVE','SUSPENDED','REVOKED']),roles:z.array(z.enum(['SCHOOL_ADMIN','TEACHER','EXTRA_TEACHER','LIBRARY_STAFF','WASTE_STAFF','PARENT'])).min(1).max(6)}).strict()}),asyncHandler(async(req,res)=>{const{data,error}=await req.auth!.client.rpc('platform_update_membership',{p_id:req.params.id,p_status:req.body.status,p_roles:req.body.roles});if(error)throw fromDatabaseError(error);sendData(res,data);}));
-router.delete('/iam/:id',validate({params:id}),asyncHandler(async(req,res)=>{const{error}=await req.auth!.client.rpc('platform_delete_school_user',{p_id:req.params.id});if(error)throw fromDatabaseError(error);sendData(res,{success:true});}));
+router.post('/schools/:id/reset-admin-password', validate({ params: id, body: z.object({ password: z.string().min(8).max(128).default("password123") }).optional() }), asyncHandler(async (req, res) => {
+  const client = createServiceClient();
+  const schoolId = req.params.id;
+  const newPassword = req.body?.password || "password123";
+
+  const { data: memberships, error: memErr } = await client
+    .from('school_memberships')
+    .select('user_id, users(full_name)')
+    .eq('school_id', schoolId)
+    .is('deleted_at', null);
+
+  if (memErr) throw fromDatabaseError(memErr);
+  if (!memberships || memberships.length === 0) {
+    throw new ApiError(404, 'RESOURCE_NOT_FOUND', 'Tidak ada admin yang terdaftar di sekolah ini.');
+  }
+
+  const resetUsers: string[] = [];
+  for (const m of memberships) {
+    const { error: authErr } = await client.auth.admin.updateUserById(m.user_id, {
+      password: newPassword
+    });
+    if (!authErr) {
+      const uName = (m.users as any)?.full_name || m.user_id;
+      resetUsers.push(uName);
+    }
+  }
+
+  sendData(res, {
+    success: true,
+    reset_users: resetUsers,
+    new_password: newPassword,
+    message: `Password admin untuk ${resetUsers.join(', ')} berhasil di-reset menjadi "${newPassword}".`
+  });
+}));
+router.post('/iam/:id/reset-password', validate({ params: id, body: z.object({ password: z.string().min(8).max(128).default("password123") }).optional() }), asyncHandler(async (req, res) => {
+  const client = createServiceClient();
+  const iamId = req.params.id;
+  const newPassword = req.body?.password || "password123";
+
+  let targetUserId: string | undefined;
+  let userName = 'User';
+  let schoolName = '';
+
+  const { data: schoolUser } = await client
+    .from('school_users')
+    .select('user_id, school_id, users(full_name), schools(name)')
+    .eq('id', iamId)
+    .maybeSingle();
+
+  if (schoolUser) {
+    targetUserId = schoolUser.user_id;
+    userName = (schoolUser.users as any)?.full_name || 'User';
+    schoolName = (schoolUser.schools as any)?.name || '';
+  } else {
+    const { data: user } = await client
+      .from('users')
+      .select('id, full_name')
+      .eq('id', iamId)
+      .maybeSingle();
+    if (user) {
+      targetUserId = user.id;
+      userName = user.full_name || 'User';
+    }
+  }
+
+  if (!targetUserId) {
+    throw new ApiError(404, 'RESOURCE_NOT_FOUND', 'Pengguna tidak ditemukan.');
+  }
+
+  const { error: authErr } = await client.auth.admin.updateUserById(targetUserId, {
+    password: newPassword
+  });
+
+  if (authErr) throw fromDatabaseError(authErr as any);
+
+  sendData(res, {
+    success: true,
+    user_id: targetUserId,
+    full_name: userName,
+    school_name: schoolName,
+    new_password: newPassword,
+    message: `Password untuk ${userName} berhasil di-reset menjadi "${newPassword}".`
+  });
+}));
 export {router as platformRouter};

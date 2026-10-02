@@ -31,8 +31,8 @@ Dokumentasi ini berisi daftar akun login resmi untuk platform AKSIS.CO.ID.
 ---
 
 ### 🏫 Administrator Sekolah — Tingkat SMA
-* **Sekolah:** SMA Negeri 3 Watampone (`SMAN3WTP`)
-* **Email:** `admin.sman3wtp@aksis.co.id`
+* **Sekolah:** SMA Negeri 1 Watampone (`SMAN1WTP`)
+* **Email:** `admin.sman1wtp@aksis.co.id`
 * **Password:** `password123`
 * **Nama Admin:** Andi Akbar, S.T.
 * **Akses:** Admin Operasional Sekolah (Tingkat SMA)

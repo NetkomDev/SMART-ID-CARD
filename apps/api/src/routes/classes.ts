@@ -61,6 +61,9 @@ router.post("/", requirePermission("academic.manage"), validate({ body: createCl
   const schoolId = req.tenant!.schoolId;
   const { code, name, academic_year_id, grade_level, homeroom_teacher_user_id } = req.body;
 
+  const safeCode = String(code).replace(/"/g, '""');
+  const safeName = String(name).replace(/"/g, '""');
+
   // 1. Check if an active class already exists with the same code or name in this academic year
   const { data: activeClass } = await req.auth!.client
     .from("classes")
@@ -68,7 +71,7 @@ router.post("/", requirePermission("academic.manage"), validate({ body: createCl
     .eq("school_id", schoolId)
     .eq("academic_year_id", academic_year_id)
     .is("deleted_at", null)
-    .or(`code.ilike.${code},name.ilike.${name}`)
+    .or(`code.ilike."${safeCode}",name.ilike."${safeName}"`)
     .maybeSingle();
 
   if (activeClass) {
@@ -81,7 +84,7 @@ router.post("/", requirePermission("academic.manage"), validate({ body: createCl
     .select(selection)
     .eq("school_id", schoolId)
     .not("deleted_at", "is", null)
-    .or(`code.ilike.${code},name.ilike.${name}`)
+    .or(`code.ilike."${safeCode}",name.ilike."${safeName}"`)
     .order("updated_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -111,13 +114,14 @@ router.post("/", requirePermission("academic.manage"), validate({ body: createCl
     .insert({ ...req.body, school_id: schoolId }).select(selection).single();
 
   if (error?.code === "23505") {
-    // Unique violation fallback: find soft-deleted record by code
+    // Unique violation fallback: find soft-deleted record by code or name
     const { data: softDeletedFallback } = await req.auth!.client
       .from("classes")
       .select(selection)
       .eq("school_id", schoolId)
-      .eq("code", code)
       .not("deleted_at", "is", null)
+      .or(`code.ilike."${safeCode}",name.ilike."${safeName}"`)
+      .limit(1)
       .maybeSingle();
 
     if (softDeletedFallback) {
@@ -127,6 +131,8 @@ router.post("/", requirePermission("academic.manage"), validate({ body: createCl
           code,
           name,
           academic_year_id,
+          grade_level: grade_level ?? softDeletedFallback.grade_level,
+          homeroom_teacher_user_id: homeroom_teacher_user_id ?? softDeletedFallback.homeroom_teacher_user_id,
           is_active: true,
           deleted_at: null
         })
