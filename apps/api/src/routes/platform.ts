@@ -83,14 +83,14 @@ router.post('/schools/:id/reset-admin-password', validate({ params: id, body: z.
   const newPassword = req.body?.password || "password123";
 
   const { data: memberships, error: memErr } = await client
-    .from('school_memberships')
-    .select('user_id, users(full_name)')
+    .from('school_users')
+    .select('user_id, users(full_name, email)')
     .eq('school_id', schoolId)
     .is('deleted_at', null);
 
   if (memErr) throw fromDatabaseError(memErr);
   if (!memberships || memberships.length === 0) {
-    throw new ApiError(404, 'RESOURCE_NOT_FOUND', 'Tidak ada admin yang terdaftar di sekolah ini.');
+    throw new ApiError(404, 'RESOURCE_NOT_FOUND', 'Tidak ada admin/pengguna yang terdaftar di sekolah ini.');
   }
 
   const resetUsers: string[] = [];
@@ -99,9 +99,15 @@ router.post('/schools/:id/reset-admin-password', validate({ params: id, body: z.
       password: newPassword
     });
     if (!authErr) {
-      const uName = (m.users as any)?.full_name || m.user_id;
+      const uName = (m.users as any)?.full_name || (m.users as any)?.email || m.user_id;
       resetUsers.push(uName);
+    } else {
+      console.error(`[ResetPassword] Failed for user ${m.user_id}:`, authErr);
     }
+  }
+
+  if (resetUsers.length === 0) {
+    throw new ApiError(500, 'DATABASE_ERROR', 'Gagal me-reset password di Supabase Auth.');
   }
 
   sendData(res, {
