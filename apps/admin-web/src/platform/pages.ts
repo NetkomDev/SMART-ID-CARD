@@ -131,15 +131,76 @@ async function production(root:HTMLElement,content:HTMLElement,schools:School[],
  }
  const filter=body.querySelector<HTMLFormElement>('[data-card-filter]');if(filter)filter.onsubmit=e=>{e.preventDefault();const fd=new FormData(filter);school=String(fd.get('school'));status=String(fd.get('status'));search=String(fd.get('search'));page=1;void load().catch(e=>feedback(root,e));};await load();
  }
- async function batch(id:string){const batchEpoch=++tabEpoch;const{data:cards}=await api<Row[]>(`/platform/production/batches/${id}`);if(!alive()||tabEpoch!==batchEpoch)return;if(!cards.length)throw Error('Batch tidak ditemukan.');
- const printable=cards.every(c=>['DRAFT','PRINTED'].includes(c.production_status));
- const images=await Promise.all(cards.map(c=>QRCode.toDataURL(c.qr_key,{errorCorrectionLevel:'M',margin:4,width:300})));
- if(!alive()||tabEpoch!==batchEpoch)return;
- body.innerHTML=`<h2>Batch ${esc(id)}</h2><p>${cards.length} kartu · Template AKSIS v1 · Ukuran awal 85,6 × 54 mm. Periksa skala 100% dan hasil QR pada printer yang digunakan.</p><div class="sa-actions"><label>Media<select data-media><option value="sheet">Lembar A4</option><option value="card">Satu kartu per halaman</option></select></label><label>Sisi<select data-side><option value="front">Depan</option><option value="back">Belakang</option></select></label><button class="button primary" data-print ${!printable?'disabled':''}>Cetak / Simpan PDF</button>${cards.every(c=>c.production_status==='DRAFT')?btn('Konfirmasi sudah tercetak','PRINTED',id):''}${cards.every(c=>c.production_status==='PRINTED')?btn('Catat cetak ulang','REPRINTED',id)+btn('Lolos QC → antrekan writer','RELEASED',id):''}${cards.some(c=>['DRAFT','PRINTED'].includes(c.production_status))?btn('Batalkan / Reset batch','CANCEL',id):''}</div><p>Dialog cetak tidak otomatis menandai hasil berhasil. Konfirmasikan hanya setelah kartu fisik selesai dan QR terbaca. Cetak ulang sebelum pelepasan: musnahkan hasil cetak yang ditolak.</p><div class="sa-card-previews">${cards.map((c,i)=>`<div><div class="sa-preview">${front(c,images[i])}</div><p>${badge(c.production_status)} ${badge(c.status)}</p></div>`).join('')}</div>`;
- body.querySelector<HTMLButtonElement>('[data-print]')!.onclick=()=>{const side=(body.querySelector('[data-side]') as HTMLSelectElement).value,media=(body.querySelector('[data-media]') as HTMLSelectElement).value;const w=window.open('','_blank');if(!w){feedback(root,'Izinkan jendela cetak pada browser, lalu coba lagi.');return;}
- w.document.write(`<!doctype html><html lang="id"><head><meta charset="utf-8"><title>Batch kartu ${esc(id)} — ${side}</title><style>${printStyles(media)}</style></head><body>${cards.map((c,i)=>`<article class="id-card">${side==='front'?front(c,images[i]):back(c)}</article>`).join('')}</body></html>`);w.document.close();void Promise.all(Array.from(w.document.images).map(img=>img.decode().catch(()=>{}))).then(()=>{w.focus();w.print();});};
- body.querySelectorAll<HTMLButtonElement>('[data-action]').forEach(b=>b.onclick=()=>void busy(b,root,async()=>{const action=b.dataset.action!;const isCancel=action==='CANCEL';const dialogTitle=action==='RELEASED'?'Konfirmasi semua kartu lolos QC':action==='REPRINTED'?'Catat cetak ulang':isCancel?'Batalkan / Reset Batch Produksi':'Konfirmasi hasil cetak';const dialogPrompt=isCancel?'Seluruh kartu dalam batch ini akan dibatalkan dan siswa dikembalikan ke status Siap Cetak. Alasan:':'Saya sudah memeriksa hasil fisik seluruh kartu dalam batch ini.';const fd=await dialog(dialogTitle,reasonField+(!isCancel?'<label><input type="checkbox" required> '+dialogPrompt+'</label>':''),isCancel?'Batalkan Batch':'Simpan');if(!fd)return;await api(`/platform/production/batches/${id}/action`,{method:'POST',body:JSON.stringify({event_id:crypto.randomUUID(),action,reason:fd.get('reason')})});await batch(id);}));feedback(root,'');
- }
+  async function batch(id: string) {
+    const batchEpoch = ++tabEpoch;
+    const { data: cards } = await api<Row[]>(`/platform/production/batches/${id}`);
+    if (!alive() || tabEpoch !== batchEpoch) return;
+    if (!cards.length) throw Error('Batch tidak ditemukan.');
+
+    const printable = cards.every(c => ['DRAFT', 'PRINTED'].includes(c.production_status));
+    const images = await Promise.all(
+      cards.map(c => QRCode.toDataURL(c.qr_key, { errorCorrectionLevel: 'M', margin: 4, width: 300 }))
+    );
+    if (!alive() || tabEpoch !== batchEpoch) return;
+
+    body.innerHTML = `<h2>Batch ${esc(id)}</h2>
+      <p>${cards.length} kartu · Template AKSIS v1 · Ukuran 54 × 85,6 mm. Periksa skala 100% dan hasil QR pada printer.</p>
+      <div class="sa-actions">
+        <label>Media<select data-media><option value="sheet">Lembar A4</option><option value="card">Satu kartu per halaman</option></select></label>
+        <label>Sisi<select data-side><option value="front">Depan</option><option value="back">Belakang</option></select></label>
+        <button class="button primary" data-print ${!printable ? 'disabled' : ''}>Cetak / Simpan PDF</button>
+        ${cards.every(c => c.production_status === 'DRAFT') ? btn('Konfirmasi sudah tercetak', 'PRINTED', id) : ''}
+        ${cards.every(c => c.production_status === 'PRINTED') ? btn('Catat cetak ulang', 'REPRINTED', id) + btn('Lolos QC → antrekan writer', 'RELEASED', id) : ''}
+        ${cards.some(c => ['DRAFT', 'PRINTED'].includes(c.production_status)) ? btn('Batalkan / Reset batch', 'CANCEL', id) : ''}
+      </div>
+      <p>Dialog cetak tidak otomatis menandai hasil berhasil. Konfirmasikan hanya setelah kartu fisik selesai dan QR terbaca.</p>
+      <div class="sa-card-previews">
+        ${cards.map((c, i) => `<div><div class="sa-preview"><article class="id-card">${front(c, images[i])}</article></div><p>${badge(c.production_status)} ${badge(c.status)}</p></div>`).join('')}
+      </div>`;
+
+    const sideSelect = body.querySelector<HTMLSelectElement>('[data-side]');
+    if (sideSelect) {
+      sideSelect.onchange = () => {
+        const side = sideSelect.value;
+        const previewElems = body.querySelectorAll<HTMLElement>('.sa-preview');
+        cards.forEach((c, i) => {
+          if (previewElems[i]) {
+            previewElems[i].innerHTML = `<article class="id-card">${side === 'front' ? front(c, images[i]) : back(c)}</article>`;
+          }
+        });
+      };
+    }
+
+    body.querySelector<HTMLButtonElement>('[data-print]')!.onclick = () => {
+      const side = (body.querySelector('[data-side]') as HTMLSelectElement).value;
+      const media = (body.querySelector('[data-media]') as HTMLSelectElement).value;
+      const w = window.open('', '_blank');
+      if (!w) {
+        feedback(root, 'Izinkan jendela cetak pada browser, lalu coba lagi.');
+        return;
+      }
+      w.document.write(`<!doctype html><html lang="id"><head><meta charset="utf-8"><title>Batch kartu ${esc(id)} — ${side}</title><style>${printStyles(media)}</style></head><body>${cards.map((c, i) => `<article class="id-card">${side === 'front' ? front(c, images[i]) : back(c)}</article>`).join('')}</body></html>`);
+      w.document.close();
+      void Promise.all(Array.from(w.document.images).map(img => img.decode().catch(() => {}))).then(() => {
+        w.focus();
+        w.print();
+      });
+    };
+
+    body.querySelectorAll<HTMLButtonElement>('[data-action]').forEach(b =>
+      b.onclick = () => void busy(b, root, async () => {
+        const action = b.dataset.action!;
+        const isCancel = action === 'CANCEL';
+        const dialogTitle = action === 'RELEASED' ? 'Konfirmasi semua kartu lolos QC' : action === 'REPRINTED' ? 'Catat cetak ulang' : isCancel ? 'Batalkan / Reset Batch Produksi' : 'Konfirmasi hasil cetak';
+        const dialogPrompt = isCancel ? 'Seluruh kartu dalam batch ini akan dibatalkan dan siswa dikembalikan ke status Siap Cetak. Alasan:' : 'Saya sudah memeriksa hasil fisik seluruh kartu dalam batch ini.';
+        const fd = await dialog(dialogTitle, reasonField + (!isCancel ? '<label><input type="checkbox" required> ' + dialogPrompt + '</label>' : ''), isCancel ? 'Batalkan Batch' : 'Simpan');
+        if (!fd) return;
+        await api(`/platform/production/batches/${id}/action`, { method: 'POST', body: JSON.stringify({ event_id: crypto.randomUUID(), action, reason: fd.get('reason') }) });
+        await batch(id);
+      })
+    );
+    feedback(root, '');
+  }
  content.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach(b=>b.onclick=()=>void open(b.dataset.tab!).catch(e=>feedback(root,e)));await open('new');
 }
 function generateCode128Svg(text: string): string {

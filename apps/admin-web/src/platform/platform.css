@@ -137,54 +137,554 @@
   border-radius: 3mm;
   background: #fff;
   overflow: hidden;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-}
-.sa-preview header {
-  height: 36px;
-  background: #075baf;
-  color: #fff;
-  padding: 8px;
-  font-size: 15px;
-  font-weight: bold;
-  overflow: hidden;
-}
-.id-body {
-  height: 148px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
-  gap: 8px;
-}
-.id-person {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-  flex: 1;
-}
-.id-person strong {
-  font-size: 14px;
-  overflow-wrap: anywhere;
-}
-.id-person span {
-  font-size: 11px;
-}
-.id-logo {
-  width: 56px;
-  height: 52px;
-  object-fit: contain;
-  align-self: start;
-}
-.id-qr {
-  width: 112px;
-  height: 112px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+  position: relative;
   flex: none;
 }
-.sa-preview footer {
+
+.id-card {
+  width: 54mm;
+  height: 85.6mm;
+  overflow: hidden;
+  border-radius: 3mm;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+  position: relative;
+  box-sizing: border-box;
+}
+
+/* Lanyard Slot Cutout Guide */
+.lanyard-hole {
+  position: absolute;
+  top: 1.5mm;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 12mm;
+  height: 2.8mm;
+  border-radius: 1.4mm;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  z-index: 10;
+}
+
+/* ==================== FRONT SIDE ==================== */
+.id-front-v2 {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  padding: 5.5mm 3mm 2mm 3mm;
+  overflow: hidden;
+  color: #0f172a;
+  box-sizing: border-box;
+}
+
+.bg-shape-top-1 {
+  position: absolute;
+  top: -12mm;
+  right: -10mm;
+  width: 38mm;
+  height: 38mm;
+  background: linear-gradient(135deg, #0052cc 0%, #002554 100%);
+  clip-path: polygon(30% 0%, 100% 0%, 100% 100%, 0% 70%);
+  z-index: 1;
+}
+.bg-shape-top-2 {
+  position: absolute;
+  top: -8mm;
+  right: 12mm;
+  width: 18mm;
+  height: 25mm;
+  background: #0284c7;
+  opacity: 0.85;
+  clip-path: polygon(40% 0%, 100% 0%, 60% 100%, 0% 100%);
+  z-index: 1;
+}
+
+.id-header-v2 {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 2mm;
+  margin-bottom: 2mm;
+}
+.header-logo {
+  width: 9.5mm;
+  height: 9.5mm;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.school-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.school-logo-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.header-title-box {
+  flex: 1;
+  min-width: 0;
+}
+.school-name-v2 {
+  font-size: 7.2pt;
+  font-weight: 900;
+  color: #002554;
+  line-height: 1.1;
+  text-transform: uppercase;
+  letter-spacing: -0.2px;
+}
+.school-slogan-v2 {
+  font-size: 4pt;
+  font-style: italic;
+  color: #0284c7;
+  margin-top: 0.4mm;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.id-main-row {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  gap: 2mm;
+  align-items: flex-start;
+  margin-bottom: 1.8mm;
+}
+.photo-col {
+  width: 22mm;
+  flex: none;
+}
+.photo-frame {
+  width: 22mm;
+  height: 28mm;
+  border-radius: 2mm;
+  overflow: hidden;
+  border: 1.5px solid #0284c7;
+  background: #e0f2fe;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+}
+.student-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.meta-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.meta-label {
+  font-size: 4.8pt;
+  font-weight: 700;
+  color: #0284c7;
+  letter-spacing: 0.3px;
+  line-height: 1;
+  margin-bottom: 0.4mm;
+}
+.meta-value-class {
+  font-size: 13.5pt;
+  font-weight: 900;
+  color: #002554;
+  line-height: 1;
+  margin-bottom: 1.2mm;
+}
+.meta-value-nisn {
+  font-size: 7.5pt;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1;
+  margin-bottom: 1.5mm;
+}
+.qr-container {
+  width: 15.5mm;
+  height: 15.5mm;
+  padding: 0.8mm;
+  border: 1px solid #0284c7;
+  border-radius: 1mm;
+  background: #fff;
+}
+.qr-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.id-name-block {
+  position: relative;
+  z-index: 2;
+  margin-bottom: 1.8mm;
+}
+.student-fullname {
+  font-size: 8.5pt;
+  font-weight: 900;
+  color: #002554;
+  text-transform: uppercase;
+  line-height: 1.15;
+  letter-spacing: -0.2px;
+}
+.school-subname {
+  font-size: 5.8pt;
+  font-weight: 700;
+  color: #0369a1;
+  margin-top: 0.4mm;
+}
+
+.id-details-grid {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 1mm;
+  font-size: 5pt;
+  color: #334155;
+  margin-bottom: auto;
+}
+.detail-item {
+  display: flex;
+  align-items: flex-start;
+  line-height: 1.2;
+}
+.detail-icon {
+  width: 3.5mm;
+  flex: none;
+  color: #0284c7;
+  display: flex;
+  align-items: center;
+}
+.detail-label {
+  width: 13.5mm;
+  flex: none;
+  font-weight: 600;
+  color: #475569;
+}
+.detail-colon {
+  width: 2mm;
+  flex: none;
+  font-weight: 600;
+  color: #475569;
+}
+.detail-val {
+  flex: 1;
+  font-weight: 700;
+  color: #0f172a;
+}
+.addr-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-weight: 500;
+}
+
+.emblem-watermark {
+  position: absolute;
+  bottom: 6mm;
+  right: 2mm;
+  width: 22mm;
+  height: 22mm;
+  opacity: 0.08;
+  pointer-events: none;
+  z-index: 1;
+}
+.emblem-watermark img, .emblem-watermark svg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.id-bottom-banner {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 38mm;
+  height: 6.5mm;
+  background: #002554;
+  clip-path: polygon(0 0, 90% 0, 100% 100%, 0 100%);
+  z-index: 3;
+  padding: 1mm 2mm;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.banner-slogan {
+  font-size: 3.6pt;
+  font-style: italic;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.1;
+  display: flex;
+  flex-direction: column;
+}
+.banner-line {
+  width: 10mm;
+  height: 0.8px;
+  background: #0284c7;
+  margin-top: 0.3mm;
+}
+.bg-shape-bottom-right {
+  position: absolute;
+  bottom: -3mm;
+  right: -3mm;
+  width: 16mm;
+  height: 12mm;
+  background: linear-gradient(135deg, #0284c7 0%, #0052cc 100%);
+  clip-path: polygon(40% 0, 100% 60%, 100% 100%, 0 100%);
+  z-index: 2;
+}
+
+/* ==================== BACK SIDE ==================== */
+.id-back-v2 {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  padding: 5.5mm 3mm 0mm 3mm;
+  overflow: hidden;
+  color: #0f172a;
+  box-sizing: border-box;
+}
+
+.back-header {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2mm;
+}
+.back-header-left {
+  display: flex;
+  align-items: center;
+  gap: 1.5mm;
+}
+.back-logo {
+  width: 7mm;
+  height: 7mm;
+  flex: none;
+}
+.back-school-title {
+  font-size: 6.2pt;
+  font-weight: 900;
+  color: #002554;
+  text-transform: uppercase;
+  line-height: 1.1;
+  max-width: 24mm;
+}
+.back-header-right {
+  text-align: right;
+  padding-right: 1mm;
+}
+.card-id-label {
+  font-size: 4.5pt;
+  font-weight: 900;
+  color: #002554;
+  line-height: 1.1;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  border-bottom: 1.5px solid #0284c7;
+  padding-bottom: 0.4mm;
+}
+
+.back-top-polygon {
+  position: absolute;
+  top: -8mm;
+  right: -8mm;
+  width: 25mm;
+  height: 25mm;
+  background: linear-gradient(135deg, #0052cc 0%, #002554 100%);
+  clip-path: polygon(0 0, 100% 0, 100% 100%);
+  z-index: 1;
+}
+
+.back-blue-card {
+  position: relative;
+  z-index: 2;
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+  border-radius: 2mm;
+  padding: 2mm;
+  margin-bottom: 1.5mm;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2mm;
+}
+.card-info-row {
+  display: flex;
+  align-items: center;
+  gap: 1.5mm;
+}
+.info-icon {
+  font-size: 6.5pt;
+  width: 3.5mm;
   text-align: center;
-  font-size: 8px;
-  padding: 4px;
+  flex: none;
+}
+.info-meta {
+  display: flex;
+  flex-direction: column;
+}
+.info-lbl {
+  font-size: 4pt;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  line-height: 1;
+}
+.info-txt {
+  font-size: 5.5pt;
+  color: #0f172a;
+  line-height: 1.1;
+}
+.info-txt.bold {
+  font-weight: 800;
+}
+.info-txt.uppercase {
+  text-transform: uppercase;
+}
+.card-divider {
+  width: 100%;
+  height: 1px;
+  background: #cbd5e1;
+  margin: 0.4mm 0;
+}
+
+.rules-header {
+  display: flex;
+  align-items: center;
+  gap: 1.2mm;
+  margin-bottom: 0.4mm;
+}
+.alert-icon {
+  width: 3mm;
+  height: 3mm;
+  background: #0052cc;
+  color: #ffffff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 4.5pt;
+  font-weight: 900;
+  flex: none;
+}
+.rules-title {
+  font-size: 4.8pt;
+  font-weight: 900;
+  color: #002554;
+  letter-spacing: 0.3px;
+}
+.rules-list {
+  padding-left: 3.2mm;
+  font-size: 4pt;
+  color: #334155;
+  line-height: 1.3;
+}
+.rules-list li {
+  margin-bottom: 0.3mm;
+  font-weight: 500;
+}
+
+.back-bottom-row {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-top: auto;
+  margin-bottom: 1.5mm;
+  padding: 0 1mm;
+}
+.barcode-block {
+  width: 24mm;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.barcode-svg {
+  width: 100%;
+  height: 6.5mm;
+}
+.barcode-text {
+  font-size: 3.8pt;
+  font-weight: 700;
+  color: #1e293b;
+  font-family: monospace;
+  margin-top: 0.4mm;
+  letter-spacing: -0.2px;
+}
+.signature-block {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.sig-title {
+  font-size: 4.2pt;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 0.4mm;
+}
+.sig-image-wrap {
+  height: 5.5mm;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sig-img {
+  max-height: 5.5mm;
+  max-width: 18mm;
+  object-fit: contain;
+}
+.sig-placeholder {
+  height: 5.5mm;
+}
+.sig-name {
+  font-size: 4.5pt;
+  font-weight: 800;
+  color: #0f172a;
+  text-decoration: underline;
+  line-height: 1.1;
+}
+.sig-nip {
+  font-size: 3.8pt;
+  font-weight: 600;
+  color: #475569;
+  line-height: 1.1;
+}
+
+.back-footer-bar {
+  width: calc(100% + 6mm);
+  margin-left: -3mm;
+  height: 5mm;
+  background: linear-gradient(90deg, #002554 0%, #0052cc 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.2mm;
+  color: #ffffff;
+  font-size: 4.5pt;
+  font-weight: 700;
+  margin-top: auto;
+}
+.web-icon {
+  font-size: 4.8pt;
+}
+.web-url {
+  letter-spacing: 0.2px;
 }
 .sa-page .button:disabled {
   opacity: 0.5;
