@@ -238,13 +238,137 @@ function formatStudentResponse(fullStudent: any) {
   return { ...rest, class_id: itemClassId, class_name: resolvedClassName };
 }
 
-router.post("/", requirePermission("student.create"), validate({ body: createStudentSchema }), asyncHandler(async (req, res) => {
-  const { class_id, class_name, ...studentBody } = req.body as any;
+const checkExistingSchema = z.object({
+  nisns: z.array(z.string()).optional(),
+  student_numbers: z.array(z.string()).optional()
+});
+
+router.post("/check-existing", requirePermission("student.read"), validate({ body: checkExistingSchema }), asyncHandler(async (req, res) => {
+  const { nisns = [], student_numbers = [] } = req.body as { nisns?: string[]; student_numbers?: string[] };
   const schoolId = req.tenant!.schoolId;
 
+  const validNisns = nisns.filter(n => typeof n === "string" && n.trim().length > 0);
+  const validNumbers = student_numbers.filter(n => typeof n === "string" && n.trim().length > 0);
+
+  if (validNisns.length === 0 && validNumbers.length === 0) {
+    sendData(res, { existing: [] });
+    return;
+  }
+
+  const filters: string[] = [];
+  if (validNisns.length > 0) {
+    filters.push(`nisn.in.(${validNisns.map(n => `"${n.replace(/"/g, '""')}"`).join(",")})`);
+  }
+  if (validNumbers.length > 0) {
+    filters.push(`student_number.in.(${validNumbers.map(n => `"${n.replace(/"/g, '""')}"`).join(",")})`);
+  }
+
+  const { data, error } = await req.auth!.client
+    .from("students")
+    .select("id, nisn, student_number, full_name")
+    .eq("school_id", schoolId)
+    .is("deleted_at", null)
+    .or(filters.join(","));
+
+  if (error) throw fromDatabaseError(error);
+  sendData(res, { existing: data ?? [] });
+}));
+
+router.post("/", requirePermission("student.create"), validate({ body: createStudentSchema }), asyncHandler(async (req, res) => {
+  const { class_id, class_name, overwrite, skip_if_exists, ...studentBody } = req.body as any;
+  const schoolId = req.tenant!.schoolId;
+
+  // Search for existing student by NISN or student_number
+  const searchConditions: string[] = [];
+  if (studentBody.nisn && String(studentBody.nisn).trim()) {
+    searchConditions.push(`nisn.eq."${String(studentBody.nisn).trim().replace(/"/g, '""')}"`);
+  }
+  if (studentBody.student_number && String(studentBody.student_number).trim()) {
+    searchConditions.push(`student_number.eq."${String(studentBody.student_number).trim().replace(/"/g, '""')}"`);
+  }
+
+  let existingStudent: any = null;
+  if (searchConditions.length > 0) {
+    const { data } = await req.auth!.client
+      .from("students")
+      .select("id")
+      .eq("school_id", schoolId)
+      .is("deleted_at", null)
+      .or(searchConditions.join(","))
+      .maybeSingle();
+    existingStudent = data;
+  }
+
+  if (existingStudent) {
+    if (overwrite) {
+      const { error: updateErr } = await req.auth!.client
+        .from("students")
+        .update(studentBody)
+        .eq("school_id", schoolId)
+        .eq("id", existingStudent.id);
+      if (updateErr) throw fromDatabaseError(updateErr);
+
+      const targetClassId = await resolveClassId(req.auth!.client, schoolId, class_id, class_name);
+      if (targetClassId) {
+        await assignStudentClass(req.auth!.client, schoolId, existingStudent.id, targetClassId);
+      }
+
+      const { data: fullStudent, error: fetchErr } = await req.auth!.client
+        .from("students")
+        .select(selection)
+        .eq("school_id", schoolId)
+        .eq("id", existingStudent.id)
+        .single();
+      if (fetchErr || !fullStudent) throw fromDatabaseError(fetchErr);
+      sendData(res, formatStudentResponse(fullStudent), 200);
+      return;
+    } else {
+      // Keep existing data, assign class if requested
+      const targetClassId = await resolveClassId(req.auth!.client, schoolId, class_id, class_name);
+      if (targetClassId) {
+        await assignStudentClass(req.auth!.client, schoolId, existingStudent.id, targetClassId);
+      }
+
+      const { data: fullStudent, error: fetchErr } = await req.auth!.client
+        .from("students")
+        .select(selection)
+        .eq("school_id", schoolId)
+        .eq("id", existingStudent.id)
+        .single();
+      if (fetchErr || !fullStudent) throw fromDatabaseError(fetchErr);
+      sendData(res, formatStudentResponse(fullStudent), 200);
+      return;
+    }
+  }
+
+  // Insert new student
   const { data: student, error } = await req.auth!.client.from("students")
     .insert({ ...studentBody, school_id: schoolId }).select("id").single();
-  if (error) throw fromDatabaseError(error);
+  
+  if (error) {
+    if (error.code === "23505" && searchConditions.length > 0) {
+      const { data: fallbackExisting } = await req.auth!.client
+        .from("students")
+        .select("id")
+        .eq("school_id", schoolId)
+        .is("deleted_at", null)
+        .or(searchConditions.join(","))
+        .maybeSingle();
+
+      if (fallbackExisting) {
+        if (overwrite) {
+          await req.auth!.client.from("students").update(studentBody).eq("id", fallbackExisting.id);
+        }
+        const targetClassId = await resolveClassId(req.auth!.client, schoolId, class_id, class_name);
+        if (targetClassId) await assignStudentClass(req.auth!.client, schoolId, fallbackExisting.id, targetClassId);
+
+        const { data: fullStudent } = await req.auth!.client.from("students").select(selection).eq("id", fallbackExisting.id).single();
+        sendData(res, formatStudentResponse(fullStudent), 200);
+        return;
+      }
+    }
+    throw fromDatabaseError(error);
+  }
 
   const targetClassId = await resolveClassId(req.auth!.client, schoolId, class_id, class_name);
   if (targetClassId) {

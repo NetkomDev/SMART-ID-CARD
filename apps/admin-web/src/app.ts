@@ -1556,67 +1556,158 @@ function studentImportPage(): void {
                 </p>
               </div>
             `;
+            submitBtn.style.display = "inline-block";
             submitBtn.disabled = true;
             submitBtn.textContent = "Gagal Validasi - Perbaiki File";
           } else {
+            // Check existing students in DB by NISN / student_number
+            submitBtn.textContent = "Memeriksa data di database...";
+            submitBtn.disabled = true;
+
+            const nisns = parsedData.map(s => s.nisn).filter(Boolean);
+            const studentNumbers = parsedData.map(s => s.student_number).filter(Boolean);
+            const existingSet = new Set<string>();
+
+            try {
+              const checkRes = await api<{ existing: Array<{ id: string; nisn?: string; student_number?: string; full_name?: string }> }>("/students/check-existing", {
+                method: "POST",
+                body: JSON.stringify({ nisns, student_numbers: studentNumbers })
+              });
+              const existingList = checkRes.data?.existing || [];
+              existingList.forEach(e => {
+                if (e.nisn) existingSet.add(String(e.nisn).trim().toLowerCase());
+                if (e.student_number) existingSet.add(String(e.student_number).trim().toLowerCase());
+              });
+            } catch (checkErr) {
+              console.warn("Could not check existing students", checkErr);
+            }
+
+            let existingCount = 0;
+            parsedData.forEach(s => {
+              const matchNisn = s.nisn && existingSet.has(String(s.nisn).trim().toLowerCase());
+              const matchNum = s.student_number && existingSet.has(String(s.student_number).trim().toLowerCase());
+              s.isExisting = Boolean(matchNisn || matchNum);
+              if (s.isExisting) existingCount++;
+            });
+
+            submitBtn.style.display = "none";
+
             preview.innerHTML = `
-              <div style="margin-top:1.5rem;padding:1rem;background:#f0fdf4;border:1px solid #86efac;border-radius:0.75rem;">
-                <h4 style="margin:0 0 0.5rem;color:#166534;display:flex;align-items:center;gap:0.5rem;">
-                  ✅ Validasi Lolos 100% (${parsedData.length} Siswa Siap Di-import${selectedTargetClassName ? ` ke Kelas <strong>${escapeHtml(selectedTargetClassName)}</strong>` : ""})
+              <div style="margin-top:1.5rem;padding:1.25rem;background:${existingCount > 0 ? '#fffbeb' : '#f0fdf4'};border:1.5px solid ${existingCount > 0 ? '#fde68a' : '#86efac'};border-radius:0.75rem;">
+                <h4 style="margin:0 0 0.5rem;color:${existingCount > 0 ? '#92400e' : '#166534'};display:flex;align-items:center;gap:0.5rem;font-size:1.05rem;">
+                  ${existingCount > 0 
+                    ? `⚠️ Hasil Pengecekan Data: ${existingCount} dari ${parsedData.length} siswa sudah terekam di database` 
+                    : `✅ Validasi Lolos 100% (${parsedData.length} Siswa Baru Siap Di-import${selectedTargetClassName ? ` ke Kelas <strong>${escapeHtml(selectedTargetClassName)}</strong>` : ""})`}
                 </h4>
-                <p style="margin:0 0 0.75rem;font-size:0.85rem;color:#15803d;">
-                  Data Dapodik telah terverifikasi lengkap. Status awal kartu siswa akan diset ke <strong>BLOCKED / Waiting Photo</strong> hingga orang tua mengunggah foto via PWA.
+                <p style="margin:0 0 0.75rem;font-size:0.88rem;color:${existingCount > 0 ? '#b45309' : '#15803d'};line-height:1.5;">
+                  ${existingCount > 0 
+                    ? `Terdapat <strong>${existingCount} data siswa</strong> yang NISN / nomor induknya sudah terdaftar di database sekolah. Siswa tersebut ditandai pada tabel di bawah.` 
+                    : `Data Dapodik terverifikasi lengkap. Status awal kartu siswa diset ke <strong>BLOCKED / Waiting Photo</strong> hingga foto diunggah.`}
                 </p>
-                <div class="table-wrap" style="max-height:300px;overflow-y:auto;background:white;border:1px solid #bbf7d0;border-radius:0.5rem;">
-                  <table>
+
+                <!-- Preview Table -->
+                <div class="table-wrap" style="max-height:350px;overflow-y:auto;background:white;border:1px solid ${existingCount > 0 ? '#fde68a' : '#bbf7d0'};border-radius:0.5rem;">
+                  <table style="font-size:0.85rem;">
                     <thead>
-                      <tr>
-                        <th>NISN</th>
-                        <th>Nama Lengkap</th>
-                        <th>Kelas Target</th>
-                        <th>Tempat / Tgl Lahir</th>
-                        <th>Alamat</th>
-                        <th>JK</th>
+                      <tr style="background:${existingCount > 0 ? '#fef3c7' : '#f0fdf4'};color:${existingCount > 0 ? '#92400e' : '#166534'};">
+                        <th style="padding:10px 12px;">Status Identitas</th>
+                        <th style="padding:10px 12px;">NISN</th>
+                        <th style="padding:10px 12px;">Nama Lengkap</th>
+                        <th style="padding:10px 12px;">Kelas Target</th>
+                        <th style="padding:10px 12px;">Tempat / Tgl Lahir</th>
+                        <th style="padding:10px 12px;">Alamat</th>
+                        <th style="padding:10px 12px;">JK</th>
                       </tr>
                     </thead>
                     <tbody>
-                      ${parsedData.slice(0, 10).map(s => `
-                        <tr>
-                          <td><strong>${escapeHtml(s.nisn)}</strong></td>
-                          <td>${escapeHtml(s.full_name)}</td>
-                          <td><span class="pill" style="font-size:0.75rem;padding:2px 8px;background:#e0f2fe;color:#0369a1;font-weight:600;">${escapeHtml(s.class_name || "-")}</span></td>
-                          <td>${escapeHtml(s.pob || "-")}, ${escapeHtml(s.date_of_birth || "-")}</td>
-                          <td><small>${escapeHtml(s.address || "-")}</small></td>
-                          <td>${s.gender === "MALE" ? "L" : s.gender === "FEMALE" ? "P" : "-"}</td>
+                      ${parsedData.map(s => `
+                        <tr style="${s.isExisting ? 'background:#fffdf0;' : ''}">
+                          <td style="padding:8px 12px;">
+                            ${s.isExisting 
+                              ? `<span class="pill" style="font-size:0.75rem;padding:3px 8px;background:#fef3c7;color:#b45309;font-weight:700;border:1px solid #fde68a;display:inline-flex;align-items:center;gap:0.3rem;">⚠️ Data Sudah Ada di Database</span>` 
+                              : `<span class="pill" style="font-size:0.75rem;padding:3px 8px;background:#dcfce7;color:#15803d;font-weight:700;border:1px solid #bbf7d0;display:inline-flex;align-items:center;gap:0.3rem;">✨ Siswa Baru</span>`}
+                          </td>
+                          <td style="padding:8px 12px;"><strong>${escapeHtml(s.nisn)}</strong></td>
+                          <td style="padding:8px 12px;font-weight:600;color:var(--text);">${escapeHtml(s.full_name)}</td>
+                          <td style="padding:8px 12px;"><span class="pill" style="font-size:0.75rem;padding:2px 8px;background:#e0f2fe;color:#0369a1;font-weight:600;">${escapeHtml(s.class_name || "-")}</span></td>
+                          <td style="padding:8px 12px;">${escapeHtml(s.pob || "-")}, ${escapeHtml(s.date_of_birth || "-")}</td>
+                          <td style="padding:8px 12px;"><small>${escapeHtml(s.address || "-")}</small></td>
+                          <td style="padding:8px 12px;">${s.gender === "MALE" ? "L" : s.gender === "FEMALE" ? "P" : "-"}</td>
                         </tr>
                       `).join("")}
                     </tbody>
                   </table>
                 </div>
-                ${parsedData.length > 10 ? `<p style="margin-top:0.5rem;font-size:0.8rem;color:#15803d;">Menampilkan 10 data pertama dari total ${parsedData.length} data.</p>` : ''}
+
+                <!-- Opsi Checklist Timpa / Ganti Data Lama -->
+                <div style="margin-top:1.25rem;padding:1.1rem;background:${existingCount > 0 ? '#fffbeb' : '#f8fafc'};border:1.5px solid ${existingCount > 0 ? '#fde68a' : '#cbd5e1'};border-radius:0.75rem;">
+                  <label style="display:flex;align-items:center;gap:0.75rem;cursor:pointer;font-weight:700;color:var(--text);font-size:0.92rem;">
+                    <input type="checkbox" id="chk-overwrite-existing" style="width:1.25rem;height:1.25rem;accent-color:#0284c7;cursor:pointer;" ${existingCount > 0 ? 'checked' : ''} />
+                    <span>Timpa / ganti data lama untuk siswa yang sudah ada</span>
+                  </label>
+                  <p style="margin:0.4rem 0 0 2rem;font-size:0.82rem;color:var(--muted);line-height:1.4;">
+                    Jika dicentang, profil & identitas siswa lama dengan NISN/NIS yang cocok di database akan diperbarui dengan data baru dari file ini. Jika tidak dicentang, data siswa lama akan tetap dipertahankan.
+                  </p>
+                </div>
+
+                <!-- Action Buttons: Import & Batal -->
+                <div style="display:flex;gap:1rem;margin-top:1.25rem;">
+                  <button type="button" class="button primary" id="btn-execute-import" style="padding:0.7rem 1.5rem;font-weight:700;font-size:0.95rem;">
+                    Import (${parsedData.length} Siswa)
+                  </button>
+                  <a href="/students" data-link class="button secondary" style="padding:0.7rem 1.5rem;font-size:0.95rem;">Batal</a>
+                </div>
               </div>
             `;
-            submitBtn.disabled = false;
-            submitBtn.textContent = `Simpan ${parsedData.length} Siswa ke Database`;
+
+            const btnExecute = document.getElementById("btn-execute-import") as HTMLButtonElement;
+            btnExecute?.addEventListener("click", async () => {
+              const chkOverwrite = document.getElementById("chk-overwrite-existing") as HTMLInputElement;
+              const shouldOverwrite = chkOverwrite?.checked ?? false;
+
+              btnExecute.disabled = true;
+              btnExecute.textContent = "Menyimpan ke Database...";
+
+              try {
+                let inserted = 0;
+                let updated = 0;
+                let skipped = 0;
+
+                for (const student of parsedData) {
+                  const payload = {
+                    ...student,
+                    overwrite: shouldOverwrite,
+                    skip_if_exists: !shouldOverwrite
+                  };
+                  delete payload.isExisting;
+
+                  await api("/students", { method: "POST", body: JSON.stringify(payload) });
+
+                  if (student.isExisting) {
+                    if (shouldOverwrite) updated++;
+                    else skipped++;
+                  } else {
+                    inserted++;
+                  }
+                }
+
+                let summaryMsg = `Berhasil meng-import ${parsedData.length} siswa. (${inserted} siswa baru`;
+                if (updated > 0) summaryMsg += `, ${updated} data siswa diperbarui`;
+                if (skipped > 0) summaryMsg += `, ${skipped} data siswa lama dipertahankan`;
+                summaryMsg += `).`;
+
+                toastSuccess(summaryMsg);
+                navigate(`/students${selectedTargetClassId ? `?class_id=${encodeURIComponent(selectedTargetClassId)}` : ""}`);
+              } catch (error) {
+                preview.innerHTML = errorState(error);
+              }
+            });
+
             isPreview = false;
           }
         } catch (err: any) {
           preview.innerHTML = `<div class="banner error" style="margin-top:1rem;color:#dc2626;background:#fef2f2;padding:1rem;border-radius:0.5rem;">Gagal membaca file Excel/CSV: ${escapeHtml(err?.message || String(err))}</div>`;
           submitBtn.disabled = false;
-        }
-      } else {
-        submitBtn.disabled = true;
-        submitBtn.textContent = "Menyimpan ke Database...";
-        try {
-          for (const student of parsedData) {
-            await api("/students", { method: "POST", body: JSON.stringify(student) });
-          }
-          toastSuccess(`Berhasil meng-import ${parsedData.length} siswa${selectedTargetClassName ? ` ke Kelas ${selectedTargetClassName}` : ""}.`);
-          navigate(`/students${selectedTargetClassId ? `?class_id=${encodeURIComponent(selectedTargetClassId)}` : ""}`);
-        } catch (error) {
-          preview.innerHTML = errorState(error);
-          submitBtn.disabled = false;
-          submitBtn.textContent = "Coba Lagi";
         }
       }
     });
