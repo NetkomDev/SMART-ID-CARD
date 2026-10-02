@@ -316,7 +316,10 @@ async function studentsPage(): Promise<void> {
           <label>Upload Tanda Tangan<input type="file" id="principal-signature-file" accept="image/*" /></label>
           <img id="signature-preview" style="max-height: 80px; object-fit: contain; border: 1px dashed var(--line); padding: 4px; display: none; background: #f8fafc;" alt="Preview" />
           <input type="hidden" id="principal-signature-base64" />
-          <button type="submit" class="button primary">Simpan</button>
+          <div style="display:flex;gap:0.75rem;align-items:center;">
+            <button type="submit" id="btn-save-principal" class="button primary" style="flex:1;">Simpan</button>
+            <button type="button" id="btn-cancel-principal" class="button secondary" style="display:none;padding:0.6rem 1rem;">Batal</button>
+          </div>
         </form>
       </article>
     </div>
@@ -756,10 +759,11 @@ async function studentsPage(): Promise<void> {
   const signatureFileInput = document.getElementById("principal-signature-file") as HTMLInputElement;
   const signaturePreview = document.getElementById("signature-preview") as HTMLImageElement;
   const signatureBase64 = document.getElementById("principal-signature-base64") as HTMLInputElement;
+  const cancelBtn = document.getElementById("btn-cancel-principal") as HTMLButtonElement | null;
+  const saveBtn = document.getElementById("btn-save-principal") as HTMLButtonElement | null;
 
   let lastSavedName = "";
   let lastSavedSig = "";
-  const saveBtn = principalForm?.querySelector("button") as HTMLButtonElement | null;
 
   const updateSaveButtonState = () => {
     if (!saveBtn || !principalNameInput || !signatureBase64) return;
@@ -772,13 +776,29 @@ async function studentsPage(): Promise<void> {
       saveBtn.textContent = "Simpan Perubahan";
       saveBtn.style.opacity = "1";
       saveBtn.style.cursor = "pointer";
+      if (cancelBtn) cancelBtn.style.display = "inline-block";
     } else {
       saveBtn.disabled = true;
       saveBtn.textContent = "Tersimpan ✓";
       saveBtn.style.opacity = "0.75";
       saveBtn.style.cursor = "default";
+      if (cancelBtn) cancelBtn.style.display = "none";
     }
   };
+
+  cancelBtn?.addEventListener("click", () => {
+    principalNameInput.value = lastSavedName;
+    signatureBase64.value = lastSavedSig;
+    signatureFileInput.value = "";
+    if (lastSavedSig) {
+      signaturePreview.src = lastSavedSig;
+      signaturePreview.style.display = "block";
+    } else {
+      signaturePreview.src = "";
+      signaturePreview.style.display = "none";
+    }
+    updateSaveButtonState();
+  });
 
   principalNameInput?.addEventListener("input", updateSaveButtonState);
   
