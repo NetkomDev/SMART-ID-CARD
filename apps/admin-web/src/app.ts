@@ -390,6 +390,29 @@ async function studentsPage(): Promise<void> {
     </div>
   </div>`, "Siswa & Kelas", "Kelola daftar siswa dan struktur kelas aktif.");
 
+  const updateLevelDropdown = (schoolObj?: any) => {
+    const sName = String(schoolObj?.name || schoolObj?.school_name || state.school?.name || "").toUpperCase();
+    const sCode = String(schoolObj?.code || schoolObj?.school_code || state.school?.code || "").toUpperCase();
+    const n = `${sName} ${sCode}`;
+
+    let levels = ["1", "2", "3", "4", "5", "6"];
+    if (n.includes("SMP") || n.includes("MTS")) {
+      levels = ["VII", "VIII", "IX", "7", "8", "9"];
+    } else if (n.includes("SMA") || n.includes("SMK") || n.includes("MA")) {
+      levels = ["X", "XI", "XII", "10", "11", "12"];
+    } else if (n.includes("SD") || n.includes("MI")) {
+      levels = ["1", "2", "3", "4", "5", "6", "I", "II", "III", "IV", "V", "VI"];
+    }
+
+    const selectEl = document.getElementById("add-class-level") as HTMLSelectElement | null;
+    if (selectEl) {
+      selectEl.innerHTML = levels.map(l => `<option value="${l}">Kelas ${l}</option>`).join("");
+    }
+  };
+
+  // Initial population of levels dropdown
+  updateLevelDropdown();
+
   const loadClasses = async () => {
     try {
       const res = await api<(SchoolClass & { student_count: number })[]>("/classes/summary");
@@ -764,13 +787,7 @@ async function studentsPage(): Promise<void> {
         signaturePreview.style.display = 'block';
         signatureBase64.value = res.data.principal_signature_url;
       }
-      
-      const n = (res.data.school_name + " " + res.data.school_code).toUpperCase();
-      let levels = ["1", "2", "3", "4", "5", "6"];
-      if (n.includes("SMP") || n.includes("MTS")) levels = ["VII", "VIII", "IX"];
-      else if (n.includes("SMA") || n.includes("SMK") || n.includes("MA")) levels = ["X", "XI", "XII"];
-      
-      levelSelect.innerHTML = levels.map(l => `<option value="${l}">Kelas ${l}</option>`).join("");
+      updateLevelDropdown(res.data);
     }
   }).catch(() => {});
   
