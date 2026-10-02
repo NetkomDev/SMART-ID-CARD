@@ -967,10 +967,49 @@ async function cardsPage(): Promise<void> {
     const missingPhoto = summary.missing_photo ?? 0;
 
     shell(`<section class="stats-grid" style="grid-template-columns: repeat(4, 1fr);">
-      <article class="stat-card sage"><div><span>Kartu Aktif (Siap Tap)</span><strong>${summary.active} Kartu</strong></div><span class="trend">💳</span></article>
-      <article class="stat-card ${summary.pending > 0 ? 'lime' : 'neutral'}"><div><span>Dalam Produksi (Belum Suntik Chip)</span><strong>${summary.pending} Kartu</strong></div><span class="trend">⏳</span></article>
-      <article class="stat-card ${missingPhoto > 0 ? 'sand' : 'neutral'}"><div><span>Butuh Foto (Belum Siap Cetak)</span><strong>${missingPhoto} Siswa</strong></div><span class="trend">⚠️</span></article>
-      <article class="stat-card ${summary.blocked > 0 ? 'red' : 'neutral'}"><div><span>Kartu Diblokir / Hilang</span><strong>${summary.blocked} Kartu</strong></div><span class="trend">!</span></article>
+      <article class="stat-card sage">
+        <div class="stat-card-head">
+          <div>
+            <div class="stat-card-title">Aktif & Terverifikasi</div>
+            <span class="stat-card-subtitle">Siap digunakan (NFC)</span>
+          </div>
+          <span class="trend">💳</span>
+        </div>
+        <strong>${summary.active} <small style="display:inline;font-size:0.85rem;font-weight:600;opacity:0.8;">Kartu</small></strong>
+      </article>
+
+      <article class="stat-card ${summary.pending > 0 ? 'lime' : 'neutral'}">
+        <div class="stat-card-head">
+          <div>
+            <div class="stat-card-title">Tahap Produksi</div>
+            <span class="stat-card-subtitle">(Menunggu Encoding)</span>
+          </div>
+          <span class="trend">⏳</span>
+        </div>
+        <strong>${summary.pending} <small style="display:inline;font-size:0.85rem;font-weight:600;opacity:0.8;">Kartu</small></strong>
+      </article>
+
+      <article class="stat-card ${missingPhoto > 0 ? 'sand' : 'neutral'}">
+        <div class="stat-card-head">
+          <div>
+            <div class="stat-card-title">Butuh Foto</div>
+            <span class="stat-card-subtitle">(Belum Siap Cetak)</span>
+          </div>
+          <span class="trend">⚠️</span>
+        </div>
+        <strong>${missingPhoto} <small style="display:inline;font-size:0.85rem;font-weight:600;opacity:0.8;">Siswa</small></strong>
+      </article>
+
+      <article class="stat-card ${summary.blocked > 0 ? 'red' : 'neutral'}">
+        <div class="stat-card-head">
+          <div>
+            <div class="stat-card-title">Kartu Diblokir</div>
+            <span class="stat-card-subtitle">(Hilang / Rusak)</span>
+          </div>
+          <span class="trend">🚫</span>
+        </div>
+        <strong>${summary.blocked} <small style="display:inline;font-size:0.85rem;font-weight:600;opacity:0.8;">Kartu</small></strong>
+      </article>
     </section>
     
     ${missingPhoto > 0 ? `<div style="margin: 1rem 0; padding: 0.85rem 1.25rem; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 0.75rem; font-size: 0.85rem; color: #92400e; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;">
