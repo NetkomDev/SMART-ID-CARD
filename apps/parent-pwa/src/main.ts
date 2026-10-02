@@ -87,10 +87,15 @@ function openPhotoCropperModal(studentId: string, studentName: string) {
         </ul>
       </div>
 
-      <div style="text-align:center;margin-bottom:16px;">
-        <input type="file" id="photo-file-input" accept="image/*" capture="user" style="display:none;" />
-        <button type="button" id="btn-select-photo" style="width:100%;padding:12px;border-radius:12px;background:#2563eb;color:white;font-weight:600;font-size:0.92rem;border:none;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;">
-          📷 Ambil / Pilih Foto ${esc(studentName)}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+        <input type="file" id="photo-camera-input" accept="image/*" capture="user" style="display:none;" />
+        <input type="file" id="photo-gallery-input" accept="image/*" style="display:none;" />
+
+        <button type="button" id="btn-open-camera" style="padding:12px;border-radius:12px;background:#2563eb;color:white;font-weight:600;font-size:0.88rem;border:none;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;">
+          📷 Kamera HP
+        </button>
+        <button type="button" id="btn-open-gallery" style="padding:12px;border-radius:12px;background:#0284c7;color:white;font-weight:600;font-size:0.88rem;border:none;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;">
+          🖼️ Galeri Foto
         </button>
       </div>
 
@@ -118,8 +123,10 @@ function openPhotoCropperModal(studentId: string, studentName: string) {
   document.body.appendChild(modal);
 
   const closeBtn = modal.querySelector("#close-cropper-modal") as HTMLButtonElement;
-  const fileInput = modal.querySelector("#photo-file-input") as HTMLInputElement;
-  const selectBtn = modal.querySelector("#btn-select-photo") as HTMLButtonElement;
+  const cameraInput = modal.querySelector("#photo-camera-input") as HTMLInputElement;
+  const galleryInput = modal.querySelector("#photo-gallery-input") as HTMLInputElement;
+  const cameraBtn = modal.querySelector("#btn-open-camera") as HTMLButtonElement;
+  const galleryBtn = modal.querySelector("#btn-open-gallery") as HTMLButtonElement;
   const cropperContainer = modal.querySelector("#cropper-container") as HTMLDivElement;
   const canvas = modal.querySelector("#cropper-canvas") as HTMLCanvasElement;
   const ctx = canvas.getContext("2d")!;
@@ -137,10 +144,10 @@ function openPhotoCropperModal(studentId: string, studentName: string) {
   let startY = 0;
 
   closeBtn.onclick = () => modal.remove();
-  selectBtn.onclick = () => fileInput.click();
+  cameraBtn.onclick = () => cameraInput.click();
+  galleryBtn.onclick = () => galleryInput.click();
 
-  fileInput.onchange = () => {
-    const file = fileInput.files?.[0];
+  const processFile = (file: File | undefined) => {
     if (!file) return;
 
     const reader = new FileReader();
@@ -161,6 +168,9 @@ function openPhotoCropperModal(studentId: string, studentName: string) {
     };
     reader.readAsDataURL(file);
   };
+
+  cameraInput.onchange = () => processFile(cameraInput.files?.[0]);
+  galleryInput.onchange = () => processFile(galleryInput.files?.[0]);
 
   function draw() {
     if (!loadedImg) return;
