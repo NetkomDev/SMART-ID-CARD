@@ -946,6 +946,31 @@ async function academicYearsPage(): Promise<void> {
       const form = document.getElementById("year-form") as HTMLFormElement;
       const errorDiv = document.getElementById("year-error") as HTMLDivElement;
       const submitBtn = document.getElementById("year-submit") as HTMLButtonElement;
+      const nameInput = document.getElementById("year-name") as HTMLInputElement;
+      const startInput = document.getElementById("year-start") as HTMLInputElement;
+      const endInput = document.getElementById("year-end") as HTMLInputElement;
+
+      nameInput?.addEventListener("input", () => {
+        const val = nameInput.value.trim();
+        const match = val.match(/^.*?(\d{4})(?:[\/\-\s]+(\d{2,4}))?/);
+        if (match && match[1]) {
+          const startY = parseInt(match[1], 10);
+          let endY = startY + 1;
+          if (match[2]) {
+            const parsedEnd = parseInt(match[2], 10);
+            if (match[2].length === 2) {
+              const prefix = Math.floor(startY / 100);
+              endY = prefix * 100 + parsedEnd;
+            } else if (match[2].length === 4) {
+              endY = parsedEnd;
+            }
+          }
+          if (startY >= 1990 && startY <= 2100 && endY >= startY) {
+            startInput.value = `${startY}-07-01`;
+            endInput.value = `${endY}-06-30`;
+          }
+        }
+      });
 
       form?.addEventListener("submit", async (e) => {
         e.preventDefault();
