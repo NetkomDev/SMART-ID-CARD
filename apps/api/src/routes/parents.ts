@@ -12,11 +12,22 @@ import { claimParentLinkSchema, createParentTokenSchema } from "../schemas/paren
 const router = Router();
 
 router.post("/link", requireAuth, validate({ body: claimParentLinkSchema }), asyncHandler(async (req, res) => {
+  let { nisn, dob, full_name } = req.body as { nisn: string; dob: string; full_name: string };
+  
+  let formattedDob = dob.trim();
+  if (/^\d{1,2}[\/-]\d{1,2}[\/-]\d{4}$/.test(formattedDob)) {
+    const [d, m, y] = formattedDob.split(/[\/-]/);
+    formattedDob = `${y}-${m!.padStart(2, "0")}-${d!.padStart(2, "0")}`;
+  }
+
   const { data, error } = await req.auth!.client.rpc("link_student_to_parent_portal", {
-    p_nisn: req.body.nisn, p_dob: req.body.dob, p_parent_name: req.body.full_name
+    p_nisn: nisn.trim(),
+    p_dob: formattedDob,
+    p_parent_name: full_name.trim()
   });
+
   if (error) throw fromDatabaseError(error);
-  sendData(res, { link_id: data.student_id }, 201);
+  sendData(res, { link_id: data?.student_id || data?.id }, 201);
 }));
 
 router.get("/children", requireAuth, asyncHandler(async (req, res) => {

@@ -89,7 +89,7 @@ export function fromDatabaseError(error: PostgrestError): ApiError {
     return new ApiError(422, "GATE_RULE_VIOLATION", "Attendance event violates gate rules");
   }
   if (error.code === "42501") {
-    return new ApiError(403, "FORBIDDEN", "Database policy denied this operation");
+    return new ApiError(403, "FORBIDDEN", error.message || "Database policy denied this operation");
   }
   if (error.code === "23505") {
     return new ApiError(409, "CONFLICT", "Resource already exists");
@@ -100,5 +100,5 @@ export function fromDatabaseError(error: PostgrestError): ApiError {
   if (error.code === "22023" || error.code === "P0001") {
     return new ApiError(422, "VALIDATION_ERROR", error.message);
   }
-  return new ApiError(500, "DATABASE_ERROR", "Database operation failed");
+  return new ApiError(500, "DATABASE_ERROR", error.message || "Database operation failed");
 }

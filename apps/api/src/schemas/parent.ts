@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const claimParentLinkSchema = z.object({
   nisn: z.string().trim().min(1).max(50),
-  dob: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Format tanggal lahir harus YYYY-MM-DD"),
+  dob: z.string().trim().min(1).max(50),
   full_name: z.string().trim().min(1).max(200)
 }).strict();
 

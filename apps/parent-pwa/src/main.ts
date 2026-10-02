@@ -772,19 +772,37 @@ function linkView() {
     e.preventDefault();
     const d = new FormData(form);
     const errorEl = document.getElementById("error")!;
-    errorEl.textContent = "Memverifikasi data anak…";
+    errorEl.style.display = "block";
+    errorEl.style.color = "#2563eb";
+    errorEl.style.padding = "10px 14px";
+    errorEl.style.borderRadius = "10px";
+    errorEl.style.background = "#eff6ff";
+    errorEl.style.border = "1px solid #bfdbfe";
+    errorEl.style.fontSize = "0.85rem";
+    errorEl.textContent = "🔄 Memverifikasi data anak dengan database sekolah…";
+
     const submit = form.querySelector<HTMLButtonElement>("button:not([type])")!;
     submit.disabled = true;
+
     try {
       await request("/parent/link", {
         method: "POST",
-        body: JSON.stringify({ nisn: d.get("nisn"), dob: d.get("dob"), full_name: d.get("name") })
+        body: JSON.stringify({
+          nisn: String(d.get("nisn") ?? "").trim(),
+          dob: String(d.get("dob") ?? "").trim(),
+          full_name: String(d.get("name") ?? "").trim()
+        })
       });
       await dashboard();
       offerInstall();
-    } catch (err) {
-      errorEl.textContent = err instanceof Error ? err.message : "Data anak tidak ditemukan atau tidak cocok.";
-    } finally { submit.disabled = false; }
+    } catch (err: any) {
+      errorEl.style.color = "#991b1b";
+      errorEl.style.background = "#fef2f2";
+      errorEl.style.borderColor = "#fca5a5";
+      errorEl.textContent = "⚠️ " + (err?.message || "Data anak tidak ditemukan atau tidak cocok dengan database sekolah.");
+    } finally {
+      submit.disabled = false;
+    }
   };
 }
 
