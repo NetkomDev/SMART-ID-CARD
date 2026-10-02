@@ -446,7 +446,12 @@ async function studentsPage(): Promise<void> {
         return `<tr class="class-row ${isSelected ? 'active-class-row' : ''}" data-class-id="${c.id}" data-class-name="${escapeHtml(c.name)}" style="${activeStyle}">
           <td><strong style="color:${isSelected ? 'var(--accent, #3b82f6)' : 'var(--text)'};">${escapeHtml(c.name)}</strong></td>
           <td>${c.student_count} siswa</td>
-          <td><button class="button danger btn-delete-class" data-id="${c.id}" data-name="${escapeHtml(c.name)}" data-count="${c.student_count}" style="padding:0.2rem 0.5rem;font-size:0.75rem;">Hapus</button></td>
+          <td>
+            <div style="display:inline-flex;gap:0.3rem;">
+              <a href="/student-import?class_id=${c.id}&class_name=${encodeURIComponent(c.name)}" data-link class="button secondary btn-import-class" style="padding:0.2rem 0.5rem;font-size:0.75rem;" title="Import siswa khusus ke ${escapeHtml(c.name)}">📥 Import</a>
+              <button class="button danger btn-delete-class" data-id="${c.id}" data-name="${escapeHtml(c.name)}" data-count="${c.student_count}" style="padding:0.2rem 0.5rem;font-size:0.75rem;">Hapus</button>
+            </div>
+          </td>
         </tr>`;
       }).join("");
 
@@ -467,7 +472,7 @@ async function studentsPage(): Promise<void> {
       // Click listener for class rows
       document.querySelectorAll<HTMLTableRowElement>(".class-row").forEach(row => {
         row.onclick = (e) => {
-          if ((e.target as HTMLElement).closest(".btn-delete-class")) return;
+          if ((e.target as HTMLElement).closest(".btn-delete-class") || (e.target as HTMLElement).closest(".btn-import-class")) return;
           const classId = row.dataset.classId!;
           const className = row.dataset.className!;
           if (selectedClassId === classId) {
@@ -1273,68 +1278,147 @@ async function attendancePage(): Promise<void> {
 }
 
 function studentImportPage(): void {
+  const urlParams = new URLSearchParams(window.location.search);
+  const initialClassId = urlParams.get("class_id");
+  const initialClassName = urlParams.get("class_name");
+
   shell(`<section class="panel">
     <div class="panel-head">
-      <h2>Import Data Siswa (Format Dapodik / Excel)</h2>
-      <p>Unggah file Excel (.xlsx, .xls) atau CSV ekspor Dapodik. Seluruh kolom wajib (Nama, NISN, Kelas, Tempat Lahir, Tanggal Lahir, Alamat, Jenis Kelamin) akan otomatis terverifikasi.</p>
+      <h2>Import Data Siswa (Berbasis Kelas / Paralel)</h2>
+      <p>Unggah file Excel (.xlsx, .xls) atau CSV Dapodik. Tentukan kelas target tujuan terlebih dahulu agar seluruh siswa di-import tepat ke kelasnya.</p>
     </div>
+
+    <!-- Banner Panduan Import Berbasis Kelas -->
+    <div style="margin-bottom:1.5rem;padding:1.25rem;background:#f0f9ff;border:1.5px solid #7dd3fc;border-radius:0.75rem;">
+      <h3 style="margin:0 0 0.5rem;color:#0369a1;font-size:1rem;display:flex;align-items:center;gap:0.5rem;">
+        💡 Panduan Impor Berbasis Kelas (Sistem Paralel SMA)
+      </h3>
+      <p style="margin:0 0 0.5rem;font-size:0.85rem;color:#075985;line-height:1.5;">
+        Sistem AKSIS mendukung fleksibilitas penamaan kelas SMA (seperti <strong>X-1, X-A, XI MIPA 1, XI IPS 2</strong>, dsb). Untuk menjaga kerapihan data siswa:
+      </p>
+      <ul style="margin:0 0 0.25rem 1.25rem;font-size:0.83rem;color:#0369a1;line-height:1.6;">
+        <li><strong>Pilih Kelas Target:</strong> Tentukan kelas tujuan pada dropdown di bawah sebelum mengunggah file.</li>
+        <li><strong>1 File Khusus 1 Kelas:</strong> File Excel / CSV wajib berisi data siswa khusus untuk kelas yang sedang dipilih (tidak dicampur antar kelas).</li>
+        <li><strong>Template Terkunci Otomatis:</strong> Tombol unduh template akan secara otomatis menyesuaikan nama kelas sesuai pilihan Anda.</li>
+      </ul>
+    </div>
+
+    <!-- Dropdown Selector Kelas Target -->
+    <div style="margin-bottom:1.5rem;padding:1.25rem;background:var(--bg-subtle,#f8fafc);border:1.5px solid var(--line,#e2e8f0);border-radius:0.75rem;">
+      <label style="font-weight:700;font-size:0.92rem;color:var(--text);margin-bottom:0.4rem;display:block;">
+        🏫 Pilih Kelas Target Tujuan Impor
+      </label>
+      <select id="target-class-select" style="width:100%;max-width:450px;padding:0.65rem 0.85rem;border-radius:0.5rem;border:1.5px solid var(--line);background:var(--bg);color:var(--text);font-weight:600;font-size:0.9rem;">
+        <option value="">-- Impor Bebas / Deteksi Otomatis dari File --</option>
+      </select>
+      <p id="target-class-info" style="font-size:0.8rem;color:var(--muted);margin:0.4rem 0 0;">
+        Memuat daftar kelas master...
+      </p>
+    </div>
+
+    <!-- Download Template Action Card -->
     <div style="margin-bottom:1.5rem;padding:1rem;background:var(--bg-subtle,#f8fafc);border:1px solid var(--line,#e2e8f0);border-radius:0.75rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
       <div>
-        <strong style="font-size:0.95rem;color:var(--text)">Format Excel / CSV Standar Dapodik</strong>
+        <strong id="template-card-title" style="font-size:0.92rem;color:var(--text)">Format Excel / CSV Standar Dapodik</strong>
         <p style="font-size:0.8rem;color:var(--muted);margin:0.2rem 0 0;">Kolom: No., Nama Lengkap, NISN, Kelas, Tempat Lahir, Tanggal Lahir (YYYY-MM-DD), Alamat, Jenis Kelamin (L/P)</p>
       </div>
       <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
-        <button type="button" id="btn-download-excel" class="button primary" style="display:inline-flex;align-items:center;gap:0.4rem;font-size:0.8rem;padding:0.4rem 0.8rem;">
+        <button type="button" id="btn-download-excel" class="button primary" style="display:inline-flex;align-items:center;gap:0.4rem;font-size:0.8rem;padding:0.45rem 0.85rem;">
           📊 Unduh Template Excel (.xlsx)
         </button>
-        <button type="button" id="btn-download-template" class="button secondary" style="display:inline-flex;align-items:center;gap:0.4rem;font-size:0.8rem;padding:0.4rem 0.8rem;">
+        <button type="button" id="btn-download-template" class="button secondary" style="display:inline-flex;align-items:center;gap:0.4rem;font-size:0.8rem;padding:0.45rem 0.85rem;">
           📄 Unduh Template CSV (.csv)
         </button>
       </div>
     </div>
 
     <form id="import-form" class="login-form" style="margin:0;">
-      <label>Pilih File Excel / CSV Dapodik <input type="file" id="csv-file" accept=".xlsx,.xls,.csv" required /></label>
+      <label style="font-weight:600;margin-bottom:0.5rem;display:block;">Pilih File Excel / CSV Dapodik <input type="file" id="csv-file" accept=".xlsx,.xls,.csv" required /></label>
       <div id="import-preview"></div>
       <div style="display:flex;gap:1rem;margin-top:1.5rem;">
         <button class="button primary" type="submit" id="import-submit">Preview & Validasi Data</button>
         <a href="/students" data-link class="button secondary">Batal</a>
       </div>
     </form>
-  </section>`, "Import Siswa", "Tambahkan data siswa secara massal menggunakan file Dapodik Excel / CSV.");
+  </section>`, "Import Siswa", "Tambahkan data siswa secara massal berbasis kelas / paralel.");
 
-  setTimeout(() => {
+  setTimeout(async () => {
+    const classSelect = document.getElementById("target-class-select") as HTMLSelectElement;
+    const classInfo = document.getElementById("target-class-info") as HTMLParagraphElement;
+    const templateTitle = document.getElementById("template-card-title") as HTMLElement;
     const form = document.getElementById("import-form") as HTMLFormElement;
     const fileInput = document.getElementById("csv-file") as HTMLInputElement;
     const preview = document.getElementById("import-preview") as HTMLDivElement;
     const submitBtn = document.getElementById("import-submit") as HTMLButtonElement;
     const downloadBtn = document.getElementById("btn-download-template") as HTMLButtonElement;
     const downloadExcelBtn = document.getElementById("btn-download-excel") as HTMLButtonElement;
-    
+
+    let availableClasses: Array<{ id: string; name: string; student_count?: number }> = [];
+
+    try {
+      const res = await api<{ id: string; name: string; student_count: number }[]>("/classes/summary");
+      availableClasses = res.data ?? [];
+      classSelect.innerHTML = `<option value="">-- Impor Bebas / Deteksi Otomatis dari File --</option>` +
+        availableClasses.map(c => `<option value="${c.id}" data-name="${escapeHtml(c.name)}"${(initialClassId === c.id || (initialClassName && initialClassName.toLowerCase() === c.name.toLowerCase())) ? " selected" : ""}>Kelas ${escapeHtml(c.name)} (${c.student_count} siswa)</option>`).join("");
+
+      const updateClassSelectionState = () => {
+        const selectedOpt = classSelect.options[classSelect.selectedIndex];
+        const selectedId = classSelect.value;
+        const selectedName = selectedOpt?.dataset?.name || "";
+
+        if (selectedId && selectedName) {
+          classInfo.innerHTML = `💡 Seluruh siswa dalam file akan di-import ke <strong>Kelas ${escapeHtml(selectedName)}</strong>.`;
+          classInfo.style.color = "#0369a1";
+          templateTitle.innerHTML = `Template Spesifik: <strong>Kelas ${escapeHtml(selectedName)}</strong>`;
+          downloadExcelBtn.textContent = `📊 Unduh Template Excel (${selectedName})`;
+          downloadBtn.textContent = `📄 Unduh Template CSV (${selectedName})`;
+        } else {
+          classInfo.textContent = "Jika kelas target dipilih, template yang diunduh dan validasi file akan otomatis terhubung ke kelas tersebut.";
+          classInfo.style.color = "var(--muted)";
+          templateTitle.textContent = "Format Excel / CSV Standar Dapodik";
+          downloadExcelBtn.textContent = "📊 Unduh Template Excel (.xlsx)";
+          downloadBtn.textContent = "📄 Unduh Template CSV (.csv)";
+        }
+      };
+
+      classSelect.addEventListener("change", updateClassSelectionState);
+      updateClassSelectionState();
+    } catch (e) {
+      classInfo.textContent = "Gagal memuat daftar kelas master.";
+    }
+
     let parsedData: any[] = [];
     let isPreview = true;
+    let selectedTargetClassId = "";
+    let selectedTargetClassName = "";
 
     downloadExcelBtn?.addEventListener("click", () => {
+      const selectedOpt = classSelect.options[classSelect.selectedIndex];
+      const targetName = selectedOpt?.dataset?.name || "X-1";
       const templateData = [
         ["No.", "Nama Lengkap", "NISN", "Kelas", "Tempat Lahir", "Tanggal Lahir", "Alamat", "Jenis Kelamin"],
-        [1, "Ahmad Fauzi", "0075849301", "X IPA 1", "Watampone", "2008-05-14", "Jl. Merdeka No. 12, Watampone", "Laki-laki"],
-        [2, "Nur Aisyah Dahlan", "0076928412", "X IPA 1", "Bone", "2008-08-22", "Jl. Ahmad Yani No. 45, Tanete Riattang", "Perempuan"]
+        [1, "Ahmad Fauzi", "0075849301", targetName, "Watampone", "2008-05-14", "Jl. Merdeka No. 12, Watampone", "Laki-laki"],
+        [2, "Nur Aisyah Dahlan", "0076928412", targetName, "Bone", "2008-08-22", "Jl. Ahmad Yani No. 45, Tanete Riattang", "Perempuan"]
       ];
       const ws = XLSX.utils.aoa_to_sheet(templateData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Dapodik");
-      XLSX.writeFile(wb, "template_dapodik_aksis.xlsx");
+      const filename = classSelect.value && targetName !== "X-1" ? `template_import_siswa_${targetName.replace(/\s+/g, "_")}.xlsx` : "template_dapodik_aksis.xlsx";
+      XLSX.writeFile(wb, filename);
     });
 
     downloadBtn?.addEventListener("click", () => {
+      const selectedOpt = classSelect.options[classSelect.selectedIndex];
+      const targetName = selectedOpt?.dataset?.name || "X-1";
       const templateContent = "\uFEFFsep=;\n" +
         "No.;Nama Lengkap;NISN;Kelas;Tempat Lahir;Tanggal Lahir;Alamat;Jenis Kelamin\n" +
-        "1;Ahmad Fauzi;0075849301;X IPA 1;Watampone;2008-05-14;Jl. Merdeka No. 12, Watampone;Laki-laki\n" +
-        "2;Nur Aisyah Dahlan;0076928412;X IPA 1;Bone;2008-08-22;Jl. Ahmad Yani No. 45, Tanete Riattang;Perempuan\n";
+        `1;Ahmad Fauzi;0075849301;${targetName};Watampone;2008-05-14;Jl. Merdeka No. 12, Watampone;Laki-laki\n` +
+        `2;Nur Aisyah Dahlan;0076928412;${targetName};Bone;2008-08-22;Jl. Ahmad Yani No. 45, Tanete Riattang;Perempuan\n`;
       const blob = new Blob([templateContent], { type: "text/csv;charset=utf-8;" });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
-      link.download = "template_dapodik_aksis.csv";
+      const filename = classSelect.value && targetName !== "X-1" ? `template_import_siswa_${targetName.replace(/\s+/g, "_")}.csv` : "template_dapodik_aksis.csv";
+      link.download = filename;
       link.click();
     });
 
@@ -1343,6 +1427,10 @@ function studentImportPage(): void {
       if (isPreview) {
         const file = fileInput.files?.[0];
         if (!file) return;
+
+        const selectedOpt = classSelect.options[classSelect.selectedIndex];
+        selectedTargetClassId = classSelect.value;
+        selectedTargetClassName = selectedOpt?.dataset?.name || "";
 
         try {
           const arrayBuffer = await file.arrayBuffer();
@@ -1385,7 +1473,7 @@ function studentImportPage(): void {
             const rowNum = headerIdx + index + 2;
             const fullName = cols[nameIdx !== -1 ? nameIdx : 1] || cols[1] || "";
             const nisn = cols[nisnIdx !== -1 ? nisnIdx : 2] || cols[2] || "";
-            const className = cols[classIdx !== -1 ? classIdx : 3] || cols[3] || "";
+            let fileClassName = cols[classIdx !== -1 ? classIdx : 3] || cols[3] || "";
             const pob = cols[pobIdx !== -1 ? pobIdx : 4] || cols[4] || "";
             let dob = cols[dobIdx !== -1 ? dobIdx : 5] || cols[5] || "";
             const address = cols[addrIdx !== -1 ? addrIdx : 6] || cols[6] || "";
@@ -1397,6 +1485,10 @@ function studentImportPage(): void {
               dob = `${y}-${m!.padStart(2, "0")}-${d!.padStart(2, "0")}`;
             }
 
+            // Target Class Matching & Resolution
+            let resolvedClassName = selectedTargetClassName || fileClassName;
+            let resolvedClassId = selectedTargetClassId || undefined;
+
             const missingFields: string[] = [];
             if (!fullName) missingFields.push("Nama Lengkap");
             if (!nisn) missingFields.push("NISN");
@@ -1404,6 +1496,11 @@ function studentImportPage(): void {
             if (!dob) missingFields.push("Tanggal Lahir");
             if (!address) missingFields.push("Alamat");
             if (!rawGender) missingFields.push("Jenis Kelamin");
+
+            // Check Mismatch if target class selected & file specifies a different class
+            if (selectedTargetClassName && fileClassName && fileClassName.toLowerCase() !== selectedTargetClassName.toLowerCase()) {
+              missingFields.push(`Mismatch Kelas (File: "${fileClassName}", Target: "${selectedTargetClassName}")`);
+            }
 
             if (missingFields.length > 0) {
               validationErrors.push({ rowNum, name: fullName || "(Tanpa Nama)", missing: missingFields });
@@ -1413,7 +1510,8 @@ function studentImportPage(): void {
                 student_number: nisn,
                 nisn,
                 full_name: fullName,
-                class_name: className || undefined,
+                class_id: resolvedClassId,
+                class_name: resolvedClassName || undefined,
                 pob,
                 date_of_birth: dob,
                 address,
@@ -1423,103 +1521,104 @@ function studentImportPage(): void {
           });
 
           if (validationErrors.length > 0) {
-          preview.innerHTML = `
-            <div style="margin-top:1.5rem;padding:1.25rem;background:#fef2f2;border:1.5px solid #fca5a5;border-radius:0.75rem;">
-              <h3 style="margin:0 0 0.5rem;color:#991b1b;font-size:1.05rem;display:flex;align-items:center;gap:0.5rem;">
-                ⚠️ Validasi Dapodik Gagal: ${validationErrors.length} Baris Data Bermasalah
-              </h3>
-              <p style="margin:0 0 1rem;font-size:0.88rem;color:#b91c1c;">
-                Seluruh kolom wajib (Nama, NISN, Tempat Lahir, Tanggal Lahir, Alamat, Jenis Kelamin) harus terisi sesuai standar Dapodik sebelum dapat disimpan ke database.
-              </p>
-              <div class="table-wrap" style="max-height:250px;overflow-y:auto;border:1px solid #fecaca;border-radius:0.5rem;background:white;">
-                <table style="font-size:0.85rem;">
-                  <thead>
-                    <tr style="background:#fee2e2;color:#991b1b;">
-                      <th style="padding:8px 12px;">Baris #</th>
-                      <th style="padding:8px 12px;">Nama Siswa</th>
-                      <th style="padding:8px 12px;">Kolom Kosong / Bermasalah</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${validationErrors.map(err => `
-                      <tr>
-                        <td style="padding:8px 12px;font-weight:600;color:#991b1b;">Baris ${err.rowNum}</td>
-                        <td style="padding:8px 12px;">${escapeHtml(err.name)}</td>
-                        <td style="padding:8px 12px;color:#dc2626;font-weight:500;">
-                          ${err.missing.join(", ")}
-                        </td>
+            preview.innerHTML = `
+              <div style="margin-top:1.5rem;padding:1.25rem;background:#fef2f2;border:1.5px solid #fca5a5;border-radius:0.75rem;">
+                <h3 style="margin:0 0 0.5rem;color:#991b1b;font-size:1.05rem;display:flex;align-items:center;gap:0.5rem;">
+                  ⚠️ Validasi Dapodik Gagal: ${validationErrors.length} Baris Data Bermasalah
+                </h3>
+                <p style="margin:0 0 1rem;font-size:0.88rem;color:#b91c1c;">
+                  Seluruh kolom wajib harus terisi dan kelas di dalam file harus sesuai dengan Kelas Tujuan yang dipilih.
+                </p>
+                <div class="table-wrap" style="max-height:250px;overflow-y:auto;border:1px solid #fecaca;border-radius:0.5rem;background:white;">
+                  <table style="font-size:0.85rem;">
+                    <thead>
+                      <tr style="background:#fee2e2;color:#991b1b;">
+                        <th style="padding:8px 12px;">Baris #</th>
+                        <th style="padding:8px 12px;">Nama Siswa</th>
+                        <th style="padding:8px 12px;">Kolom Kosong / Peringatan Mismatch</th>
                       </tr>
-                    `).join("")}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      ${validationErrors.map(err => `
+                        <tr>
+                          <td style="padding:8px 12px;font-weight:600;color:#991b1b;">Baris ${err.rowNum}</td>
+                          <td style="padding:8px 12px;">${escapeHtml(err.name)}</td>
+                          <td style="padding:8px 12px;color:#dc2626;font-weight:500;">
+                            ${err.missing.join(", ")}
+                          </td>
+                        </tr>
+                      `).join("")}
+                    </tbody>
+                  </table>
+                </div>
+                <p style="margin-top:0.75rem;font-size:0.82rem;color:#7f1d1d;">
+                  💡 Silakan sesuaikan file Excel/CSV Anda atau ubah pilihan Kelas Target di atas lalu klik Preview kembali.
+                </p>
               </div>
-              <p style="margin-top:0.75rem;font-size:0.82rem;color:#7f1d1d;">
-                💡 Silakan perbaiki file Excel/CSV Dapodik Anda lalu unggah kembali file yang sudah lengkap.
-              </p>
-            </div>
-          `;
-          submitBtn.disabled = true;
-          submitBtn.textContent = "Gagal Validasi - Perbaiki File";
-        } else {
-          preview.innerHTML = `
-            <div style="margin-top:1.5rem;padding:1rem;background:#f0fdf4;border:1px solid #86efac;border-radius:0.75rem;">
-              <h4 style="margin:0 0 0.5rem;color:#166534;display:flex;align-items:center;gap:0.5rem;">
-                ✅ Validasi Lolos 100% (${parsedData.length} Siswa Siap Di-import)
-              </h4>
-              <p style="margin:0 0 0.75rem;font-size:0.85rem;color:#15803d;">
-                Data Dapodik telah terverifikasi lengkap. Status awal kartu siswa akan diset ke <strong>BLOCKED / Waiting Photo</strong> hingga orang tua mengunggah foto via PWA.
-              </p>
-              <div class="table-wrap" style="max-height:300px;overflow-y:auto;background:white;border:1px solid #bbf7d0;border-radius:0.5rem;">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>NISN</th>
-                      <th>Nama Lengkap</th>
-                      <th>Kelas Target</th>
-                      <th>Tempat / Tgl Lahir</th>
-                      <th>Alamat</th>
-                      <th>JK</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${parsedData.slice(0, 10).map(s => `
+            `;
+            submitBtn.disabled = true;
+            submitBtn.textContent = "Gagal Validasi - Perbaiki File";
+          } else {
+            preview.innerHTML = `
+              <div style="margin-top:1.5rem;padding:1rem;background:#f0fdf4;border:1px solid #86efac;border-radius:0.75rem;">
+                <h4 style="margin:0 0 0.5rem;color:#166534;display:flex;align-items:center;gap:0.5rem;">
+                  ✅ Validasi Lolos 100% (${parsedData.length} Siswa Siap Di-import${selectedTargetClassName ? ` ke Kelas <strong>${escapeHtml(selectedTargetClassName)}</strong>` : ""})
+                </h4>
+                <p style="margin:0 0 0.75rem;font-size:0.85rem;color:#15803d;">
+                  Data Dapodik telah terverifikasi lengkap. Status awal kartu siswa akan diset ke <strong>BLOCKED / Waiting Photo</strong> hingga orang tua mengunggah foto via PWA.
+                </p>
+                <div class="table-wrap" style="max-height:300px;overflow-y:auto;background:white;border:1px solid #bbf7d0;border-radius:0.5rem;">
+                  <table>
+                    <thead>
                       <tr>
-                        <td><strong>${escapeHtml(s.nisn)}</strong></td>
-                        <td>${escapeHtml(s.full_name)}</td>
-                        <td><span class="pill" style="font-size:0.75rem;padding:2px 8px;background:#e0f2fe;color:#0369a1;font-weight:600;">${escapeHtml(s.class_name || "-")}</span></td>
-                        <td>${escapeHtml(s.pob || "-")}, ${escapeHtml(s.date_of_birth || "-")}</td>
-                        <td><small>${escapeHtml(s.address || "-")}</small></td>
-                        <td>${s.gender === "MALE" ? "L" : s.gender === "FEMALE" ? "P" : "-"}</td>
+                        <th>NISN</th>
+                        <th>Nama Lengkap</th>
+                        <th>Kelas Target</th>
+                        <th>Tempat / Tgl Lahir</th>
+                        <th>Alamat</th>
+                        <th>JK</th>
                       </tr>
-                    `).join("")}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      ${parsedData.slice(0, 10).map(s => `
+                        <tr>
+                          <td><strong>${escapeHtml(s.nisn)}</strong></td>
+                          <td>${escapeHtml(s.full_name)}</td>
+                          <td><span class="pill" style="font-size:0.75rem;padding:2px 8px;background:#e0f2fe;color:#0369a1;font-weight:600;">${escapeHtml(s.class_name || "-")}</span></td>
+                          <td>${escapeHtml(s.pob || "-")}, ${escapeHtml(s.date_of_birth || "-")}</td>
+                          <td><small>${escapeHtml(s.address || "-")}</small></td>
+                          <td>${s.gender === "MALE" ? "L" : s.gender === "FEMALE" ? "P" : "-"}</td>
+                        </tr>
+                      `).join("")}
+                    </tbody>
+                  </table>
+                </div>
+                ${parsedData.length > 10 ? `<p style="margin-top:0.5rem;font-size:0.8rem;color:#15803d;">Menampilkan 10 data pertama dari total ${parsedData.length} data.</p>` : ''}
               </div>
-              ${parsedData.length > 10 ? `<p style="margin-top:0.5rem;font-size:0.8rem;color:#15803d;">Menampilkan 10 data pertama dari total ${parsedData.length} data.</p>` : ''}
-            </div>
-          `;
+            `;
+            submitBtn.disabled = false;
+            submitBtn.textContent = `Simpan ${parsedData.length} Siswa ke Database`;
+            isPreview = false;
+          }
+        } catch (err: any) {
+          preview.innerHTML = `<div class="banner error" style="margin-top:1rem;color:#dc2626;background:#fef2f2;padding:1rem;border-radius:0.5rem;">Gagal membaca file Excel/CSV: ${escapeHtml(err?.message || String(err))}</div>`;
           submitBtn.disabled = false;
-          submitBtn.textContent = `Simpan ${parsedData.length} Siswa ke Database`;
-          isPreview = false;
         }
-      } catch (err: any) {
-        preview.innerHTML = `<div class="banner error" style="margin-top:1rem;color:#dc2626;background:#fef2f2;padding:1rem;border-radius:0.5rem;">Gagal membaca file Excel/CSV: ${escapeHtml(err?.message || String(err))}</div>`;
-        submitBtn.disabled = false;
-      }
-    } else {
-      submitBtn.disabled = true;
-      submitBtn.textContent = "Menyimpan ke Database...";
-      try {
-        for (const student of parsedData) {
-          await api("/students", { method: "POST", body: JSON.stringify(student) });
+      } else {
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Menyimpan ke Database...";
+        try {
+          for (const student of parsedData) {
+            await api("/students", { method: "POST", body: JSON.stringify(student) });
+          }
+          toastSuccess(`Berhasil meng-import ${parsedData.length} siswa${selectedTargetClassName ? ` ke Kelas ${selectedTargetClassName}` : ""}.`);
+          navigate(`/students${selectedTargetClassId ? `?class_id=${encodeURIComponent(selectedTargetClassId)}` : ""}`);
+        } catch (error) {
+          preview.innerHTML = errorState(error);
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Coba Lagi";
         }
-        navigate("/students");
-      } catch (error) {
-        preview.innerHTML = errorState(error);
-        submitBtn.disabled = false;
-        submitBtn.textContent = "Coba Lagi";
       }
-    }
     });
   }, 0);
 }
