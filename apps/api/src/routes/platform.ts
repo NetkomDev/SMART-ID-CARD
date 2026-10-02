@@ -84,7 +84,7 @@ router.post('/schools/:id/reset-admin-password', validate({ params: id, body: z.
 
   const { data: memberships, error: memErr } = await client
     .from('school_users')
-    .select('user_id, users(full_name, email)')
+    .select('user_id, users(full_name)')
     .eq('school_id', schoolId)
     .is('deleted_at', null);
 
