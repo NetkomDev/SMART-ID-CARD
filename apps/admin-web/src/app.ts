@@ -7,6 +7,7 @@ import type { AcademicYear, Attendance, AuthContext, Card, Device, Extracurricul
 import { renderLandingPage } from "./landing";
 import { toast, toastSuccess, toastError } from "./lib/toast";
 import { optimistic, removeRowOptimistic } from "./lib/optimistic";
+import * as XLSX from "xlsx";
 
 const savedTheme = localStorage.getItem("aksis-theme") || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
 document.documentElement.setAttribute("data-theme", savedTheme);
@@ -1249,28 +1250,33 @@ async function attendancePage(): Promise<void> {
 function studentImportPage(): void {
   shell(`<section class="panel">
     <div class="panel-head">
-      <h2>Import Data Siswa (Format Dapodik)</h2>
-      <p>Unggah file CSV hasil ekspor Dapodik. Pastikan seluruh kolom wajib (Nama, NISN, Kelas, Tempat Lahir, Tanggal Lahir, Alamat, Jenis Kelamin) terisi lengkap.</p>
+      <h2>Import Data Siswa (Format Dapodik / Excel)</h2>
+      <p>Unggah file Excel (.xlsx, .xls) atau CSV ekspor Dapodik. Seluruh kolom wajib (Nama, NISN, Kelas, Tempat Lahir, Tanggal Lahir, Alamat, Jenis Kelamin) akan otomatis terverifikasi.</p>
     </div>
     <div style="margin-bottom:1.5rem;padding:1rem;background:var(--bg-subtle,#f8fafc);border:1px solid var(--line,#e2e8f0);border-radius:0.75rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
       <div>
         <strong style="font-size:0.95rem;color:var(--text)">Format Excel / CSV Standar Dapodik</strong>
         <p style="font-size:0.8rem;color:var(--muted);margin:0.2rem 0 0;">Kolom: No., Nama Lengkap, NISN, Kelas, Tempat Lahir, Tanggal Lahir (YYYY-MM-DD), Alamat, Jenis Kelamin (L/P)</p>
       </div>
-      <button type="button" id="btn-download-template" class="button secondary" style="display:inline-flex;align-items:center;gap:0.5rem;">
-        📥 Unduh Template CSV Dapodik
-      </button>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+        <button type="button" id="btn-download-excel" class="button primary" style="display:inline-flex;align-items:center;gap:0.4rem;font-size:0.8rem;padding:0.4rem 0.8rem;">
+          📊 Unduh Template Excel (.xlsx)
+        </button>
+        <button type="button" id="btn-download-template" class="button secondary" style="display:inline-flex;align-items:center;gap:0.4rem;font-size:0.8rem;padding:0.4rem 0.8rem;">
+          📄 Unduh Template CSV (.csv)
+        </button>
+      </div>
     </div>
 
     <form id="import-form" class="login-form" style="margin:0;">
-      <label>File CSV Dapodik <input type="file" id="csv-file" accept=".csv" required /></label>
+      <label>Pilih File Excel / CSV Dapodik <input type="file" id="csv-file" accept=".xlsx,.xls,.csv" required /></label>
       <div id="import-preview"></div>
       <div style="display:flex;gap:1rem;margin-top:1.5rem;">
         <button class="button primary" type="submit" id="import-submit">Preview & Validasi Data</button>
         <a href="/students" data-link class="button secondary">Batal</a>
       </div>
     </form>
-  </section>`, "Import Siswa", "Tambahkan data siswa secara massal menggunakan file Dapodik CSV.");
+  </section>`, "Import Siswa", "Tambahkan data siswa secara massal menggunakan file Dapodik Excel / CSV.");
 
   setTimeout(() => {
     const form = document.getElementById("import-form") as HTMLFormElement;
@@ -1278,16 +1284,28 @@ function studentImportPage(): void {
     const preview = document.getElementById("import-preview") as HTMLDivElement;
     const submitBtn = document.getElementById("import-submit") as HTMLButtonElement;
     const downloadBtn = document.getElementById("btn-download-template") as HTMLButtonElement;
+    const downloadExcelBtn = document.getElementById("btn-download-excel") as HTMLButtonElement;
     
     let parsedData: any[] = [];
     let isPreview = true;
 
+    downloadExcelBtn?.addEventListener("click", () => {
+      const templateData = [
+        ["No.", "Nama Lengkap", "NISN", "Kelas", "Tempat Lahir", "Tanggal Lahir", "Alamat", "Jenis Kelamin"],
+        [1, "Ahmad Fauzi", "0075849301", "X IPA 1", "Watampone", "2008-05-14", "Jl. Merdeka No. 12, Watampone", "Laki-laki"],
+        [2, "Nur Aisyah Dahlan", "0076928412", "X IPA 1", "Bone", "2008-08-22", "Jl. Ahmad Yani No. 45, Tanete Riattang", "Perempuan"]
+      ];
+      const ws = XLSX.utils.aoa_to_sheet(templateData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Dapodik");
+      XLSX.writeFile(wb, "template_dapodik_aksis.xlsx");
+    });
+
     downloadBtn?.addEventListener("click", () => {
-      // \uFEFF (UTF-8 BOM) + sep=; directive guarantees Microsoft Excel (Windows & macOS) opens columns A to H directly
       const templateContent = "\uFEFFsep=;\n" +
         "No.;Nama Lengkap;NISN;Kelas;Tempat Lahir;Tanggal Lahir;Alamat;Jenis Kelamin\n" +
-        "1;Ahmad Subagja;0012345678;X IPA 1;Jakarta;2008-05-14;Jl. Merdeka No. 10 Jakarta;L\n" +
-        "2;Siti Nurhaliza;0087654321;X IPA 1;Bandung;2008-08-20;Jl. Mawar No. 5 Bandung;P\n";
+        "1;Ahmad Fauzi;0075849301;X IPA 1;Watampone;2008-05-14;Jl. Merdeka No. 12, Watampone;Laki-laki\n" +
+        "2;Nur Aisyah Dahlan;0076928412;X IPA 1;Bone;2008-08-22;Jl. Ahmad Yani No. 45, Tanete Riattang;Perempuan\n";
       const blob = new Blob([templateContent], { type: "text/csv;charset=utf-8;" });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
@@ -1300,102 +1318,84 @@ function studentImportPage(): void {
       if (isPreview) {
         const file = fileInput.files?.[0];
         if (!file) return;
-        const text = await file.text();
-        
-        let cleanText = text.replace(/^\uFEFF/, "").trim();
-        let lines = cleanText.split(/\r?\n/).map(r => r.trim()).filter(Boolean);
-        
-        if (lines.length > 0 && lines[0]!.toLowerCase().startsWith("sep=")) {
-          lines.shift();
-        }
 
-        if (lines.length < 2) {
-          preview.innerHTML = `<div class="banner error" style="margin-top:1rem;color:#dc2626;background:#fef2f2;padding:1rem;border-radius:0.5rem;">File CSV kosong atau tidak memiliki baris data.</div>`;
-          return;
-        }
+        try {
+          const arrayBuffer = await file.arrayBuffer();
+          const wb = XLSX.read(arrayBuffer, { type: "array", cellDates: true });
+          const firstSheet = wb.Sheets[wb.SheetNames[0]!];
+          if (!firstSheet) throw new Error("File spreadsheet tidak memiliki lembar kerja (worksheet).");
 
-        const headerLine = lines[0]!;
-        const semiCount = (headerLine.match(/;/g) || []).length;
-        const commaCount = (headerLine.match(/,/g) || []).length;
-        const tabCount = (headerLine.match(/\t/g) || []).length;
+          const rawRows = XLSX.utils.sheet_to_json<any[]>(firstSheet, { header: 1, raw: false });
+          const rows = rawRows.map(r => (r || []).map(cell => String(cell ?? "").trim())).filter(r => r.some(c => c.length > 0));
 
-        let delimiter = ",";
-        if (semiCount >= commaCount && semiCount >= tabCount) delimiter = ";";
-        else if (tabCount >= commaCount) delimiter = "\t";
+          if (rows.length < 2) {
+            preview.innerHTML = `<div class="banner error" style="margin-top:1rem;color:#dc2626;background:#fef2f2;padding:1rem;border-radius:0.5rem;">File Excel / CSV kosong atau tidak memiliki baris data siswa.</div>`;
+            return;
+          }
 
-        const parseLine = (lineStr: string): string[] => {
-          const result: string[] = [];
-          let current = "";
-          let inQuotes = false;
-          for (let i = 0; i < lineStr.length; i++) {
-            const char = lineStr[i];
-            if (char === '"') {
-              if (inQuotes && lineStr[i + 1] === '"') {
-                current += '"';
-                i++;
-              } else {
-                inQuotes = !inQuotes;
-              }
-            } else if (char === delimiter && !inQuotes) {
-              result.push(current.trim());
-              current = "";
-            } else {
-              current += char;
+          let headerIdx = 0;
+          for (let i = 0; i < Math.min(5, rows.length); i++) {
+            const rStr = rows[i]!.join(" ").toLowerCase();
+            if (rStr.includes("nama") || rStr.includes("nisn") || rStr.includes("kelas")) {
+              headerIdx = i;
+              break;
             }
           }
-          result.push(current.trim());
-          return result;
-        };
 
-        const headers = parseLine(headerLine).map(h => h.toLowerCase());
-        const getIdx = (name: string) => headers.findIndex(h => h.includes(name));
+          const headers = rows[headerIdx]!.map(h => h.toLowerCase());
+          const getIdx = (name: string) => headers.findIndex(h => h.includes(name));
 
-        const nameIdx = getIdx("nama");
-        const nisnIdx = getIdx("nisn");
-        const classIdx = getIdx("kelas");
-        const pobIdx = getIdx("tempat");
-        const dobIdx = getIdx("tanggal") !== -1 ? getIdx("tanggal") : getIdx("tgl");
-        const addrIdx = getIdx("alamat");
-        const genderIdx = getIdx("jenis") !== -1 ? getIdx("jenis") : getIdx("kelamin");
+          const nameIdx = getIdx("nama");
+          const nisnIdx = getIdx("nisn");
+          const classIdx = getIdx("kelas");
+          const pobIdx = getIdx("tempat");
+          const dobIdx = getIdx("tanggal") !== -1 ? getIdx("tanggal") : getIdx("tgl");
+          const addrIdx = getIdx("alamat");
+          const genderIdx = getIdx("jenis") !== -1 ? getIdx("jenis") : getIdx("kelamin");
 
-        parsedData = [];
-        const validationErrors: Array<{ rowNum: number; name: string; missing: string[] }> = [];
+          parsedData = [];
+          const validationErrors: Array<{ rowNum: number; name: string; missing: string[] }> = [];
 
-        lines.slice(1).forEach((line, index) => {
-          const rowNum = index + 2;
-          const cols = parseLine(line).map(c => c.replace(/^"|"$/g, ''));
-          const fullName = cols[nameIdx !== -1 ? nameIdx : 0] || "";
-          const nisn = cols[nisnIdx !== -1 ? nisnIdx : 1] || "";
-          const pob = cols[pobIdx !== -1 ? pobIdx : 3] || "";
-          const dob = cols[dobIdx !== -1 ? dobIdx : 4] || "";
-          const address = cols[addrIdx !== -1 ? addrIdx : 5] || "";
-          const rawGender = (cols[genderIdx !== -1 ? genderIdx : 6] || "").toUpperCase();
+          rows.slice(headerIdx + 1).forEach((cols, index) => {
+            const rowNum = headerIdx + index + 2;
+            const fullName = cols[nameIdx !== -1 ? nameIdx : 1] || cols[1] || "";
+            const nisn = cols[nisnIdx !== -1 ? nisnIdx : 2] || cols[2] || "";
+            const pob = cols[pobIdx !== -1 ? pobIdx : 4] || cols[4] || "";
+            let dob = cols[dobIdx !== -1 ? dobIdx : 5] || cols[5] || "";
+            const address = cols[addrIdx !== -1 ? addrIdx : 6] || cols[6] || "";
+            const rawGender = (cols[genderIdx !== -1 ? genderIdx : 7] || cols[7] || "").toUpperCase();
 
-          const missingFields: string[] = [];
-          if (!fullName) missingFields.push("Nama Lengkap");
-          if (!nisn) missingFields.push("NISN");
-          if (!pob) missingFields.push("Tempat Lahir");
-          if (!dob) missingFields.push("Tanggal Lahir");
-          if (!address) missingFields.push("Alamat");
-          if (!rawGender) missingFields.push("Jenis Kelamin");
+            // Format date if in DD/MM/YYYY format
+            if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dob)) {
+              const [d, m, y] = dob.split("/");
+              dob = `${y}-${m!.padStart(2, "0")}-${d!.padStart(2, "0")}`;
+            }
 
-          if (missingFields.length > 0) {
-            validationErrors.push({ rowNum, name: fullName || "(Tanpa Nama)", missing: missingFields });
-          } else {
-            const gender = rawGender.startsWith("L") || rawGender === "MALE" ? "MALE" : rawGender.startsWith("P") || rawGender === "FEMALE" ? "FEMALE" : "OTHER";
-            parsedData.push({
-              student_number: nisn,
-              nisn,
-              full_name: fullName,
-              pob,
-              date_of_birth: dob,
-              address,
-              gender
-            });
-          }
-        });
+            const missingFields: string[] = [];
+            if (!fullName) missingFields.push("Nama Lengkap");
+            if (!nisn) missingFields.push("NISN");
+            if (!pob) missingFields.push("Tempat Lahir");
+            if (!dob) missingFields.push("Tanggal Lahir");
+            if (!address) missingFields.push("Alamat");
+            if (!rawGender) missingFields.push("Jenis Kelamin");
 
-        if (validationErrors.length > 0) {
+            if (missingFields.length > 0) {
+              validationErrors.push({ rowNum, name: fullName || "(Tanpa Nama)", missing: missingFields });
+            } else {
+              const gender = rawGender.startsWith("L") || rawGender === "MALE" ? "MALE" : rawGender.startsWith("P") || rawGender === "FEMALE" ? "FEMALE" : "OTHER";
+              parsedData.push({
+                student_number: nisn,
+                nisn,
+                full_name: fullName,
+                pob,
+                date_of_birth: dob,
+                address,
+                gender
+              });
+            }
+          });
+
+          if (validationErrors.length > 0) {
           preview.innerHTML = `
             <div style="margin-top:1.5rem;padding:1.25rem;background:#fef2f2;border:1.5px solid #fca5a5;border-radius:0.75rem;">
               <h3 style="margin:0 0 0.5rem;color:#991b1b;font-size:1.05rem;display:flex;align-items:center;gap:0.5rem;">
@@ -1473,20 +1473,24 @@ function studentImportPage(): void {
           submitBtn.textContent = `Simpan ${parsedData.length} Siswa ke Database`;
           isPreview = false;
         }
-      } else {
-        submitBtn.disabled = true;
-        submitBtn.textContent = "Menyimpan ke Database...";
-        try {
-          for (const student of parsedData) {
-            await api("/students", { method: "POST", body: JSON.stringify(student) });
-          }
-          navigate("/students");
-        } catch (error) {
-          preview.innerHTML = errorState(error);
-          submitBtn.disabled = false;
-          submitBtn.textContent = "Coba Lagi";
-        }
+      } catch (err: any) {
+        preview.innerHTML = `<div class="banner error" style="margin-top:1rem;color:#dc2626;background:#fef2f2;padding:1rem;border-radius:0.5rem;">Gagal membaca file Excel/CSV: ${escapeHtml(err?.message || String(err))}</div>`;
+        submitBtn.disabled = false;
       }
+    } else {
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Menyimpan ke Database...";
+      try {
+        for (const student of parsedData) {
+          await api("/students", { method: "POST", body: JSON.stringify(student) });
+        }
+        navigate("/students");
+      } catch (error) {
+        preview.innerHTML = errorState(error);
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Coba Lagi";
+      }
+    }
     });
   }, 0);
 }
