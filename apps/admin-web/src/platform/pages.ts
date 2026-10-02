@@ -142,101 +142,354 @@ async function production(root:HTMLElement,content:HTMLElement,schools:School[],
  }
  content.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach(b=>b.onclick=()=>void open(b.dataset.tab!).catch(e=>feedback(root,e)));await open('new');
 }
-function getTheme(s: any) {
-  const n = String(s.school_name || '').toUpperCase() + " " + String(s.school_code || '').toUpperCase();
-  if (n.includes("SMA") || n.includes("SMK")) return "#8caeed";
-  if (n.includes("SMP") || n.includes("MTS")) return "#2563eb";
-  return "#dc2626";
+function generateCode128Svg(text: string): string {
+  const PATTERNS = [
+    "212222","222122","222221","121223","121322","131222","122213","122312","132212","221213",
+    "221312","231212","112232","122132","122231","113222","123122","123221","223211","221132",
+    "221231","213212","223112","312131","311222","321122","321221","312212","322112","322211",
+    "212123","212321","232121","111323","131123","131321","112313","132113","132311","211313",
+    "231113","231311","112133","112331","132131","113123","113321","133121","313121","211331",
+    "231131","213113","213311","213131","311123","311321","331121","312113","312311","332111",
+    "314111","221411","431111","111224","111422","121124","121421","141122","141221","112214",
+    "112412","122114","122411","142112","142211","241211","221114","411112","411211","211142",
+    "211241","211421","231112","231211","212113","212311","241111","211132","211321","223111",
+    "221131","221212","241212","241221","211212","211222","231111","211213","212213","212231",
+    "213121","211332","222131","231221","211214","211412","2331112"
+  ];
+  const START_B = 104;
+  const STOP = 106;
+  const codes: number[] = [START_B];
+  let checksum = START_B;
+
+  const cleanText = String(text || '').replace(/[^\x20-\x7E]/g, '') || '0000000';
+  for (let i = 0; i < cleanText.length; i++) {
+    const code = cleanText.charCodeAt(i) - 32;
+    codes.push(code);
+    checksum += (i + 1) * code;
+  }
+  const checkCode = checksum % 103;
+  codes.push(checkCode);
+  codes.push(STOP);
+
+  let x = 0;
+  const height = 28;
+  const rects: string[] = [];
+
+  for (const codeIdx of codes) {
+    const pattern = PATTERNS[codeIdx] ?? PATTERNS[0] ?? "212222";
+    let isBar = true;
+    for (let i = 0; i < pattern.length; i++) {
+      const char = pattern.charAt(i);
+      const width = parseInt(char, 10) || 1;
+      if (isBar) {
+        rects.push(`<rect x="${x}" y="0" width="${width}" height="${height}" fill="#0f172a"/>`);
+      }
+      x += width;
+      isBar = !isBar;
+    }
+  }
+  return `<svg viewBox="0 0 ${x} ${height}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;display:block;">${rects.join('')}</svg>`;
 }
 
-function front(c:Row,qr:string){
-  const s=c.print_snapshot??{};
-  const theme = getTheme(s);
-  const photo = s.photo_url ? esc(s.photo_url) : `${location.origin}/logo.png`;
-  return `<div class="id-front" style="--theme:${theme}">
-    <header>
-      <div class="h-title">KARTU PELAJAR</div>
-      <div class="h-school">${esc(s.school_name)}</div>
-    </header>
-    <div class="id-body">
-      <div class="photo-container"><img class="id-photo" src="${photo}" alt="Foto"></div>
-      <div class="id-name">${esc(s.student_name)}</div>
-      <div class="id-nisn">NISN: ${esc(s.nisn || s.student_number)}</div>
-      
-      <div class="id-details">
-        <div class="detail-row"><span>Kelas</span>: ${esc(s.class_name || '-')}</div>
-        <div class="detail-row"><span>TTL</span>: ${esc(s.pob || '-')} / ${esc(s.date_of_birth || '-')}</div>
-        <div class="detail-row"><span>Alamat</span>: <span class="addr">${esc(s.address || '-')}</span></div>
+function formatIndonesianDate(dob?: string, pob?: string): string {
+  if (!dob && !pob) return '-';
+  let formattedDate = dob || '';
+  if (dob && /^\d{4}-\d{2}-\d{2}/.test(dob)) {
+    const rawDatePart = dob.split('T')[0] ?? '';
+    const parts = rawDatePart.split('-');
+    if (parts.length >= 3) {
+      const y = parts[0] ?? '';
+      const m = parts[1] ?? '01';
+      const d = parts[2] ?? '01';
+      const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+      const monthIdx = parseInt(m, 10) - 1;
+      const monthName = months[monthIdx] ?? m;
+      formattedDate = `${parseInt(d, 10) || 1} ${monthName} ${y}`;
+    }
+  }
+  if (pob && formattedDate) {
+    return `${pob}, ${formattedDate}`;
+  }
+  return pob || formattedDate || '-';
+}
+
+function getSchoolLogoHtml(logoUrl?: string): string {
+  if (logoUrl && String(logoUrl).trim().length > 5 && !logoUrl.endsWith('/logo.png')) {
+    return `<img class="school-logo-img" src="${esc(logoUrl)}" alt="Logo">`;
+  }
+  return `<svg viewBox="0 0 100 100" class="school-logo-svg" xmlns="http://www.w3.org/2000/svg">
+    <path d="M15,35 C15,22 35,18 50,28 C65,18 85,22 85,35 C85,62 50,88 50,88 C50,88 15,62 15,35 Z" fill="none" stroke="#003366" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M50,30 C40,42 30,52 26,64 C38,64 46,55 50,44 C54,55 62,64 74,64 C70,52 60,42 50,30 Z" fill="#0052cc"/>
+    <path d="M50,40 L50,74" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round"/>
+    <path d="M38,24 C44,27 47,31 50,35 C53,31 56,27 62,24" fill="none" stroke="#0052cc" stroke-width="5" stroke-linecap="round"/>
+  </svg>`;
+}
+
+function front(c: Row, qr: string) {
+  const s = c.print_snapshot ?? {};
+  const schoolName = s.school_name || 'SMA NEGERI 3 WATAMPONE';
+  const studentName = s.student_name || 'ANDI MUHAMMAD ASYRAAF';
+  const nisn = s.nisn || s.student_number || '0064821736';
+  const className = s.class_name || 'X-2';
+  const genderText = (s.gender === 'F' || s.gender === 'P' || String(s.gender || '').toLowerCase().includes('perem')) ? 'Perempuan' : 'Laki-laki';
+  const formattedDob = formatIndonesianDate(s.date_of_birth, s.pob) || '14 Agustus 2008';
+  const addressText = s.address || 'Jl. Pendidikan No. 12 Watampone, Bone';
+  const logoHtml = getSchoolLogoHtml(s.school_logo_url);
+  const photoUrl = (s.photo_url && String(s.photo_url).trim().length > 5) ? esc(s.photo_url) : `${location.origin}/logo.png`;
+
+  return `<div class="id-front-v2">
+    <div class="bg-shape-top-1"></div>
+    <div class="bg-shape-top-2"></div>
+    
+    <div class="id-header-v2">
+      <div class="header-logo">${logoHtml}</div>
+      <div class="header-title-box">
+        <div class="school-name-v2">${esc(schoolName)}</div>
+        <div class="school-slogan-v2">Berilmu · Berkarakter · Berprestasi</div>
       </div>
     </div>
-    <footer>
-      <img class="id-qr" src="${qr}" alt="QR">
-      <div class="f-serial">${esc(c.card_serial)}</div>
-    </footer>
+
+    <div class="id-main-row">
+      <div class="photo-col">
+        <div class="photo-frame">
+          <img class="student-img" src="${photoUrl}" alt="${esc(studentName)}">
+        </div>
+      </div>
+      <div class="meta-col">
+        <div class="meta-label">KELAS</div>
+        <div class="meta-value-class">${esc(className)}</div>
+        <div class="meta-label">NISN</div>
+        <div class="meta-value-nisn">${esc(nisn)}</div>
+        <div class="qr-container">
+          <img class="qr-img" src="${qr}" alt="QR Code">
+        </div>
+      </div>
+    </div>
+
+    <div class="id-name-block">
+      <div class="student-fullname">${esc(studentName)}</div>
+      <div class="school-subname">${esc(schoolName)}</div>
+    </div>
+
+    <div class="id-details-grid">
+      <div class="detail-item">
+        <span class="detail-icon"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg></span>
+        <span class="detail-label">Jenis Kelamin</span>
+        <span class="detail-colon">:</span>
+        <span class="detail-val">${esc(genderText)}</span>
+      </div>
+      <div class="detail-item">
+        <span class="detail-icon"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zm0-12H5V6h14v2z"/></svg></span>
+        <span class="detail-label">Tanggal Lahir</span>
+        <span class="detail-colon">:</span>
+        <span class="detail-val">${esc(formattedDob)}</span>
+      </div>
+      <div class="detail-item">
+        <span class="detail-icon"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></span>
+        <span class="detail-label">Alamat</span>
+        <span class="detail-colon">:</span>
+        <span class="detail-val addr-text">${esc(addressText)}</span>
+      </div>
+    </div>
+
+    <div class="emblem-watermark">${logoHtml}</div>
+
+    <div class="id-bottom-banner">
+      <div class="banner-slogan">
+        <span>Cerdas Hari Ini</span>
+        <span>Hebat Esok Nanti</span>
+      </div>
+      <div class="banner-line"></div>
+    </div>
+    <div class="bg-shape-bottom-right"></div>
   </div>`;
 }
 
-function back(c:Row){
-  const s=c.print_snapshot??{};
-  const theme = getTheme(s);
-  const sig = s.principal_signature_url ? `<img src="${esc(s.principal_signature_url)}" class="sig-img">` : `<div class="sig-placeholder"></div>`;
-  return `<div class="id-back" style="--theme:${theme}">
-    <header>TATA TERTIB</header>
-    <div class="b-body">
-      <ol>
-        <li>Kartu ini adalah tanda bukti sah sebagai siswa ${esc(s.school_name)}.</li>
-        <li>Kartu wajib dibawa dan dipakai selama berada di lingkungan sekolah.</li>
-        <li>Kartu ini terintegrasi dengan sistem presensi dan layanan digital sekolah.</li>
-        <li>Jika kartu ini ditemukan, mohon dikembalikan ke pihak sekolah.</li>
+function back(c: Row) {
+  const s = c.print_snapshot ?? {};
+  const schoolName = s.school_name || 'SMA NEGERI 3 WATAMPONE';
+  const studentName = s.student_name || 'ANDI MUHAMMAD ASYRAAF';
+  const nisn = s.nisn || s.student_number || '0064821736';
+  const className = s.class_name || 'X-2';
+  const academicYear = s.academic_year || '2025 / 2026';
+  const logoHtml = getSchoolLogoHtml(s.school_logo_url);
+  const principalName = s.principal_name || 'Drs. H. Muh. Yusuf, M.Pd';
+  const principalNip = s.principal_nip || '19681231 199403 1 006';
+  const sigHtml = s.principal_signature_url ? `<img src="${esc(s.principal_signature_url)}" class="sig-img" alt="TTD">` : `<div class="sig-placeholder"></div>`;
+  const barcodeCode = (s.school_code && nisn) ? `${s.school_code}-${nisn}` : (c.card_serial || 'SMAN3WTP-20250064821736');
+  const barcodeSvg = generateCode128Svg(barcodeCode);
+  const websiteUrl = s.website || `www.${String(s.school_code || 'sman3watampone').toLowerCase()}.sch.id`;
+
+  return `<div class="id-back-v2">
+    <div class="back-top-polygon"></div>
+
+    <div class="back-header">
+      <div class="back-header-left">
+        <div class="back-logo">${logoHtml}</div>
+        <div class="back-school-title">${esc(schoolName)}</div>
+      </div>
+      <div class="back-header-right">
+        <div class="card-id-label">KARTU<br>IDENTITAS<br>SISWA</div>
+      </div>
+    </div>
+
+    <div class="back-blue-card">
+      <div class="card-info-row">
+        <span class="info-icon">🎓</span>
+        <div class="info-meta">
+          <div class="info-lbl">NISN</div>
+          <div class="info-txt bold">${esc(nisn)}</div>
+        </div>
+      </div>
+
+      <div class="card-info-row">
+        <span class="info-icon">👤</span>
+        <div class="info-meta">
+          <div class="info-lbl">Nama</div>
+          <div class="info-txt bold uppercase">${esc(studentName)}</div>
+        </div>
+      </div>
+
+      <div class="card-info-row">
+        <span class="info-icon">👥</span>
+        <div class="info-meta">
+          <div class="info-lbl">Kelas</div>
+          <div class="info-txt bold">${esc(className)}</div>
+        </div>
+      </div>
+
+      <div class="card-info-row">
+        <span class="info-icon">📅</span>
+        <div class="info-meta">
+          <div class="info-lbl">Tahun Ajaran</div>
+          <div class="info-txt bold">${esc(academicYear)}</div>
+        </div>
+      </div>
+
+      <div class="card-divider"></div>
+
+      <div class="rules-header">
+        <span class="alert-icon">!</span>
+        <span class="rules-title">PERHATIAN</span>
+      </div>
+
+      <ol class="rules-list">
+        <li>Kartu ini wajib dibawa setiap hari.</li>
+        <li>Jangan hilangkan kartu ini.</li>
+        <li>Segera lapor jika kartu hilang atau rusak.</li>
+        <li>Kartu ini hanya berlaku di lingkungan ${esc(schoolName)}.</li>
       </ol>
-      <div class="b-sign">
-        <div class="sign-title">Mengetahui,<br>Kepala Sekolah</div>
-        ${sig}
-        <div class="sign-name">${esc(s.principal_name || '.......................')}</div>
+    </div>
+
+    <div class="back-bottom-row">
+      <div class="barcode-block">
+        <div class="barcode-svg">${barcodeSvg}</div>
+        <div class="barcode-text">${esc(barcodeCode)}</div>
+      </div>
+      <div class="signature-block">
+        <div class="sig-title">Kepala Sekolah</div>
+        <div class="sig-image-wrap">${sigHtml}</div>
+        <div class="sig-name">${esc(principalName)}</div>
+        <div class="sig-nip">NIP. ${esc(principalNip)}</div>
       </div>
     </div>
-    <div class="b-footer">${esc(s.school_name)}</div>
+
+    <div class="back-footer-bar">
+      <span class="web-icon">🌐</span>
+      <span class="web-url">${esc(websiteUrl)}</span>
+    </div>
   </div>`;
 }
 
-function printStyles(media:string){
+function printStyles(media: string) {
   return `@page{size:${media==='card'?'54mm 85.6mm':'A4 portrait'};margin:${media==='card'?'0':'8mm'}}
-  *{box-sizing:border-box}
-  body{margin:0;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;${media==='sheet'?'display:grid;grid-template-columns:repeat(3,54mm);gap:4mm;align-content:start;':''}}
-  .id-card{width:54mm;height:85.6mm;overflow:hidden;border:1px solid #cbd5e1;break-inside:avoid;${media==='card'?'break-after:page;':''}background:#fff;print-color-adjust:exact;-webkit-print-color-adjust:exact;position:relative;}
-  
-  .id-front, .id-back { width: 100%; height: 100%; display: flex; flex-direction: column; }
-  header { background: var(--theme); color: #fff; text-align: center; padding: 3mm 2mm; flex: none; }
-  .h-title { font-size: 7pt; font-weight: 600; letter-spacing: 1px; opacity: 0.9; }
-  .h-school { font-size: 9pt; font-weight: 800; margin-top: 1px; line-height: 1.1; }
-  
-  .id-body { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 4mm 3mm 0; }
-  .photo-container { width: 22mm; height: 28mm; border: 2px solid var(--theme); border-radius: 4px; padding: 1px; background: #fff; margin-bottom: 3mm; }
-  .id-photo { width: 100%; height: 100%; object-fit: cover; border-radius: 2px; }
-  
-  .id-name { font-size: 8.5pt; font-weight: 800; color: #0f172a; text-align: center; text-transform: uppercase; line-height: 1.2; margin-bottom: 1mm; width: 100%; }
-  .id-nisn { font-size: 7pt; font-weight: 600; color: var(--theme); margin-bottom: 3mm; background: #f1f5f9; padding: 1mm 3mm; border-radius: 12px; }
-  
-  .id-details { width: 100%; font-size: 5.5pt; color: #334155; line-height: 1.3; margin-top: auto; margin-bottom: 2mm; }
-  .detail-row { display: flex; margin-bottom: 0.5mm; }
-  .detail-row > span:first-child { width: 10mm; font-weight: 600; flex: none; }
-  .addr { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  
-  .id-front footer { display: flex; align-items: center; justify-content: space-between; padding: 2mm 3mm; background: #f8fafc; border-top: 1px solid #e2e8f0; height: 12mm; }
-  .id-qr { width: 10mm; height: 10mm; mix-blend-mode: multiply; }
-  .f-serial { font-size: 5pt; color: #94a3b8; font-family: monospace; }
-  
-  .id-back header { font-size: 9pt; padding: 2.5mm; }
-  .b-body { flex: 1; padding: 3mm; display: flex; flex-direction: column; }
-  .b-body ol { margin: 0; padding-left: 3.5mm; font-size: 5.5pt; color: #1e293b; line-height: 1.4; text-align: justify; }
-  .b-body li { margin-bottom: 1mm; }
-  
-  .b-sign { margin-top: auto; text-align: center; }
-  .sign-title { font-size: 6pt; color: #334155; margin-bottom: 1mm; }
-  .sig-img { height: 12mm; object-fit: contain; max-width: 30mm; mix-blend-mode: multiply; }
-  .sig-placeholder { height: 12mm; }
-  .sign-name { font-size: 6.5pt; font-weight: 700; text-decoration: underline; color: #0f172a; margin-top: 1mm; }
-  
-  .b-footer { font-size: 5.5pt; text-align: center; padding: 1.5mm; background: var(--theme); color: #fff; opacity: 0.9; }
-  `;
+*{box-sizing:border-box;margin:0;padding:0}
+body{margin:0;font-family:'Inter','Segoe UI',Roboto,sans-serif;background:${media==='sheet'?'#f1f5f9':'#ffffff'};${media==='sheet'?'display:grid;grid-template-columns:repeat(3,54mm);gap:5mm;align-content:start;justify-content:center;padding:5mm;':''}}
+.id-card{width:54mm;height:85.6mm;overflow:hidden;border-radius:3mm;border:1px solid #cbd5e1;break-inside:avoid;${media==='card'?'break-after:page;':''}background:#ffffff;print-color-adjust:exact;-webkit-print-color-adjust:exact;position:relative;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1)}
+
+.id-front-v2{width:100%;height:100%;position:relative;background:#ffffff;display:flex;flex-direction:column;padding:3mm 3mm 2mm 3mm;overflow:hidden;color:#0f172a}
+.bg-shape-top-1{position:absolute;top:-12mm;right:-10mm;width:38mm;height:38mm;background:linear-gradient(135deg,#0052cc 0%,#002554 100%);clip-path:polygon(30% 0%,100% 0%,100% 100%,0% 70%);z-index:1}
+.bg-shape-top-2{position:absolute;top:-8mm;right:12mm;width:18mm;height:25mm;background:#0284c7;opacity:0.85;clip-path:polygon(40% 0%,100% 0%,60% 100%,0% 100%);z-index:1}
+
+.id-header-v2{position:relative;z-index:2;display:flex;align-items:center;gap:2mm;margin-top:1mm;margin-bottom:2.5mm}
+.header-logo{width:10mm;height:10mm;flex:none;display:flex;align-items:center;justify-content:center}
+.school-logo-img{width:100%;height:100%;object-fit:contain}
+.school-logo-svg{width:100%;height:100%}
+.header-title-box{flex:1;min-width:0}
+.school-name-v2{font-size:7.5pt;font-weight:900;color:#003366;line-height:1.1;text-transform:uppercase;letter-spacing:-0.2px}
+.school-slogan-v2{font-size:4.2pt;font-style:italic;color:#0284c7;margin-top:0.5mm;font-weight:600;white-space:nowrap}
+
+.id-main-row{position:relative;z-index:2;display:flex;gap:2.5mm;align-items:flex-start;margin-bottom:2mm}
+.photo-col{width:22.5mm;flex:none}
+.photo-frame{width:22.5mm;height:28.5mm;border-radius:2mm;overflow:hidden;border:1.5px solid #0284c7;background:#e0f2fe;box-shadow:0 2px 4px rgba(0,0,0,0.08)}
+.student-img{width:100%;height:100%;object-fit:cover}
+.meta-col{flex:1;min-width:0;display:flex;flex-direction:column}
+.meta-label{font-size:4.8pt;font-weight:700;color:#0284c7;letter-spacing:0.3px;line-height:1;margin-bottom:0.5mm}
+.meta-value-class{font-size:13pt;font-weight:900;color:#002554;line-height:1;margin-bottom:1.5mm}
+.meta-value-nisn{font-size:7.5pt;font-weight:800;color:#0f172a;line-height:1;margin-bottom:2mm}
+.qr-container{width:15.5mm;height:15.5mm;padding:0.8mm;border:1px solid #0284c7;border-radius:1mm;background:#fff}
+.qr-img{width:100%;height:100%;display:block}
+
+.id-name-block{position:relative;z-index:2;margin-bottom:2mm}
+.student-fullname{font-size:8.5pt;font-weight:900;color:#002554;text-transform:uppercase;line-height:1.15;letter-spacing:-0.2px}
+.school-subname{font-size:6pt;font-weight:700;color:#0369a1;margin-top:0.5mm}
+
+.id-details-grid{position:relative;z-index:2;display:flex;flex-direction:column;gap:1.2mm;font-size:5.2pt;color:#334155;margin-bottom:auto}
+.detail-item{display:flex;align-items:flex-start;line-height:1.25}
+.detail-icon{width:3.5mm;flex:none;color:#0284c7;display:flex;align-items:center}
+.detail-label{width:14mm;flex:none;font-weight:600;color:#475569}
+.detail-colon{width:2mm;flex:none;font-weight:600;color:#475569}
+.detail-val{flex:1;font-weight:700;color:#0f172a}
+.addr-text{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-weight:500}
+
+.emblem-watermark{position:absolute;bottom:6mm;right:2mm;width:22mm;height:22mm;opacity:0.08;pointer-events:none;z-index:1}
+.emblem-watermark img,.emblem-watermark svg{width:100%;height:100%;object-fit:contain}
+
+.id-bottom-banner{position:absolute;bottom:0;left:0;width:38mm;height:7mm;background:#002554;clip-path:polygon(0 0,90% 0,100% 100%,0 100%);z-index:3;padding:1mm 2mm;display:flex;flex-direction:column;justify-content:center}
+.banner-slogan{font-size:3.8pt;font-style:italic;font-weight:700;color:#ffffff;line-height:1.1;display:flex;flex-direction:column}
+.banner-line{width:10mm;height:0.8px;background:#0284c7;margin-top:0.4mm}
+.bg-shape-bottom-right{position:absolute;bottom:-3mm;right:-3mm;width:16mm;height:12mm;background:linear-gradient(135deg,#0284c7 0%,#0052cc 100%);clip-path:polygon(40% 0,100% 60%,100% 100%,0 100%);z-index:2}
+
+.id-back-v2{width:100%;height:100%;position:relative;background:#ffffff;display:flex;flex-direction:column;padding:3mm 3mm 0mm 3mm;overflow:hidden;color:#0f172a}
+.back-header{position:relative;z-index:2;display:flex;justify-content:space-between;align-items:center;margin-bottom:2mm}
+.back-header-left{display:flex;align-items:center;gap:1.5mm}
+.back-logo{width:7.5mm;height:7.5mm}
+.back-school-title{font-size:6.5pt;font-weight:900;color:#002554;text-transform:uppercase;line-height:1.1;max-width:24mm}
+.back-header-right{text-align:right;padding-right:1mm}
+.card-id-label{font-size:4.8pt;font-weight:900;color:#002554;line-height:1.1;letter-spacing:0.3px;text-transform:uppercase;border-bottom:1.5px solid #0284c7;padding-bottom:0.5mm}
+
+.back-top-polygon{position:absolute;top:-8mm;right:-8mm;width:25mm;height:25mm;background:linear-gradient(135deg,#0052cc 0%,#002554 100%);clip-path:polygon(0 0,100% 0,100% 100%);z-index:1}
+
+.back-blue-card{position:relative;z-index:2;background:#eff6ff;border:1px solid #dbeafe;border-radius:2.5mm;padding:2.5mm 2.5mm 2mm 2.5mm;margin-bottom:2mm;display:flex;flex-direction:column;gap:1.5mm}
+.card-info-row{display:flex;align-items:center;gap:2mm}
+.info-icon{font-size:7pt;width:4mm;text-align:center;flex:none}
+.info-meta{display:flex;flex-direction:column}
+.info-lbl{font-size:4.2pt;font-weight:700;color:#64748b;text-transform:uppercase;line-height:1}
+.info-txt{font-size:5.8pt;color:#0f172a;line-height:1.15}
+.info-txt.bold{font-weight:800}
+.info-txt.uppercase{text-transform:uppercase}
+.card-divider{width:100%;height:1px;background:#cbd5e1;margin:0.5mm 0}
+
+.rules-header{display:flex;align-items:center;gap:1.5mm;margin-bottom:0.5mm}
+.alert-icon{width:3.2mm;height:3.2mm;background:#0052cc;color:#ffffff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:4.5pt;font-weight:900;flex:none}
+.rules-title{font-size:5pt;font-weight:900;color:#002554;letter-spacing:0.3px}
+.rules-list{padding-left:3.5mm;font-size:4.2pt;color:#334155;line-height:1.35}
+.rules-list li{margin-bottom:0.4mm;font-weight:500}
+
+.back-bottom-row{position:relative;z-index:2;display:flex;justify-content:space-between;align-items:flex-end;margin-top:auto;margin-bottom:2mm;padding:0 1mm}
+.barcode-block{width:25mm;display:flex;flex-direction:column;align-items:flex-start}
+.barcode-svg{width:100%;height:7mm}
+.barcode-text{font-size:4pt;font-weight:700;color:#1e293b;font-family:monospace;margin-top:0.5mm;letter-spacing:-0.2px}
+.signature-block{text-align:center;display:flex;flex-direction:column;align-items:center}
+.sig-title{font-size:4.5pt;font-weight:700;color:#334155;margin-bottom:0.5mm}
+.sig-image-wrap{height:6mm;display:flex;align-items:center;justify-content:center}
+.sig-img{max-height:6mm;max-width:18mm;object-fit:contain}
+.sig-placeholder{height:6mm}
+.sig-name{font-size:4.8pt;font-weight:800;color:#0f172a;text-decoration:underline;line-height:1.1}
+.sig-nip{font-size:4pt;font-weight:600;color:#475569;line-height:1.1}
+
+.back-footer-bar{width:calc(100% + 6mm);margin-left:-3mm;height:5.5mm;background:linear-gradient(90deg,#002554 0%,#0052cc 100%);display:flex;align-items:center;justify-content:center;gap:1.5mm;color:#ffffff;font-size:4.8pt;font-weight:700;margin-top:auto}
+.web-icon{font-size:5pt}
+.web-url{letter-spacing:0.2px}
+`;
 }
