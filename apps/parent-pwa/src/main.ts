@@ -114,6 +114,17 @@ function openPhotoCropperModal(studentId: string, studentName: string) {
         <button type="button" id="btn-save-photo" style="width:100%;padding:12px;border-radius:12px;background:#16a34a;color:white;font-weight:600;font-size:0.95rem;border:none;cursor:pointer;">
           💾 Simpan Foto (Rasio 3:4 Pas PVC)
         </button>
+        
+        <!-- Progress Bar Wrap -->
+        <div id="upload-progress-wrap" style="display:none;margin-top:14px;width:100%;">
+          <div style="display:flex;justify-space-between;align-items:center;margin-bottom:6px;font-size:0.82rem;font-weight:600;color:#1e293b;">
+            <span id="upload-progress-status">⏳ Memproses foto...</span>
+            <span id="upload-progress-percent" style="color:#2563eb;font-weight:700;">0%</span>
+          </div>
+          <div style="width:100%;height:10px;background:#e2e8f0;border-radius:999px;overflow:hidden;position:relative;">
+            <div id="upload-progress-bar" style="width:0%;height:100%;background:linear-gradient(90deg, #2563eb 0%, #16a34a 100%);border-radius:999px;transition:width 0.25s ease-out;"></div>
+          </div>
+        </div>
       </div>
 
       <div id="cropper-status" style="margin-top:12px;text-align:center;font-size:0.85rem;"></div>
@@ -205,11 +216,28 @@ function openPhotoCropperModal(studentId: string, studentName: string) {
   saveBtn.onclick = async () => {
     if (!loadedImg) return;
     saveBtn.disabled = true;
-    saveBtn.textContent = "Menyimpan foto...";
-    statusDiv.style.color = "#2563eb";
-    statusDiv.textContent = "Memproses & mengunggah foto...";
+    cameraBtn.disabled = true;
+    galleryBtn.disabled = true;
+    saveBtn.textContent = "Mengunggah foto...";
+    
+    const progressWrap = modal.querySelector("#upload-progress-wrap") as HTMLDivElement;
+    const progressBar = modal.querySelector("#upload-progress-bar") as HTMLDivElement;
+    const progressStatus = modal.querySelector("#upload-progress-status") as HTMLSpanElement;
+    const progressPercent = modal.querySelector("#upload-progress-percent") as HTMLSpanElement;
+
+    progressWrap.style.display = "block";
+    statusDiv.textContent = "";
+
+    const setProgress = (percent: number, statusText: string) => {
+      progressBar.style.width = `${percent}%`;
+      progressPercent.textContent = `${percent}%`;
+      progressStatus.textContent = statusText;
+    };
 
     try {
+      setProgress(20, "🖼️ Memotong & mengompres foto HD (3:4)...");
+      await new Promise(r => setTimeout(r, 120));
+
       const outCanvas = document.createElement("canvas");
       outCanvas.width = 600;
       outCanvas.height = 800;
@@ -220,24 +248,36 @@ function openPhotoCropperModal(studentId: string, studentName: string) {
       outCtx.fillRect(0, 0, 600, 800);
       outCtx.drawImage(loadedImg, offsetX * ratio, offsetY * ratio, loadedImg.width * scale * ratio, loadedImg.height * scale * ratio);
 
+      setProgress(45, "🚀 Mengompresi format JPEG standar PVC...");
+      await new Promise(r => setTimeout(r, 120));
+
       const base64Photo = outCanvas.toDataURL("image/jpeg", 0.88);
+
+      setProgress(70, "📡 Mengunggah foto ke database sekolah...");
 
       await request(`/parent/children/${studentId}/photo`, {
         method: "POST",
         body: JSON.stringify({ photo_url: base64Photo })
       });
 
+      setProgress(100, "✅ Foto berhasil disimpan! Status kartu SIAP CETAK.");
       statusDiv.style.color = "#16a34a";
-      statusDiv.textContent = "✅ Foto berhasil disimpan! Status kartu otomatis SIAP CETAK.";
+      statusDiv.style.fontWeight = "700";
+      statusDiv.textContent = "Kartu siswa kini siap dicetak oleh admin sekolah.";
+
       setTimeout(() => {
         modal.remove();
         void dashboard();
-      }, 1000);
+      }, 1200);
     } catch (err: any) {
       saveBtn.disabled = false;
+      cameraBtn.disabled = false;
+      galleryBtn.disabled = false;
       saveBtn.textContent = "Coba Lagi";
+      progressBar.style.background = "#dc2626";
+      progressStatus.textContent = "❌ Gagal mengunggah foto";
       statusDiv.style.color = "#dc2626";
-      statusDiv.textContent = "❌ Gagal menyimpan foto: " + (err.message || "Terjadi kesalahan");
+      statusDiv.textContent = "❌ Gagal menyimpan foto: " + (err?.message || "Terjadi kesalahan");
     }
   };
 }
