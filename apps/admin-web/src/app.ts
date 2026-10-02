@@ -756,6 +756,31 @@ async function studentsPage(): Promise<void> {
   const signatureFileInput = document.getElementById("principal-signature-file") as HTMLInputElement;
   const signaturePreview = document.getElementById("signature-preview") as HTMLImageElement;
   const signatureBase64 = document.getElementById("principal-signature-base64") as HTMLInputElement;
+
+  let lastSavedName = "";
+  let lastSavedSig = "";
+  const saveBtn = principalForm?.querySelector("button") as HTMLButtonElement | null;
+
+  const updateSaveButtonState = () => {
+    if (!saveBtn || !principalNameInput || !signatureBase64) return;
+    const currentName = principalNameInput.value.trim();
+    const currentSig = signatureBase64.value.trim();
+    const isDirty = (currentName !== lastSavedName) || (currentSig !== lastSavedSig);
+
+    if (isDirty) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = "Simpan Perubahan";
+      saveBtn.style.opacity = "1";
+      saveBtn.style.cursor = "pointer";
+    } else {
+      saveBtn.disabled = true;
+      saveBtn.textContent = "Tersimpan ✓";
+      saveBtn.style.opacity = "0.75";
+      saveBtn.style.cursor = "default";
+    }
+  };
+
+  principalNameInput?.addEventListener("input", updateSaveButtonState);
   
   signatureFileInput.onchange = (e) => {
     const file = (e.target as HTMLInputElement).files?.[0];
@@ -786,12 +811,15 @@ async function studentsPage(): Promise<void> {
       signaturePreview.style.display = 'block';
       signatureBase64.value = pngBase64;
       URL.revokeObjectURL(url);
+      updateSaveButtonState();
     };
     img.src = url;
   };
 
   api<any>("/schools/current").then(res => {
     if (res.data) {
+      lastSavedName = (res.data.principal_name || "").trim();
+      lastSavedSig = (res.data.principal_signature_url || "").trim();
       principalNameInput.value = res.data.principal_name || "";
       if (res.data.principal_signature_url) {
         signaturePreview.src = res.data.principal_signature_url;
@@ -799,6 +827,7 @@ async function studentsPage(): Promise<void> {
         signatureBase64.value = res.data.principal_signature_url;
       }
       updateLevelDropdown(res.data);
+      updateSaveButtonState();
     }
   }).catch(() => {});
   
@@ -810,7 +839,11 @@ async function studentsPage(): Promise<void> {
     const newSig = signatureBase64.value.trim() || null;
 
     await optimistic({
-      apply: () => {},
+      apply: () => {
+        lastSavedName = (newName || "").trim();
+        lastSavedSig = (newSig || "").trim();
+        updateSaveButtonState();
+      },
       mutation: () => api("/schools/current", {
         method: "PATCH",
         body: JSON.stringify({
@@ -821,6 +854,9 @@ async function studentsPage(): Promise<void> {
       rollback: () => {
         principalNameInput.value = prevName;
         signatureBase64.value = prevSig;
+        lastSavedName = (prevName || "").trim();
+        lastSavedSig = (prevSig || "").trim();
+        updateSaveButtonState();
       },
       successMessage: "Data Kepala Sekolah berhasil disimpan.",
       errorPrefix: "Gagal menyimpan data Kepala Sekolah"
