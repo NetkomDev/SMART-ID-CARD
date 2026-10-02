@@ -8,7 +8,9 @@ const studentFields = {
   date_of_birth: z.string().trim().nullable().optional(),
   pob: z.string().trim().nullable().optional(),
   address: z.string().trim().nullable().optional(),
-  is_active: z.boolean().optional()
+  is_active: z.boolean().optional(),
+  class_id: z.string().uuid().nullable().optional(),
+  class_name: z.string().trim().min(1).max(100).nullable().optional()
 };
 
 export const createStudentSchema = z.object(studentFields).strict();

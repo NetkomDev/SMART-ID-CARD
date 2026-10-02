@@ -58,8 +58,86 @@ router.get("/:id", validate({ params: idParamsSchema }), asyncHandler(async (req
 }));
 
 router.post("/", requirePermission("academic.manage"), validate({ body: createClassSchema }), asyncHandler(async (req, res) => {
+  const schoolId = req.tenant!.schoolId;
+  const { code, name, academic_year_id, grade_level, homeroom_teacher_user_id } = req.body;
+
+  // 1. Check if an active class already exists with the same code or name in this academic year
+  const { data: activeClass } = await req.auth!.client
+    .from("classes")
+    .select(selection)
+    .eq("school_id", schoolId)
+    .eq("academic_year_id", academic_year_id)
+    .is("deleted_at", null)
+    .or(`code.ilike.${code},name.ilike.${name}`)
+    .maybeSingle();
+
+  if (activeClass) {
+    throw new ApiError(409, "CONFLICT", `Kelas "${activeClass.name}" sudah ada.`);
+  }
+
+  // 2. Check if a soft-deleted class exists with the same code or name
+  const { data: softDeleted } = await req.auth!.client
+    .from("classes")
+    .select(selection)
+    .eq("school_id", schoolId)
+    .not("deleted_at", "is", null)
+    .or(`code.ilike.${code},name.ilike.${name}`)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (softDeleted) {
+    const { data: restored, error: restoreErr } = await req.auth!.client
+      .from("classes")
+      .update({
+        code,
+        name,
+        academic_year_id,
+        grade_level: grade_level ?? softDeleted.grade_level,
+        homeroom_teacher_user_id: homeroom_teacher_user_id ?? softDeleted.homeroom_teacher_user_id,
+        is_active: true,
+        deleted_at: null
+      })
+      .eq("id", softDeleted.id)
+      .select(selection)
+      .single();
+
+    if (restoreErr) throw fromDatabaseError(restoreErr);
+    return sendData(res, restored, 201);
+  }
+
+  // 3. Normal insert
   const { data, error } = await req.auth!.client.from("classes")
-    .insert({ ...req.body, school_id: req.tenant!.schoolId }).select(selection).single();
+    .insert({ ...req.body, school_id: schoolId }).select(selection).single();
+
+  if (error?.code === "23505") {
+    // Unique violation fallback: find soft-deleted record by code
+    const { data: softDeletedFallback } = await req.auth!.client
+      .from("classes")
+      .select(selection)
+      .eq("school_id", schoolId)
+      .eq("code", code)
+      .not("deleted_at", "is", null)
+      .maybeSingle();
+
+    if (softDeletedFallback) {
+      const { data: restored, error: restoreErr } = await req.auth!.client
+        .from("classes")
+        .update({
+          code,
+          name,
+          academic_year_id,
+          is_active: true,
+          deleted_at: null
+        })
+        .eq("id", softDeletedFallback.id)
+        .select(selection)
+        .single();
+      if (restoreErr) throw fromDatabaseError(restoreErr);
+      return sendData(res, restored, 201);
+    }
+  }
+
   if (error) throw fromDatabaseError(error);
   sendData(res, data, 201);
 }));
@@ -73,11 +151,45 @@ router.patch("/:id", requirePermission("academic.manage"), validate({ params: id
 }));
 
 router.delete("/:id", requirePermission("academic.manage"), validate({ params: idParamsSchema }), asyncHandler(async (req, res) => {
+  const schoolId = req.tenant!.schoolId;
+  const classId = req.params.id;
+
+  const { data: targetClass, error: findErr } = await req.auth!.client
+    .from("classes")
+    .select("id")
+    .eq("school_id", schoolId)
+    .eq("id", classId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (findErr) throw fromDatabaseError(findErr);
+  if (!targetClass) throw new ApiError(404, "CLASS_NOT_FOUND", "Class was not found");
+
+  // Check if any student_class_history references this class
+  const { count: historyCount } = await req.auth!.client
+    .from("student_class_history")
+    .select("id", { count: "exact", head: true })
+    .eq("school_id", schoolId)
+    .eq("class_id", classId);
+
+  if (!historyCount || historyCount === 0) {
+    // Attempt hard delete if no students linked
+    const { error: deleteErr } = await req.auth!.client
+      .from("classes")
+      .delete()
+      .eq("school_id", schoolId)
+      .eq("id", classId);
+
+    if (!deleteErr) {
+      return res.status(204).send();
+    }
+  }
+
+  // Soft delete fallback
   const { data, error } = await req.auth!.client.from("classes")
     .update({ is_active: false, deleted_at: new Date().toISOString() })
-    .eq("school_id", req.tenant!.schoolId).eq("id", req.params.id).is("deleted_at", null).select("id").maybeSingle();
+    .eq("school_id", schoolId).eq("id", classId).is("deleted_at", null).select("id").maybeSingle();
   if (error) throw fromDatabaseError(error);
-  if (!data) throw new ApiError(404, "CLASS_NOT_FOUND", "Class was not found");
   res.status(204).send();
 }));
 

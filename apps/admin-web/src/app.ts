@@ -1360,6 +1360,7 @@ function studentImportPage(): void {
             const rowNum = headerIdx + index + 2;
             const fullName = cols[nameIdx !== -1 ? nameIdx : 1] || cols[1] || "";
             const nisn = cols[nisnIdx !== -1 ? nisnIdx : 2] || cols[2] || "";
+            const className = cols[classIdx !== -1 ? classIdx : 3] || cols[3] || "";
             const pob = cols[pobIdx !== -1 ? pobIdx : 4] || cols[4] || "";
             let dob = cols[dobIdx !== -1 ? dobIdx : 5] || cols[5] || "";
             const address = cols[addrIdx !== -1 ? addrIdx : 6] || cols[6] || "";
@@ -1387,6 +1388,7 @@ function studentImportPage(): void {
                 student_number: nisn,
                 nisn,
                 full_name: fullName,
+                class_name: className || undefined,
                 pob,
                 date_of_birth: dob,
                 address,
@@ -1448,6 +1450,7 @@ function studentImportPage(): void {
                     <tr>
                       <th>NISN</th>
                       <th>Nama Lengkap</th>
+                      <th>Kelas Target</th>
                       <th>Tempat / Tgl Lahir</th>
                       <th>Alamat</th>
                       <th>JK</th>
@@ -1458,6 +1461,7 @@ function studentImportPage(): void {
                       <tr>
                         <td><strong>${escapeHtml(s.nisn)}</strong></td>
                         <td>${escapeHtml(s.full_name)}</td>
+                        <td><span class="pill" style="font-size:0.75rem;padding:2px 8px;background:#e0f2fe;color:#0369a1;font-weight:600;">${escapeHtml(s.class_name || "-")}</span></td>
                         <td>${escapeHtml(s.pob || "-")}, ${escapeHtml(s.date_of_birth || "-")}</td>
                         <td><small>${escapeHtml(s.address || "-")}</small></td>
                         <td>${s.gender === "MALE" ? "L" : s.gender === "FEMALE" ? "P" : "-"}</td>
