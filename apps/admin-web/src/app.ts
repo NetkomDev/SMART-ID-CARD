@@ -397,11 +397,11 @@ async function studentsPage(): Promise<void> {
 
     let levels = ["1", "2", "3", "4", "5", "6"];
     if (n.includes("SMP") || n.includes("MTS")) {
-      levels = ["VII", "VIII", "IX", "7", "8", "9"];
+      levels = ["VII", "VIII", "IX"];
     } else if (n.includes("SMA") || n.includes("SMK") || n.includes("MA")) {
-      levels = ["X", "XI", "XII", "10", "11", "12"];
+      levels = ["X", "XI", "XII"];
     } else if (n.includes("SD") || n.includes("MI")) {
-      levels = ["1", "2", "3", "4", "5", "6", "I", "II", "III", "IV", "V", "VI"];
+      levels = ["1", "2", "3", "4", "5", "6"];
     }
 
     const selectEl = document.getElementById("add-class-level") as HTMLSelectElement | null;
