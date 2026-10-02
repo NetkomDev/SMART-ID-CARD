@@ -1452,5 +1452,183 @@ code { background: var(--bg); padding: .2rem .35rem; border-radius: .3rem; font-
   font-size: 1rem;
 }
 
+/* ═══════════════════════════════════════════════════
+   Toast Notification System
+   ═══════════════════════════════════════════════════ */
+#aksis-toast-container {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 99999;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 0.5rem;
+  pointer-events: none;
+  max-width: 420px;
+  width: calc(100% - 3rem);
+}
+
+.aksis-toast {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.4;
+  pointer-events: all;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid transparent;
+  opacity: 0;
+  transform: translateY(12px) scale(0.96);
+  transition: none;
+  animation: none;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.aksis-toast--visible {
+  animation: toastIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.aksis-toast--exit {
+  animation: toastOut 0.25s ease forwards;
+}
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes toastOut {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(-8px) scale(0.96); }
+}
+
+/* Variants */
+.aksis-toast--success {
+  background: rgba(220, 252, 231, 0.95);
+  color: #15803d;
+  border-color: #86efac;
+}
+.aksis-toast--error {
+  background: rgba(254, 226, 226, 0.95);
+  color: #b91c1c;
+  border-color: #fca5a5;
+}
+.aksis-toast--info {
+  background: rgba(219, 234, 254, 0.95);
+  color: #1d4ed8;
+  border-color: #93c5fd;
+}
+.aksis-toast--warning {
+  background: rgba(254, 243, 199, 0.95);
+  color: #92400e;
+  border-color: #fcd34d;
+}
+
+/* Dark mode variants */
+[data-theme="dark"] .aksis-toast--success {
+  background: rgba(22, 101, 52, 0.85);
+  color: #bbf7d0;
+  border-color: rgba(134, 239, 172, 0.3);
+}
+[data-theme="dark"] .aksis-toast--error {
+  background: rgba(153, 27, 27, 0.85);
+  color: #fecaca;
+  border-color: rgba(252, 165, 165, 0.3);
+}
+[data-theme="dark"] .aksis-toast--info {
+  background: rgba(30, 58, 138, 0.85);
+  color: #bfdbfe;
+  border-color: rgba(147, 197, 253, 0.3);
+}
+[data-theme="dark"] .aksis-toast--warning {
+  background: rgba(120, 53, 15, 0.85);
+  color: #fde68a;
+  border-color: rgba(252, 211, 77, 0.3);
+}
+
+.aksis-toast__icon {
+  display: flex;
+  align-items: center;
+  flex: none;
+}
+
+.aksis-toast__msg {
+  flex: 1;
+  min-width: 0;
+}
+
+.aksis-toast__action {
+  flex: none;
+  padding: 0.3rem 0.6rem;
+  border-radius: 0.375rem;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  opacity: 0.85;
+  transition: opacity 0.15s;
+}
+.aksis-toast__action:hover {
+  opacity: 1;
+}
+
+.aksis-toast__close {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 1.1rem;
+  cursor: pointer;
+  opacity: 0.5;
+  border-radius: 50%;
+  padding: 0;
+  transition: opacity 0.15s, background 0.15s;
+}
+.aksis-toast__close:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.08);
+}
+[data-theme="dark"] .aksis-toast__close:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+@media (max-width: 480px) {
+  #aksis-toast-container {
+    right: 0.75rem;
+    bottom: 0.75rem;
+    width: calc(100% - 1.5rem);
+    max-width: 100%;
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   Optimistic Row Animations
+   ═══════════════════════════════════════════════════ */
+tr.row-removing {
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  transition: opacity 0.25s ease, max-height 0.3s ease 0.1s;
+}
+
+tr.row-inserting {
+  animation: rowSlideIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes rowSlideIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
 

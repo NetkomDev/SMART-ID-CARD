@@ -5,6 +5,8 @@ import { canAccess, isPlatformRoute } from "./lib/permissions";
 import { clearSession, getSession, setSchoolId, setSession } from "./lib/session";
 import type { AcademicYear, Attendance, AuthContext, Card, Device, Extracurricular, LedContent, School, SchoolClass, Student } from "./lib/types";
 import { renderLandingPage } from "./landing";
+import { toast, toastSuccess, toastError } from "./lib/toast";
+import { optimistic, removeRowOptimistic } from "./lib/optimistic";
 
 const savedTheme = localStorage.getItem("aksis-theme") || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
 document.documentElement.setAttribute("data-theme", savedTheme);
@@ -460,18 +462,21 @@ async function studentsPage(): Promise<void> {
           const name = btn.dataset.name!;
           const count = Number(btn.dataset.count);
           if (count > 0) {
-            alert(`Kelas "${name}" masih berisi ${count} siswa. Pindahkan siswa terlebih dahulu sebelum menghapus kelas.`);
+            toastError(`Kelas "${name}" masih berisi ${count} siswa. Pindahkan siswa terlebih dahulu sebelum menghapus.`);
             return;
           }
           if (!confirm(`Apakah Anda yakin ingin menghapus kelas "${name}"?`)) return;
-          try {
-            await api(`/classes/${id}`, { method: "DELETE" });
-            if (selectedClassId === id) selectedClassId = null;
-            await loadClasses();
-            await loadStudents(currentSearch);
-          } catch (err: any) {
-            alert("Gagal menghapus kelas: " + (err.message || "Terjadi kesalahan"));
-          }
+          const row = btn.closest("tr");
+          const reinsertRow = row ? removeRowOptimistic(row as HTMLTableRowElement) : () => {};
+          if (selectedClassId === id) selectedClassId = null;
+          await optimistic({
+            apply: () => {},
+            mutation: () => api(`/classes/${id}`, { method: "DELETE" }),
+            rollback: () => { reinsertRow(); },
+            revalidate: async () => { await loadClasses(); await loadStudents(currentSearch); },
+            successMessage: `Kelas "${name}" berhasil dihapus.`,
+            errorPrefix: "Gagal menghapus kelas"
+          });
         };
       });
     } catch (err) {
@@ -539,7 +544,7 @@ async function studentsPage(): Promise<void> {
       addClassForm.reset();
       await loadClasses();
     } catch (err: any) {
-      alert("Gagal menambah kelas: " + (err.message || "Terjadi kesalahan"));
+      toastError("Gagal menambah kelas: " + (err.message || "Terjadi kesalahan"));
     } finally {
       btn.disabled = false;
       btn.textContent = "Simpan Kelas";
@@ -559,35 +564,56 @@ async function studentsPage(): Promise<void> {
     saveBtn.disabled = true;
     saveBtn.textContent = "Menyimpan...";
 
-    try {
-      const full_name = (document.getElementById("edit-full-name") as HTMLInputElement).value.trim();
-      const nisn = (document.getElementById("edit-nisn") as HTMLInputElement).value.trim() || null;
-      const pob = (document.getElementById("edit-pob") as HTMLInputElement).value.trim() || null;
-      const date_of_birth = (document.getElementById("edit-dob") as HTMLInputElement).value || null;
-      const address = (document.getElementById("edit-address") as HTMLInputElement).value.trim() || null;
-      const gender = (document.getElementById("edit-gender") as HTMLSelectElement).value;
-      const is_active = (document.getElementById("edit-status") as HTMLSelectElement).value === "true";
+    const full_name = (document.getElementById("edit-full-name") as HTMLInputElement).value.trim();
+    const nisn = (document.getElementById("edit-nisn") as HTMLInputElement).value.trim() || null;
+    const pob = (document.getElementById("edit-pob") as HTMLInputElement).value.trim() || null;
+    const date_of_birth = (document.getElementById("edit-dob") as HTMLInputElement).value || null;
+    const address = (document.getElementById("edit-address") as HTMLInputElement).value.trim() || null;
+    const gender = (document.getElementById("edit-gender") as HTMLSelectElement).value;
+    const is_active = (document.getElementById("edit-status") as HTMLSelectElement).value === "true";
 
-      await api(`/students/${id}`, {
+    // Close modal immediately for optimistic UX
+    closeModal();
+
+    // Find the student row and update cells optimistically
+    const targetRow = document.querySelector(`[data-student]`);
+    const prevHtml = targetRow?.closest("tbody")?.innerHTML;
+
+    await optimistic({
+      apply: () => {
+        // Update the row in place if found
+        const allRows = document.querySelectorAll<HTMLTableRowElement>("#table-data tbody tr");
+        for (const row of allRows) {
+          const editBtn = row.querySelector<HTMLButtonElement>(".btn-edit-student");
+          if (!editBtn) continue;
+          try {
+            const data = JSON.parse(editBtn.dataset.student!);
+            if (data.id === id) {
+              const cells = row.querySelectorAll("td");
+              if (cells[1]) cells[1].innerHTML = `<strong>${escapeHtml(full_name)}</strong>`;
+              if (cells[2]) cells[2].textContent = nisn ?? "—";
+              break;
+            }
+          } catch {}
+        }
+      },
+      mutation: () => api(`/students/${id}`, {
         method: "PATCH",
-        body: JSON.stringify({
-          full_name,
-          nisn,
-          pob,
-          date_of_birth,
-          address,
-          gender,
-          is_active
-        })
-      });
-      closeModal();
-      await loadStudents(currentSearch);
-    } catch (err: any) {
-      alert("Gagal memperbarui data siswa: " + (err.message || "Terjadi kesalahan"));
-    } finally {
-      saveBtn.disabled = false;
-      saveBtn.textContent = "Simpan Perubahan";
-    }
+        body: JSON.stringify({ full_name, nisn, pob, date_of_birth, address, gender, is_active })
+      }),
+      rollback: () => {
+        if (prevHtml) {
+          const tbody = document.querySelector("#table-data tbody");
+          if (tbody) tbody.innerHTML = prevHtml;
+        }
+      },
+      revalidate: () => loadStudents(currentSearch),
+      successMessage: `Data siswa ${full_name} berhasil diperbarui.`,
+      errorPrefix: "Gagal memperbarui data siswa"
+    });
+
+    saveBtn.disabled = false;
+    saveBtn.textContent = "Simpan Perubahan";
   };
 
   const loadStudents = async (search = "") => {
@@ -670,13 +696,16 @@ async function studentsPage(): Promise<void> {
           const id = btn.dataset.id!;
           const name = btn.dataset.name!;
           if (!confirm(`Apakah Anda yakin ingin menghapus data siswa "${name}"?`)) return;
-          try {
-            await api(`/students/${id}`, { method: "DELETE" });
-            await loadStudents(currentSearch);
-            await loadClasses();
-          } catch (err: any) {
-            alert("Gagal menghapus siswa: " + (err.message || "Terjadi kesalahan"));
-          }
+          const row = btn.closest("tr") as HTMLTableRowElement | null;
+          const reinsertRow = row ? removeRowOptimistic(row) : () => {};
+          await optimistic({
+            apply: () => {},
+            mutation: () => api(`/students/${id}`, { method: "DELETE" }),
+            rollback: () => { reinsertRow(); },
+            revalidate: async () => { await loadStudents(currentSearch); await loadClasses(); },
+            successMessage: `Data siswa "${name}" berhasil dihapus.`,
+            errorPrefix: "Gagal menghapus siswa"
+          });
         };
       });
     } catch (error) { document.querySelector("#table-data")!.innerHTML = errorState(error); }
@@ -758,9 +787,9 @@ async function studentsPage(): Promise<void> {
           principal_signature_url: signatureBase64.value.trim() || null
         })
       });
-      alert("Data Kepala Sekolah berhasil disimpan.");
+      toastSuccess("Data Kepala Sekolah berhasil disimpan.");
     } catch (err: any) {
-      alert("Gagal menyimpan data: " + (err.message || "Kesalahan tidak diketahui"));
+      toastError("Gagal menyimpan data: " + (err.message || "Kesalahan tidak diketahui"));
     } finally {
       btn.disabled = false;
       btn.textContent = "Simpan";
@@ -846,7 +875,19 @@ async function academicYearsPage(): Promise<void> {
             body: JSON.stringify({ name, start_date, end_date })
           });
 
-          window.location.reload();
+          // Optimistic: close modal, show toast, then re-render
+          modal.style.display = "none";
+          toastSuccess(`Tahun ajaran "${name}" berhasil ditambahkan.`);
+          // Append row optimistically to the table
+          const tbody = document.querySelector("article.panel tbody");
+          if (tbody) {
+            const newRow = document.createElement("tr");
+            newRow.className = "row-inserting";
+            newRow.innerHTML = `<td><strong>${escapeHtml(name)}</strong></td><td>${escapeHtml(start_date)} — ${escapeHtml(end_date)}</td><td><span class="status neutral">Nonaktif (Baru)</span></td>`;
+            tbody.appendChild(newRow);
+          }
+          // Silently re-render full page after 500ms
+          setTimeout(() => void render(), 500);
         } catch (err: any) {
           errorDiv.textContent = err.message || "Gagal menyimpan.";
           errorDiv.style.display = "block";
@@ -861,19 +902,28 @@ async function academicYearsPage(): Promise<void> {
           const id = target.getAttribute("data-id");
           if (!id || !confirm("Jadikan tahun ajaran ini sebagai periode aktif berjalan?")) return;
 
-          target.disabled = true;
-          target.textContent = "Memproses...";
-          try {
-            await api("/academic-years/switch", {
+          const row = target.closest("tr");
+          const prevButtons = document.querySelectorAll<HTMLElement>(".btn-switch-year");
+          const prevActiveLabel = document.querySelector(".status.success");
+
+          // Optimistic: immediately swap the UI
+          target.outerHTML = `<span class="status success">Aktif berjalan</span>`;
+          // Remove "Aktif berjalan" badge from previous active row
+          if (prevActiveLabel && prevActiveLabel.closest("tr") !== row) {
+            prevActiveLabel.outerHTML = `<button class="button secondary btn-switch-year" style="padding:0.3rem 0.6rem;font-size:0.75rem;">Jadikan Aktif</button>`;
+          }
+
+          await optimistic({
+            apply: () => {},
+            mutation: () => api("/academic-years/switch", {
               method: "POST",
               body: JSON.stringify({ academic_year_id: id })
-            });
-            window.location.reload();
-          } catch (err: any) {
-            alert("Gagal mengaktifkan: " + err.message);
-            target.disabled = false;
-            target.textContent = "Jadikan Aktif";
-          }
+            }),
+            rollback: () => void render(),
+            revalidate: () => void render(),
+            successMessage: "Tahun ajaran aktif berhasil diubah.",
+            errorPrefix: "Gagal mengaktifkan tahun ajaran"
+          });
         });
       });
     }, 100);
@@ -980,15 +1030,28 @@ async function cardsPage(): Promise<void> {
           const newStatus = prompt("Masukkan status baru (BLOCKED, LOST, EXPIRED):\nCatatan: Status ACTIVE hanya diaktifkan otomatis oleh Super Admin setelah chip disuntik via Card Station.\nPerhatian: Mengubah status ke LOST/BLOCKED akan menonaktifkan kartu.", current.status);
           if(newStatus && ["ACTIVE", "LOST", "BLOCKED", "EXPIRED"].includes(newStatus) && newStatus !== current.status) {
             if (newStatus === "ACTIVE" && (current as any).production_status !== "VERIFIED" && (current as any).production_status !== "LEGACY") {
-              alert(`Gagal: Kartu belum disuntik chip NFC oleh Super Admin (Status Produksi: ${(current as any).production_status || 'DRAFT'}).\n\nKartu fisik harus dicetak dan disuntik chip terlebih dahulu melalui Card Station Super Admin.`);
+              toastError(`Kartu belum disuntik chip NFC oleh Super Admin (Status Produksi: ${(current as any).production_status || 'DRAFT'}). Kartu fisik harus dicetak dan disuntik chip terlebih dahulu.`);
               return;
             }
             const reason = prompt("Alasan perubahan status:") || "Diperbarui admin sekolah";
-            try {
-              btn.disabled = true;
-              await api(`/cards/${id}`, { method: "PATCH", body: JSON.stringify({ status: newStatus, reason }) });
-              void loadCards();
-            } catch (err) { alert((err as Error).message); btn.disabled = false; }
+            const row = btn.closest("tr");
+            const statusCell = row?.querySelectorAll("td")[3];
+            const prevStatusHtml = statusCell?.innerHTML ?? "";
+
+            await optimistic({
+              apply: () => {
+                if (statusCell) statusCell.innerHTML = `<span class="status ${newStatus === 'ACTIVE' ? 'success' : 'warning'}">${escapeHtml(newStatus)}</span>`;
+                btn.disabled = true;
+              },
+              mutation: () => api(`/cards/${id}`, { method: "PATCH", body: JSON.stringify({ status: newStatus, reason }) }),
+              rollback: () => {
+                if (statusCell) statusCell.innerHTML = prevStatusHtml;
+                btn.disabled = false;
+              },
+              revalidate: () => loadCards(),
+              successMessage: `Status kartu berhasil diubah ke ${newStatus}.`,
+              errorPrefix: "Gagal mengubah status kartu"
+            });
           }
         }));
       } catch (err) { document.querySelector("#cards-data")!.innerHTML = errorState(err); }
@@ -1389,7 +1452,7 @@ function classPromotionPage(): void {
             processed++;
             submitBtn.textContent = `Memproses... ${processed}/${parsedData.length}`;
           }
-          alert("Kenaikan kelas massal berhasil diselesaikan!");
+          toastSuccess("Kenaikan kelas massal berhasil diselesaikan!");
           navigate("/students");
         } catch (error) {
           preview.innerHTML = errorState(error);
@@ -1465,10 +1528,11 @@ async function wastePage(): Promise<void> {
           await api("/schools/current", { method: "PATCH", body: JSON.stringify({ waste_start_time: start ? start + ":00" : null, waste_end_time: end ? end + ":00" : null,
             waste_organic_points_per_kg: (document.getElementById("waste-organic-rate") as HTMLInputElement).value === "" ? null : Number((document.getElementById("waste-organic-rate") as HTMLInputElement).value),
             waste_inorganic_points_per_kg: (document.getElementById("waste-inorganic-rate") as HTMLInputElement).value === "" ? null : Number((document.getElementById("waste-inorganic-rate") as HTMLInputElement).value) }) });
-          btn.textContent = "Tersimpan!";
-          setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 2000);
+          toastSuccess("Pengaturan Bank Sampah berhasil disimpan.");
+          btn.textContent = originalText;
+          btn.disabled = false;
         } catch (err: any) {
-          alert("Gagal menyimpan: " + err.message);
+          toastError("Gagal menyimpan: " + err.message);
           btn.textContent = originalText;
           btn.disabled = false;
         }
@@ -1560,7 +1624,29 @@ async function extracurricularPage(): Promise<void> {
             })
           });
 
-          window.location.reload();
+          // Optimistic: close modal, append row, show toast
+          modal.style.display = "none";
+          const tbody = document.querySelector("#ekskul-table tbody");
+          if (tbody) {
+            const newRow = document.createElement("tr");
+            newRow.className = "row-inserting";
+            newRow.innerHTML = `<td><code>${escapeHtml(code.trim())}</code></td><td><strong>${escapeHtml(name.trim())}</strong></td><td>${escapeHtml(desc.trim() || "—")}</td><td><span class="status success">Aktif</span></td>`;
+            tbody.appendChild(newRow);
+          }
+          // Update stat counts
+          const statCards = document.querySelectorAll(".stat-card strong");
+          if (statCards[0]) {
+            const prev = parseInt(statCards[0].textContent || "0");
+            statCards[0].textContent = `${prev + 1} Kegiatan`;
+          }
+          if (statCards[1]) {
+            const prev = parseInt(statCards[1].textContent || "0");
+            statCards[1].textContent = `${prev + 1} Kegiatan`;
+          }
+          toastSuccess(`Ekstrakurikuler "${name.trim()}" berhasil ditambahkan.`);
+          form.reset();
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Simpan Ekstrakurikuler";
         } catch (err: any) {
           errorDiv.textContent = err.message || "Gagal menyimpan data.";
           errorDiv.style.display = "block";
@@ -1577,20 +1663,30 @@ async function extracurricularPage(): Promise<void> {
           const isCurrentlyActive = target.getAttribute("data-current") === "true";
           const newStatus = !isCurrentlyActive;
 
-          target.textContent = "Menyimpan...";
-          target.style.opacity = "0.5";
+          // Optimistic: immediately swap the badge
+          const prevText = target.textContent;
+          const prevClass = isCurrentlyActive ? "success" : "neutral";
+          const nextClass = newStatus ? "success" : "neutral";
+          target.textContent = newStatus ? "Aktif ⟳" : "Nonaktif ⟳";
+          target.classList.remove(prevClass);
+          target.classList.add(nextClass);
+          target.setAttribute("data-current", String(newStatus));
 
-          try {
-            await api(`/extracurriculars/${id}`, {
+          await optimistic({
+            apply: () => {},
+            mutation: () => api(`/extracurriculars/${id}`, {
               method: "PATCH",
               body: JSON.stringify({ is_active: newStatus })
-            });
-            window.location.reload();
-          } catch (err: any) {
-            alert("Gagal mengubah status: " + err.message);
-            target.textContent = isCurrentlyActive ? "Aktif ⟳" : "Nonaktif ⟳";
-            target.style.opacity = "1";
-          }
+            }),
+            rollback: () => {
+              target.textContent = prevText;
+              target.classList.remove(nextClass);
+              target.classList.add(prevClass);
+              target.setAttribute("data-current", String(isCurrentlyActive));
+            },
+            successMessage: `Status ekskul berhasil diubah ke ${newStatus ? "Aktif" : "Nonaktif"}.`,
+            errorPrefix: "Gagal mengubah status ekskul"
+          });
         }
       });
     }, 100);
@@ -1674,18 +1770,30 @@ async function ledPage(): Promise<void> {
         try {
           const priority = (document.getElementById("led-priority") as HTMLSelectElement).value;
           const title = (document.getElementById("led-title") as HTMLInputElement).value;
-          const body = (document.getElementById("led-body") as HTMLTextAreaElement).value;
+          const bodyText = (document.getElementById("led-body") as HTMLTextAreaElement).value;
 
           await api("/led/content", {
             method: "POST",
             body: JSON.stringify({
               priority,
               title: title.trim() || null,
-              body: body.trim()
+              body: bodyText.trim()
             })
           });
 
-          window.location.reload();
+          // Optimistic: close modal, append row, show toast
+          modal.style.display = "none";
+          const tbody = document.querySelector("#led-table tbody");
+          if (tbody) {
+            const newRow = document.createElement("tr");
+            newRow.className = "row-inserting";
+            newRow.innerHTML = `<td><strong>${escapeHtml(title.trim() || "—")}</strong></td><td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(bodyText.trim())}</td><td>${escapeHtml(priority)}</td><td>— — —</td><td><span class="status success">Aktif</span></td>`;
+            tbody.appendChild(newRow);
+          }
+          toastSuccess("Pesan LED berhasil ditambahkan.");
+          form.reset();
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Simpan Pesan";
         } catch (err: any) {
           errorDiv.textContent = err.message || "Gagal menyimpan pesan.";
           errorDiv.style.display = "block";
@@ -1701,20 +1809,30 @@ async function ledPage(): Promise<void> {
           const isCurrentlyActive = target.getAttribute("data-current") === "true";
           const newStatus = !isCurrentlyActive;
 
-          target.textContent = "Menyimpan...";
-          target.style.opacity = "0.5";
+          // Optimistic: immediately swap the badge
+          const prevText = target.textContent;
+          const prevClass = isCurrentlyActive ? "success" : "neutral";
+          const nextClass = newStatus ? "success" : "neutral";
+          target.textContent = newStatus ? "Aktif ⟳" : "Nonaktif ⟳";
+          target.classList.remove(prevClass);
+          target.classList.add(nextClass);
+          target.setAttribute("data-current", String(newStatus));
 
-          try {
-            await api(`/led/content/${id}`, {
+          await optimistic({
+            apply: () => {},
+            mutation: () => api(`/led/content/${id}`, {
               method: "PATCH",
               body: JSON.stringify({ is_active: newStatus })
-            });
-            window.location.reload();
-          } catch (err: any) {
-            alert("Gagal mengubah status: " + err.message);
-            target.textContent = isCurrentlyActive ? "Aktif ⟳" : "Nonaktif ⟳";
-            target.style.opacity = "1";
-          }
+            }),
+            rollback: () => {
+              target.textContent = prevText;
+              target.classList.remove(nextClass);
+              target.classList.add(prevClass);
+              target.setAttribute("data-current", String(isCurrentlyActive));
+            },
+            successMessage: `Status pesan LED berhasil diubah ke ${newStatus ? "Aktif" : "Nonaktif"}.`,
+            errorPrefix: "Gagal mengubah status pesan LED"
+          });
         }
       });
     }, 100);
@@ -1998,17 +2116,31 @@ async function pwaPortalsPage() {
         }).join("")}</tbody></table></div>` : `<p>Belum ada QR diterbitkan untuk sekolah ini.</p>`;
         container.querySelectorAll<HTMLButtonElement>("[data-revoke]").forEach(button => {
           button.onclick = async () => {
-            button.disabled = true;
-            try { await api(`/auth/qr/${button.dataset.revoke}`, { method: "DELETE" }); await loadAccess(); }
-            catch (error) { button.disabled = false; button.textContent = "Coba nonaktifkan lagi"; const feedback = document.createElement("p"); feedback.textContent = error instanceof Error ? error.message : "Gagal menonaktifkan akses"; container.append(feedback); }
+            const row = button.closest("tr");
+            const reinsert = row ? removeRowOptimistic(row as HTMLTableRowElement) : () => {};
+            await optimistic({
+              apply: () => { button.disabled = true; },
+              mutation: () => api(`/auth/qr/${button.dataset.revoke}`, { method: "DELETE" }),
+              rollback: () => { reinsert(); button.disabled = false; },
+              revalidate: () => loadAccess(),
+              successMessage: "Akses portal berhasil dinonaktifkan.",
+              errorPrefix: "Gagal menonaktifkan akses"
+            });
           };
         });
         container.querySelectorAll<HTMLButtonElement>("[data-hard-delete]").forEach(button => {
           button.onclick = async () => {
             if (!confirm("Apakah Anda yakin ingin menghapus akses ini secara permanen? Data yang berkaitan dengan sesi ini akan ikut terhapus.")) return;
-            button.disabled = true;
-            try { await api(`/auth/qr/${button.dataset.hardDelete}/hard`, { method: "DELETE" }); await loadAccess(); }
-            catch (error) { button.disabled = false; button.textContent = "Coba hapus lagi"; const feedback = document.createElement("p"); feedback.textContent = error instanceof Error ? error.message : "Gagal menghapus akses"; container.append(feedback); }
+            const row = button.closest("tr");
+            const reinsert = row ? removeRowOptimistic(row as HTMLTableRowElement) : () => {};
+            await optimistic({
+              apply: () => { button.disabled = true; },
+              mutation: () => api(`/auth/qr/${button.dataset.hardDelete}/hard`, { method: "DELETE" }),
+              rollback: () => { reinsert(); button.disabled = false; },
+              revalidate: () => loadAccess(),
+              successMessage: "Akses portal berhasil dihapus secara permanen.",
+              errorPrefix: "Gagal menghapus akses"
+            });
           };
         });
       } catch (error) { container.textContent = error instanceof Error ? error.message : "Daftar akses belum tersedia"; }
