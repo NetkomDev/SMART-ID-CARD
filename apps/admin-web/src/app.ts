@@ -539,39 +539,50 @@ async function studentsPage(): Promise<void> {
 
   addClassForm.onsubmit = async (e) => {
     e.preventDefault();
-    const btn = document.getElementById("btn-save-new-class") as HTMLButtonElement;
-    
-    try {
-      btn.disabled = true;
-      btn.textContent = "Menyimpan...";
-      
-      const years = await api<AcademicYear[]>("/academic-years");
-      const activeYear = years.data.find(y => y.is_active) ?? years.data[0];
-      if (!activeYear) throw new Error("Belum ada Tahun Ajaran aktif.");
+    const level = levelSelect.value;
+    const parallels = parallelInput.value.split(",").map(s => s.trim()).filter(Boolean);
+    const classNamesToCreate = parallels.length > 0 
+      ? parallels.map(p => `${level} ${p}`)
+      : [level];
 
-      const level = levelSelect.value;
-      const parallels = parallelInput.value.split(",").map(s => s.trim()).filter(Boolean);
-      
-      const classNamesToCreate = parallels.length > 0 
-        ? parallels.map(p => `${level} ${p}`)
-        : [level];
+    closeAddClass();
 
+    // Optimistically insert new class rows into table
+    const tbody = document.querySelector("#classes-data tbody");
+    const insertedRows: HTMLTableRowElement[] = [];
+    if (tbody) {
       for (const className of classNamesToCreate) {
-        const code = className.toLowerCase().replace(/\s+/g, "-");
-        await api("/classes", {
-          method: "POST",
-          body: JSON.stringify({ name: className, code, academic_year_id: activeYear.id })
-        });
+        const tr = document.createElement("tr");
+        tr.className = "row-inserting";
+        tr.innerHTML = `<td><strong>${escapeHtml(className)}</strong></td><td>0 siswa</td><td><button class="button danger btn-delete-class" style="padding:0.2rem 0.5rem;font-size:0.75rem;" disabled>Hapus</button></td>`;
+        tbody.appendChild(tr);
+        insertedRows.push(tr);
       }
-      closeAddClass();
-      addClassForm.reset();
-      await loadClasses();
-    } catch (err: any) {
-      toastError("Gagal menambah kelas: " + (err.message || "Terjadi kesalahan"));
-    } finally {
-      btn.disabled = false;
-      btn.textContent = "Simpan Kelas";
     }
+
+    await optimistic({
+      apply: () => {},
+      mutation: async () => {
+        const years = await api<AcademicYear[]>("/academic-years");
+        const activeYear = years.data.find(y => y.is_active) ?? years.data[0];
+        if (!activeYear) throw new Error("Belum ada Tahun Ajaran aktif.");
+
+        for (const className of classNamesToCreate) {
+          const code = className.toLowerCase().replace(/\s+/g, "-");
+          await api("/classes", {
+            method: "POST",
+            body: JSON.stringify({ name: className, code, academic_year_id: activeYear.id })
+          });
+        }
+      },
+      rollback: () => {
+        insertedRows.forEach(r => r.remove());
+      },
+      revalidate: () => loadClasses(),
+      successMessage: `Berhasil menambahkan ${classNamesToCreate.length} kelas.`,
+      errorPrefix: "Gagal menambah kelas"
+    });
+    addClassForm.reset();
   };
 
   const modal = document.getElementById("student-modal") as HTMLDivElement;
@@ -793,24 +804,27 @@ async function studentsPage(): Promise<void> {
   
   principalForm.onsubmit = async (e) => {
     e.preventDefault();
-    const btn = principalForm.querySelector("button")!;
-    btn.disabled = true;
-    btn.textContent = "Menyimpan...";
-    try {
-      await api("/schools/current", {
+    const prevName = principalNameInput.value;
+    const prevSig = signatureBase64.value;
+    const newName = principalNameInput.value.trim() || null;
+    const newSig = signatureBase64.value.trim() || null;
+
+    await optimistic({
+      apply: () => {},
+      mutation: () => api("/schools/current", {
         method: "PATCH",
         body: JSON.stringify({
-          principal_name: principalNameInput.value.trim() || null,
-          principal_signature_url: signatureBase64.value.trim() || null
+          principal_name: newName,
+          principal_signature_url: newSig
         })
-      });
-      toastSuccess("Data Kepala Sekolah berhasil disimpan.");
-    } catch (err: any) {
-      toastError("Gagal menyimpan data: " + (err.message || "Kesalahan tidak diketahui"));
-    } finally {
-      btn.disabled = false;
-      btn.textContent = "Simpan";
-    }
+      }),
+      rollback: () => {
+        principalNameInput.value = prevName;
+        signatureBase64.value = prevSig;
+      },
+      successMessage: "Data Kepala Sekolah berhasil disimpan.",
+      errorPrefix: "Gagal menyimpan data Kepala Sekolah"
+    });
   };
 
   await loadClasses();
@@ -1535,24 +1549,26 @@ async function wastePage(): Promise<void> {
       });
       scheduleForm.onsubmit = async (e) => {
         e.preventDefault();
-        const btn = scheduleForm.querySelector("button")!;
-        const originalText = btn.textContent;
-        btn.textContent = "Menyimpan...";
-        btn.disabled = true;
-        try {
-          const start = (document.getElementById("waste-start") as HTMLInputElement).value;
-          const end = (document.getElementById("waste-end") as HTMLInputElement).value;
-          await api("/schools/current", { method: "PATCH", body: JSON.stringify({ waste_start_time: start ? start + ":00" : null, waste_end_time: end ? end + ":00" : null,
-            waste_organic_points_per_kg: (document.getElementById("waste-organic-rate") as HTMLInputElement).value === "" ? null : Number((document.getElementById("waste-organic-rate") as HTMLInputElement).value),
-            waste_inorganic_points_per_kg: (document.getElementById("waste-inorganic-rate") as HTMLInputElement).value === "" ? null : Number((document.getElementById("waste-inorganic-rate") as HTMLInputElement).value) }) });
-          toastSuccess("Pengaturan Bank Sampah berhasil disimpan.");
-          btn.textContent = originalText;
-          btn.disabled = false;
-        } catch (err: any) {
-          toastError("Gagal menyimpan: " + err.message);
-          btn.textContent = originalText;
-          btn.disabled = false;
-        }
+        const start = (document.getElementById("waste-start") as HTMLInputElement).value;
+        const end = (document.getElementById("waste-end") as HTMLInputElement).value;
+        const orgVal = (document.getElementById("waste-organic-rate") as HTMLInputElement).value;
+        const inorgVal = (document.getElementById("waste-inorganic-rate") as HTMLInputElement).value;
+
+        await optimistic({
+          apply: () => {},
+          mutation: () => api("/schools/current", {
+            method: "PATCH",
+            body: JSON.stringify({
+              waste_start_time: start ? start + ":00" : null,
+              waste_end_time: end ? end + ":00" : null,
+              waste_organic_points_per_kg: orgVal === "" ? null : Number(orgVal),
+              waste_inorganic_points_per_kg: inorgVal === "" ? null : Number(inorgVal)
+            })
+          }),
+          rollback: () => {},
+          successMessage: "Pengaturan Bank Sampah berhasil disimpan.",
+          errorPrefix: "Gagal menyimpan pengaturan Bank Sampah"
+        });
       };
     }
   } catch (error) { shell(errorState(error), "Bank Sampah", "Manajemen setoran sampah (Waste-to-Gold)."); }
