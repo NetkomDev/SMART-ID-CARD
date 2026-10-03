@@ -311,13 +311,16 @@ async function studentsPage(): Promise<void> {
       </article>
       <article class="panel">
         <div class="panel-head">
-          <h2>Kepala Sekolah</h2>
+          <h2>Profil & Kepala Sekolah</h2>
         </div>
         <form id="principal-form" class="sa-form" style="margin-top:0.5rem;display:flex;flex-direction:column;gap:1rem;">
           <label>Nama Lengkap Kepala Sekolah<input type="text" id="principal-name" placeholder="Nama beserta gelar" /></label>
           <label>NIP Kepala Sekolah<input type="text" id="principal-nip" placeholder="NIP (contoh: 19700101 199512 1 001)" /></label>
-          <label>Upload Tanda Tangan<input type="file" id="principal-signature-file" accept="image/*" /></label>
-          <img id="signature-preview" style="max-height: 80px; object-fit: contain; border: 1px dashed var(--line); padding: 4px; display: none; background: #f8fafc;" alt="Preview" />
+          <label>Upload Logo Sekolah<input type="file" id="school-logo-file" accept="image/*" /></label>
+          <img id="logo-preview" style="max-height: 80px; object-fit: contain; border: 1px dashed var(--line); padding: 4px; display: none; background: #f8fafc;" alt="Preview Logo" />
+          <input type="hidden" id="school-logo-base64" />
+          <label>Upload Tanda Tangan Kepala Sekolah<input type="file" id="principal-signature-file" accept="image/*" /></label>
+          <img id="signature-preview" style="max-height: 80px; object-fit: contain; border: 1px dashed var(--line); padding: 4px; display: none; background: #f8fafc;" alt="Preview TTD" />
           <input type="hidden" id="principal-signature-base64" />
           <div style="display:flex;gap:0.75rem;align-items:center;">
             <button type="submit" id="btn-save-principal" class="button primary" style="flex:1;">Simpan</button>
@@ -765,6 +768,9 @@ async function studentsPage(): Promise<void> {
   const principalForm = document.getElementById("principal-form") as HTMLFormElement;
   const principalNameInput = document.getElementById("principal-name") as HTMLInputElement;
   const principalNipInput = document.getElementById("principal-nip") as HTMLInputElement | null;
+  const logoFileInput = document.getElementById("school-logo-file") as HTMLInputElement;
+  const logoPreview = document.getElementById("logo-preview") as HTMLImageElement;
+  const logoBase64 = document.getElementById("school-logo-base64") as HTMLInputElement;
   const signatureFileInput = document.getElementById("principal-signature-file") as HTMLInputElement;
   const signaturePreview = document.getElementById("signature-preview") as HTMLImageElement;
   const signatureBase64 = document.getElementById("principal-signature-base64") as HTMLInputElement;
@@ -773,14 +779,16 @@ async function studentsPage(): Promise<void> {
 
   let lastSavedName = "";
   let lastSavedNip = "";
+  let lastSavedLogo = "";
   let lastSavedSig = "";
 
   const updateSaveButtonState = () => {
     if (!saveBtn || !principalNameInput || !signatureBase64) return;
     const currentName = principalNameInput.value.trim();
     const currentNip = principalNipInput ? principalNipInput.value.trim() : "";
+    const currentLogo = logoBase64 ? logoBase64.value.trim() : "";
     const currentSig = signatureBase64.value.trim();
-    const isDirty = (currentName !== lastSavedName) || (currentNip !== lastSavedNip) || (currentSig !== lastSavedSig);
+    const isDirty = (currentName !== lastSavedName) || (currentNip !== lastSavedNip) || (currentLogo !== lastSavedLogo) || (currentSig !== lastSavedSig);
 
     if (isDirty) {
       saveBtn.disabled = false;
@@ -800,8 +808,19 @@ async function studentsPage(): Promise<void> {
   cancelBtn?.addEventListener("click", () => {
     principalNameInput.value = lastSavedName;
     if (principalNipInput) principalNipInput.value = lastSavedNip;
+    if (logoBase64) logoBase64.value = lastSavedLogo;
     signatureBase64.value = lastSavedSig;
+    if (logoFileInput) logoFileInput.value = "";
     signatureFileInput.value = "";
+
+    if (lastSavedLogo) {
+      logoPreview.src = lastSavedLogo;
+      logoPreview.style.display = "block";
+    } else {
+      logoPreview.src = "";
+      logoPreview.style.display = "none";
+    }
+
     if (lastSavedSig) {
       signaturePreview.src = lastSavedSig;
       signaturePreview.style.display = "block";
@@ -814,6 +833,40 @@ async function studentsPage(): Promise<void> {
 
   principalNameInput?.addEventListener("input", updateSaveButtonState);
   principalNipInput?.addEventListener("input", updateSaveButtonState);
+
+  if (logoFileInput) {
+    logoFileInput.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      if (file.size > 2.5 * 1024 * 1024) {
+        toastError(`Ukuran logo (${(file.size / 1024 / 1024).toFixed(1)} MB) terlalu besar. Batas maksimal 2.5 MB.`);
+        logoFileInput.value = "";
+        return;
+      }
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 400;
+        let width = img.width;
+        let height = img.height;
+        if (width > MAX_WIDTH) {
+          height = Math.round(height * (MAX_WIDTH / width));
+          width = MAX_WIDTH;
+        }
+        canvas.width = width; canvas.height = height;
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(img, 0, 0, width, height);
+        const pngBase64 = canvas.toDataURL('image/png');
+        logoPreview.src = pngBase64;
+        logoPreview.style.display = 'block';
+        logoBase64.value = pngBase64;
+        URL.revokeObjectURL(url);
+        updateSaveButtonState();
+      };
+      img.src = url;
+    };
+  }
   
   signatureFileInput.onchange = (e) => {
     const file = (e.target as HTMLInputElement).files?.[0];
@@ -853,9 +906,16 @@ async function studentsPage(): Promise<void> {
     if (res.data) {
       lastSavedName = (res.data.principal_name || "").trim();
       lastSavedNip = (res.data.principal_nip || "").trim();
+      lastSavedLogo = (res.data.logo_url || "").trim();
       lastSavedSig = (res.data.principal_signature_url || "").trim();
       principalNameInput.value = res.data.principal_name || "";
       if (principalNipInput) principalNipInput.value = res.data.principal_nip || "";
+      
+      if (res.data.logo_url) {
+        logoPreview.src = res.data.logo_url;
+        logoPreview.style.display = 'block';
+        if (logoBase64) logoBase64.value = res.data.logo_url;
+      }
       if (res.data.principal_signature_url) {
         signaturePreview.src = res.data.principal_signature_url;
         signaturePreview.style.display = 'block';
@@ -870,15 +930,18 @@ async function studentsPage(): Promise<void> {
     e.preventDefault();
     const prevName = principalNameInput.value;
     const prevNip = principalNipInput ? principalNipInput.value : "";
+    const prevLogo = logoBase64 ? logoBase64.value : "";
     const prevSig = signatureBase64.value;
     const newName = principalNameInput.value.trim() || null;
     const newNip = principalNipInput ? (principalNipInput.value.trim() || null) : null;
+    const newLogo = logoBase64 ? (logoBase64.value.trim() || null) : null;
     const newSig = signatureBase64.value.trim() || null;
 
     await optimistic({
       apply: () => {
         lastSavedName = (newName || "").trim();
         lastSavedNip = (newNip || "").trim();
+        lastSavedLogo = (newLogo || "").trim();
         lastSavedSig = (newSig || "").trim();
         updateSaveButtonState();
       },
@@ -887,20 +950,23 @@ async function studentsPage(): Promise<void> {
         body: JSON.stringify({
           principal_name: newName,
           principal_nip: newNip,
+          logo_url: newLogo,
           principal_signature_url: newSig
         })
       }),
       rollback: () => {
         principalNameInput.value = prevName;
         if (principalNipInput) principalNipInput.value = prevNip;
+        if (logoBase64) logoBase64.value = prevLogo;
         signatureBase64.value = prevSig;
         lastSavedName = (prevName || "").trim();
         lastSavedNip = (prevNip || "").trim();
+        lastSavedLogo = (prevLogo || "").trim();
         lastSavedSig = (prevSig || "").trim();
         updateSaveButtonState();
       },
-      successMessage: "Data Kepala Sekolah berhasil disimpan.",
-      errorPrefix: "Gagal menyimpan data Kepala Sekolah"
+      successMessage: "Profil & Data Sekolah berhasil disimpan.",
+      errorPrefix: "Gagal menyimpan data sekolah"
     });
   };
 
