@@ -594,55 +594,161 @@ code { background: var(--bg); padding: .2rem .35rem; border-radius: .3rem; font-
   display: none;
 }
 
+.qr-print-instructions {
+  display: none;
+}
+
 @media print {
+  @page {
+    size: A4 portrait;
+    margin: 15mm;
+  }
+  
   html, body {
-    height: 100%;
-    margin: 0;
-    padding: 0;
+    background: #ffffff !important;
+    color: #000000 !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
+  
   body * {
-    visibility: hidden;
+    visibility: hidden !important;
   }
+
   .qr-grid {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    display: block;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
-  .qr-card.print-active {
-    visibility: visible;
-    width: 100%;
-    max-width: 500px;
-    margin: 10vh auto 0 auto;
-    border: none !important;
-    box-shadow: none !important;
-    text-align: center;
-  }
-  .qr-card.print-active * {
-    visibility: visible;
-  }
-  .qr-card.print-active .no-print {
-    display: none !important;
-  }
+  
   .qr-card:not(.print-active) {
     display: none !important;
   }
-  .qr-print-wrapper {
+
+  .qr-card.print-active {
+    visibility: visible !important;
+    position: relative !important;
+    width: 100% !important;
+    max-width: 520px !important;
+    margin: 20px auto !important;
+    padding: 2.5rem 2rem !important;
+    border: 2px solid #0f172a !important;
+    border-radius: 1.5rem !important;
+    background: #ffffff !important;
     box-shadow: none !important;
-    border: 2px solid #000 !important;
-    padding: 2rem !important;
-    max-width: 400px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    gap: 1.5rem !important;
+    height: auto !important;
   }
-  .qr-print-wrapper img {
-    width: 280px !important;
-    height: 280px !important;
+
+  .qr-card.print-active * {
+    visibility: visible !important;
   }
-  .qr-label strong {
-    font-size: 1.4rem !important;
+
+  .qr-card.print-active .no-print {
+    display: none !important;
   }
-  .qr-label p {
-    font-size: 1.1rem !important;
+
+  .qr-card.print-active .qr-card-head {
+    min-height: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    border-bottom: 2px solid #e2e8f0 !important;
+    padding-bottom: 1.25rem !important;
+    width: 100% !important;
+  }
+
+  .qr-card.print-active .portal-icon {
+    width: 60px !important;
+    height: 60px !important;
+    font-size: 2.2rem !important;
+    background: #f1f5f9 !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 1rem !important;
+    color: #0f172a !important;
+  }
+
+  .qr-card.print-active .qr-header {
+    text-align: center !important;
+  }
+
+  .qr-card.print-active .qr-header h3 {
+    font-size: 1.8rem !important;
+    margin-bottom: 0.4rem !important;
+    color: #0f172a !important;
+    font-weight: 800 !important;
+  }
+
+  .qr-card.print-active .qr-header p {
+    font-size: 1.05rem !important;
+    color: #475569 !important;
+  }
+
+  .qr-card.print-active .qr-scope-container {
+    display: none !important;
+  }
+
+  .qr-card.print-active .qr-container {
+    height: auto !important;
+    min-height: auto !important;
+    border: none !important;
+    background: transparent !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    width: 100% !important;
+    display: flex !important;
+    justify-content: center !important;
+  }
+
+  .qr-card.print-active .qr-print-wrapper {
+    max-width: 380px !important;
+    width: 100% !important;
+    padding: 1.75rem !important;
+    border: 2px solid #0f172a !important;
+    border-radius: 1.25rem !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    margin: 0 auto !important;
+  }
+
+  .qr-card.print-active .qr-print-wrapper img {
+    width: 240px !important;
+    height: 240px !important;
+    margin: 0 auto 1rem !important;
+  }
+
+  .qr-card.print-active .qr-label strong {
+    font-size: 1.35rem !important;
+    color: #0f172a !important;
+    white-space: normal !important;
+    overflow: visible !important;
+  }
+
+  .qr-card.print-active .qr-label p {
+    font-size: 1.05rem !important;
+    color: #334155 !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    margin-top: 0.35rem !important;
+  }
+
+  .qr-card.print-active .qr-print-instructions {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-top: 1.5rem !important;
+    padding-top: 1.25rem !important;
+    border-top: 1px dashed #cbd5e1 !important;
   }
 }
 
