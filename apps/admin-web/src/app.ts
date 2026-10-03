@@ -866,7 +866,8 @@ async function studentsPage(): Promise<void> {
       ];
 
       let rSum = 0, gSum = 0, bSum = 0, count = 0;
-      for (const [x, y] of samplePoints) {
+      for (const pt of samplePoints) {
+        const x = pt[0]!, y = pt[1]!;
         const idx = (y * width + x) * 4;
         const a = data[idx + 3]!;
         if (a > 10) {
