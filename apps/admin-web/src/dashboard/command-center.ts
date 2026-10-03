@@ -12,6 +12,7 @@ type Support = { school_id: string; period_start: string; period_end: string; ge
 type Rankings = { school_id: string; date: string; timezone: string; generated_at: string; arrivals: { student_id: string; name: string; class_name: string; at: string; rank: number }[]; waste: ClassRank[]; library: ClassRank[] };
 const weight = (value: number) => new Intl.NumberFormat("id-ID", { maximumFractionDigits: 3 }).format(value);
 const expandIcon = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/></svg>`;
+const compressIcon = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 8h5V3m6 0v5h5M4 16h5v5m11-5h-5v5"/></svg>`;
 const icons = ["M5 12l4 4L19 6", "M12 3l7 12H5L12 3zm-7 12-2 4h18l-2-4", "M3 5h7l2 2 2-2h7v14h-7l-2 2-2-2H3V5zM12 7v14", "m12 3 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z"];
 const empty = (text: string) => `<div class="cc-empty"><span>◌</span><p>${esc(text)}</p></div>`;
 
@@ -33,7 +34,7 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
   const zone = () => snapshot?.timezone ?? options.school.timezone ?? "Asia/Makassar";
   const time = (value: string | number) => new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: zone() }).format(new Date(value));
   root.classList.add("cc");
-  root.innerHTML = `<header class="cc-header"><div class="cc-identity"><img src="/icon.svg" class="cc-brand" alt="AKSIS Logo" /><div><span class="cc-eyebrow">AKSIS • SCHOOL OPERATIONS</span><h2>Command Center</h2><p>${esc(options.school.name)}</p></div></div><div class="cc-header-right"><div class="cc-time"><strong data-cc="clock">—</strong><span data-cc="date"></span></div><button class="cc-tv-button" type="button" aria-pressed="false">${expandIcon}<span>Mode Layar TV</span></button></div></header>
+  root.innerHTML = `<header class="cc-header"><div class="cc-identity"><img src="/icon.svg" class="cc-brand" alt="AKSIS Logo" /><div><span class="cc-eyebrow">AKSIS • SCHOOL OPERATIONS</span><h2>Command Center</h2><p>${esc(options.school.name)}</p></div></div><div class="cc-header-right"><div class="cc-time"><strong data-cc="clock">—</strong><span data-cc="date"></span></div><button class="cc-tv-button" type="button" aria-pressed="false" aria-label="Mode Layar TV" title="Mode Layar TV">${expandIcon}</button></div></header>
     <div class="cc-kpis" data-cc="kpis">${Array.from({ length: 4 }, () => `<div class="cc-card cc-placeholder">Memuat metrik…</div>`).join("")}</div>
     <div class="cc-competition">
       <section class="cc-card cc-arrivals"><div class="cc-card-heading"><div><span class="cc-eyebrow">DISIPLIN DIMULAI DARI DIRI</span><h3>Langkah paling awal</h3></div><span class="cc-medallion">◷</span></div><p class="cc-description">5 siswa paling awal hadir hari ini</p><div data-cc="arrivals" class="cc-ranking-content">${empty("Memuat urutan kehadiran…")}</div><p class="cc-ranking-rule">Tap masuk pertama setiap siswa · waktu sekolah</p></section>
@@ -160,7 +161,10 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
   }
   function setTv(enabled: boolean) {
     tv = enabled; root.classList.toggle("cc-tv", tv); document.body.classList.toggle("cc-tv-open", tv);
-    toggle.setAttribute("aria-pressed", String(tv)); toggle.querySelector("span")!.textContent = tv ? "Keluar layar TV" : "Mode Layar TV";
+    toggle.setAttribute("aria-pressed", String(tv));
+    toggle.setAttribute("aria-label", tv ? "Keluar layar TV" : "Mode Layar TV");
+    toggle.setAttribute("title", tv ? "Keluar layar TV" : "Mode Layar TV");
+    toggle.innerHTML = tv ? compressIcon : expandIcon;
     el("fullscreen-note").textContent = tv ? "Esc / Kembali untuk keluar" : "Pembaruan otomatis 30 detik";
     if (tv) { void acquireWakeLock(); toggle.focus(); }
     else { void wakeLock?.release().catch(() => undefined); wakeLock = null; toggle.focus(); }
