@@ -28,6 +28,7 @@ function getDemoData() {
     date: new Intl.DateTimeFormat("en-CA").format(new Date()),
     timezone: "Asia/Makassar",
     generated_at: new Date().toISOString(),
+    stale_after: new Date(Date.now() + 300000).toISOString(),
     metrics: {
       attendance: { students: 482, total: 510, late: 12 },
       waste: { total_kg: 148.5, transactions: 42 },
