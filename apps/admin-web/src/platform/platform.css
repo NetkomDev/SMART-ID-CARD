@@ -693,14 +693,17 @@
    - ATAS / BAWAH  : Ubah `top`  -> jarak dari TEPI ATAS kartu
                      (angka DIBESARKAN = TURUN, DIKECILKAN = NAIK)
    - KIRI / KANAN  : Ubah `left` -> jarak dari TEPI KIRI kartu
-                     (angka DIBESARKAN = KE KANAN, DIKECILKAN = KE KIRI)
+                     * `left: 0mm`     = jarak 5.5mm dari tepi kartu
+                     * `left: -5.5mm`  = tepat menempel di tepi paling kiri kartu
+                     * `left: -8mm`    = lebih ke kiri lagi (menjorok ke tepi kiri)
+                     (Perbesar nilai negatif seperti -8mm, -10mm untuk geser semakin ke kiri)
    - LEBAR BARCODE : Ubah `width`
    ========================================================================== */
 .barcode-block {
   position: absolute;
   z-index: 2;
   top: 43mm;    /* <-- GESER BARCODE ATAS/BAWAH */
-  left: 0mm;    /* <-- GESER BARCODE KIRI/KANAN */
+  left: -8mm;   /* <-- GESER BARCODE LEBIH KE KIRI (contoh: -8mm, -10mm) */
   width: 20mm;  /* <-- LEBAR BARCODE */
   display: flex;
   flex-direction: column;
