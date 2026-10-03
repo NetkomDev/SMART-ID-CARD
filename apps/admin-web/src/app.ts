@@ -2599,7 +2599,9 @@ async function pwaPortalsPage() {
             <p>${d.description}</p>
           </div>
         </div>
-        ${d.key === "waste" ? `<label class="no-print">Lingkup Kelas<select id="scope-waste"><option value="">Pilih kelas…</option>${classes.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("")}</select></label>` : ""}
+        <div class="qr-scope-container">
+          ${d.key === "waste" ? `<label class="no-print">Lingkup Kelas<select id="scope-waste"><option value="">Pilih kelas…</option>${classes.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("")}</select></label>` : ""}
+        </div>
         <div class="qr-container" id="qr-${d.key}">
           <div class="qr-placeholder-content">
             <span class="qr-placeholder-icon">📱</span>
@@ -2683,7 +2685,7 @@ async function pwaPortalsPage() {
           const dataUrl = await QRCode.toDataURL(url.toString(), { width: 320, margin: 3, errorCorrectionLevel: "M" });
           await loadAccess();
           if (revision !== current || state.school?.id !== schoolId) return;
-          container.innerHTML = `<div class="qr-print-wrapper"><img src="${dataUrl}" width="180" height="180" alt="QR akses ${d.name}"/><div class="qr-label"><strong>${escapeHtml(state.school!.name)}</strong><p>${escapeHtml(d.name)}${d.key === "waste" ? " (" + escapeHtml(label) + ")" : ""}</p></div></div>`;
+          container.innerHTML = `<div class="qr-print-wrapper"><img src="${dataUrl}" width="135" height="135" alt="QR akses ${d.name}"/><div class="qr-label"><strong>${escapeHtml(state.school!.name)}</strong><p>${escapeHtml(d.name)}${d.key === "waste" ? " (" + escapeHtml(label) + ")" : ""}</p></div></div>`;
           feedback.textContent = "✓ QR Siap digunakan. Unduh atau cetak sebelum meninggalkan halaman.";
           actions.replaceChildren(); actions.hidden = false;
           const download = document.createElement("a"); download.className = "button secondary"; download.href = dataUrl; download.download = `aksis-${d.key}.png`; download.textContent = "📥 Unduh";
