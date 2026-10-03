@@ -17,7 +17,7 @@ const adminSchema = z.object({email:z.email(),password:z.string().min(8).max(128
 const id = z.object({id:z.uuid()});
 router.get('/schools', validate({query:paginationSchema}), asyncHandler(async(req,res)=>{
   const page=Number(req.query.page),size=Number(req.query.page_size);
-  const {data,error,count}=await req.auth!.client.from('schools').select('id,code,name,status,timezone,is_active',{count:'exact'}).is('deleted_at',null).order('name').range((page-1)*size,page*size-1);
+  const {data,error,count}=await req.auth!.client.from('schools').select('id,code,name,status,timezone,is_active,logo_url,level,principal_name,principal_signature_url',{count:'exact'}).is('deleted_at',null).order('name').range((page-1)*size,page*size-1);
   if(error)throw fromDatabaseError(error);
   sendData(res,data,200,{page,page_size:size,total:count??0});
 }));
@@ -167,4 +167,29 @@ router.post('/iam/:id/reset-password', validate({ params: id, body: z.object({ p
     message: `Password untuk ${userName} berhasil di-reset menjadi "${newPassword}".`
   });
 }));
+
+router.patch('/schools/:id/logo', validate({ params: id, body: z.object({ logo_url: z.string().trim().min(1), level: z.enum(['SD','SMP','SMA']).optional() }) }), asyncHandler(async (req, res) => {
+  const client = createServiceClient();
+  const updateData: Record<string, unknown> = { logo_url: req.body.logo_url, updated_at: new Date().toISOString() };
+  if (req.body.level) updateData.level = req.body.level;
+  const { data, error } = await client.from('schools').update(updateData).eq('id', req.params.id).select().single();
+  if (error) throw fromDatabaseError(error);
+  sendData(res, data);
+}));
+
+router.get('/card-templates', asyncHandler(async (req, res) => {
+  const client = createServiceClient();
+  const { data, error } = await client.from('card_templates').select('*').order('level').order('side');
+  if (error) throw fromDatabaseError(error);
+  sendData(res, data || []);
+}));
+
+router.post('/card-templates', validate({ body: z.object({ level: z.enum(['SD','SMP','SMA']), side: z.enum(['front','back']), template_url: z.string().min(1) }) }), asyncHandler(async (req, res) => {
+  const client = createServiceClient();
+  const { level, side, template_url } = req.body;
+  const { data, error } = await client.from('card_templates').upsert({ level, side, template_url, updated_at: new Date().toISOString() }, { onConflict: 'level,side' }).select().single();
+  if (error) throw fromDatabaseError(error);
+  sendData(res, data);
+}));
+
 export {router as platformRouter};

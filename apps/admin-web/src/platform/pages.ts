@@ -35,7 +35,7 @@ export async function registerSchoolDevice(schoolId:string){
 }
 export async function mountPlatformPage(path:string,schools:School[],shell:Shell,navigate:(p:string)=>void){
  const epoch=++generation;
- const titles:Record<string,string>={'/platform':'Ringkasan Platform','/platform-schools':'Sekolah & Administrator','/platform-iam':'IAM & Hak Akses','/platform-devices':'Monitor Perangkat','/platform-card-jobs':'Produksi Kartu Siswa','/platform-audit':'Audit Platform'};
+ const titles:Record<string,string>={'/platform':'Ringkasan Platform','/platform-schools':'Sekolah & Administrator','/platform-iam':'IAM & Hak Akses','/platform-devices':'Monitor Perangkat','/platform-card-templates':'Template Desain Kartu Siswa','/platform-card-jobs':'Produksi Kartu Siswa','/platform-audit':'Audit Platform'};
  shell(`<section class="panel sa-page"><p data-feedback role="status">Memuat…</p><div data-content></div></section>`,titles[path]??'Platform','Pengelolaan lintas sekolah oleh Super Admin.');
  const root=document.querySelector<HTMLElement>('.sa-page')!,content=root.querySelector<HTMLElement>('[data-content]')!;
  const alive=()=>epoch===generation&&root.isConnected;
@@ -78,7 +78,8 @@ export async function mountPlatformPage(path:string,schools:School[],shell:Shell
  if(path==='/platform-audit'){
  await table('/platform/audit',['Waktu / sekolah','Aktor','Tindakan','Detail'],r=>`<tr><td>${esc(time(r.occurred_at))}<small>${esc(relation(r.schools)?.name)}</small></td><td>${esc(r.actor_user_id??'Perangkat / sistem')}</td><td>${esc(r.action)}<small>${esc(r.resource_id)}</small></td><td><details><summary>Perubahan</summary><pre>${esc(JSON.stringify({before:r.before_data,after:r.after_data},null,2))}</pre></details></td></tr>`);return;
  }
- if(path==='/platform-card-jobs'){await production(root,content,schools,alive);return;}
+ if(path==='/platform-card-templates'){await cardTemplatesPage(root,content,alive);return;}
+  if(path==='/platform-card-jobs'){await production(root,content,schools,alive);return;}
  feedback(root,'Halaman tidak ditemukan.');
  }catch(e){if(alive())feedback(root,e);}
 }
@@ -88,7 +89,7 @@ async function production(root:HTMLElement,content:HTMLElement,schools:School[],
  async function open(tab:string){const epoch=++tabEpoch;const current=()=>alive()&&epoch===tabEpoch;body.innerHTML='Memuat…';feedback(root,'');content.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach(b=>b.dataset.active=String(b.dataset.tab===tab));
  if(tab==='new'){
  if(!schools.length){body.textContent='Daftarkan sekolah terlebih dahulu.';return;}
- body.innerHTML=`<div style="margin-bottom:1rem;color:#64748b">Pilih maksimal 200 siswa untuk diproduksi. Siswa yang belum memiliki foto resmi dari orang tua atau sudah mempunyai kartu aktif ditahan dari antrean cetak.</div><form class="sa-form" data-filter><label>Sekolah<select name="school">${schoolOptions(schools)}</select></label><label>Kelas & tahun ajaran<select name="class"><option value="">Semua kelas</option></select></label><label>Status foto<select name="photo_status"><option value="">Semua status foto</option><option value="COMPLETE">Siap Cetak (Foto Lengkap ✓)</option><option value="MISSING">Menunggu Foto (Belum Unggah ⚠️)</option></select></label><label>Cari nama<input name="search" maxlength="100" placeholder="Ketik nama siswa..."></label><button class="button secondary">Cari</button></form><div data-candidates></div><div class="sa-actions"><span data-selected style="font-weight:600"></span><button class="button primary" data-create disabled>Buat batch & QR</button></div>`;
+ body.innerHTML=`<div data-school-banner style="margin-bottom:1rem"></div><div style="margin-bottom:1rem;color:#64748b">Pilih maksimal 200 siswa untuk diproduksi. Siswa yang belum memiliki foto resmi dari orang tua atau sudah mempunyai kartu aktif ditahan dari antrean cetak.</div><form class="sa-form" data-filter><label>Sekolah<select name="school">${schoolOptions(schools)}</select></label><label>Kelas & tahun ajaran<select name="class"><option value="">Semua kelas</option></select></label><label>Status foto<select name="photo_status"><option value="">Semua status foto</option><option value="COMPLETE">Siap Cetak (Foto Lengkap ✓)</option><option value="MISSING">Menunggu Foto (Belum Unggah ⚠️)</option></select></label><label>Cari nama<input name="search" maxlength="100" placeholder="Ketik nama siswa..."></label><button class="button secondary">Cari</button></form><div data-candidates></div><div class="sa-actions"><span data-selected style="font-weight:600"></span><button class="button primary" data-create disabled>Buat batch & QR</button></div>`;
  const form=body.querySelector<HTMLFormElement>('form')!,school=form.elements.namedItem('school') as HTMLSelectElement,cls=form.elements.namedItem('class') as HTMLSelectElement,photoStatus=form.elements.namedItem('photo_status') as HTMLSelectElement,search=form.elements.namedItem('search') as HTMLInputElement;
  const selected=new Set<string>();let candidateRequest=0,schoolRequest=0;let page=1,operation=crypto.randomUUID();const create=body.querySelector<HTMLButtonElement>('[data-create]')!;
  function count(){body.querySelector('[data-selected]')!.textContent=`${selected.size} siswa dipilih`;create.disabled=!selected.size||selected.size>200;}
@@ -137,6 +138,21 @@ async function production(root:HTMLElement,content:HTMLElement,schools:School[],
     if (!alive() || tabEpoch !== batchEpoch) return;
     if (!cards.length) throw Error('Batch tidak ditemukan.');
 
+    const templatesRes = await api<Row[]>('/platform/card-templates').catch(() => ({ data: [] }));
+    const templatesMap: Record<string, string> = {};
+    (templatesRes.data || []).forEach(t => {
+      templatesMap[`${t.level}_${t.side}`] = t.template_url;
+    });
+
+    const getFrontBg = (c: Row) => {
+      const lvl = c.print_snapshot?.school_level || 'SMA';
+      return templatesMap[`${lvl}_front`] || c.print_snapshot?.card_template_front_url;
+    };
+    const getBackBg = (c: Row) => {
+      const lvl = c.print_snapshot?.school_level || 'SMA';
+      return templatesMap[`${lvl}_back`] || c.print_snapshot?.card_template_back_url;
+    };
+
     const printable = cards.every(c => ['DRAFT', 'PRINTED'].includes(c.production_status));
     const images = await Promise.all(
       cards.map(c => QRCode.toDataURL(c.qr_key, { errorCorrectionLevel: 'M', margin: 4, width: 300 }))
@@ -155,7 +171,7 @@ async function production(root:HTMLElement,content:HTMLElement,schools:School[],
       </div>
       <p>Dialog cetak tidak otomatis menandai hasil berhasil. Konfirmasikan hanya setelah kartu fisik selesai dan QR terbaca.</p>
       <div class="sa-card-previews">
-        ${cards.map((c, i) => `<div><div class="sa-preview"><article class="id-card">${front(c, images[i])}</article></div><p>${badge(c.production_status)} ${badge(c.status)}</p></div>`).join('')}
+        ${cards.map((c, i) => `<div><div class="sa-preview"><article class="id-card">${front(c, images[i], getFrontBg(c))}</article></div><p>${badge(c.production_status)} ${badge(c.status)}</p></div>`).join('')}
       </div>`;
 
     const sideSelect = body.querySelector<HTMLSelectElement>('[data-side]');
@@ -165,7 +181,7 @@ async function production(root:HTMLElement,content:HTMLElement,schools:School[],
         const previewElems = body.querySelectorAll<HTMLElement>('.sa-preview');
         cards.forEach((c, i) => {
           if (previewElems[i]) {
-            previewElems[i].innerHTML = `<article class="id-card">${side === 'front' ? front(c, images[i]) : back(c)}</article>`;
+            previewElems[i].innerHTML = `<article class="id-card">${side === 'front' ? front(c, images[i], getFrontBg(c)) : back(c, getBackBg(c))}</article>`;
           }
         });
       };
@@ -179,7 +195,7 @@ async function production(root:HTMLElement,content:HTMLElement,schools:School[],
         feedback(root, 'Izinkan jendela cetak pada browser, lalu coba lagi.');
         return;
       }
-      w.document.write(`<!doctype html><html lang="id"><head><meta charset="utf-8"><title>Batch kartu ${esc(id)} — ${side}</title><style>${printStyles(media)}</style></head><body>${cards.map((c, i) => `<article class="id-card">${side === 'front' ? front(c, images[i]) : back(c)}</article>`).join('')}</body></html>`);
+      w.document.write(`<!doctype html><html lang="id"><head><meta charset="utf-8"><title>Batch kartu ${esc(id)} — ${side}</title><style>${printStyles(media)}</style></head><body>${cards.map((c, i) => `<article class="id-card">${side === 'front' ? front(c, images[i], getFrontBg(c)) : back(c, getBackBg(c))}</article>`).join('')}</body></html>`);
       w.document.close();
       void Promise.all(Array.from(w.document.images).map(img => img.decode().catch(() => {}))).then(() => {
         w.focus();
@@ -286,7 +302,7 @@ function getSchoolLogoHtml(logoUrl?: string): string {
   </svg>`;
 }
 
-function front(c: Row, qr: string) {
+function front(c: Row, qr: string, customBgUrl?: string) {
   const s = c.print_snapshot ?? {};
   const schoolName = s.school_name || 'SMA NEGERI 3 WATAMPONE';
   const studentName = s.student_name || 'ANDI MUHAMMAD ASYRAAF';
@@ -298,9 +314,13 @@ function front(c: Row, qr: string) {
   const logoHtml = getSchoolLogoHtml(s.school_logo_url);
   const photoUrl = (s.photo_url && String(s.photo_url).trim().length > 5) ? esc(s.photo_url) : `${location.origin}/logo.png`;
 
-  return `<div class="id-front-v2">
+  const bgHtml = customBgUrl ? `<img class="card-bg-template-img" src="${esc(customBgUrl)}" alt="Template Depan">` : `
     <div class="bg-shape-top-1"></div>
     <div class="bg-shape-top-2"></div>
+  `;
+
+  return `<div class="id-front-v2">
+    ${bgHtml}
     
     <div class="id-header-v2">
       <div class="header-logo">${logoHtml}</div>
@@ -353,7 +373,7 @@ function front(c: Row, qr: string) {
       </div>
     </div>
 
-    <div class="emblem-watermark">${logoHtml}</div>
+    ${!customBgUrl ? `<div class="emblem-watermark">${logoHtml}</div>` : ''}
 
     <div class="id-bottom-banner">
       <div class="banner-slogan">
@@ -362,11 +382,11 @@ function front(c: Row, qr: string) {
       </div>
       <div class="banner-line"></div>
     </div>
-    <div class="bg-shape-bottom-right"></div>
+    ${!customBgUrl ? '<div class="bg-shape-bottom-right"></div>' : ''}
   </div>`;
 }
 
-function back(c: Row) {
+function back(c: Row, customBgUrl?: string) {
   const s = c.print_snapshot ?? {};
   const schoolName = s.school_name || 'SMA NEGERI 3 WATAMPONE';
   const studentName = s.student_name || 'ANDI MUHAMMAD ASYRAAF';
@@ -381,8 +401,10 @@ function back(c: Row) {
   const barcodeSvg = generateCode128Svg(barcodeCode);
   const websiteUrl = s.website || `www.${String(s.school_code || 'sman3watampone').toLowerCase()}.sch.id`;
 
+  const bgHtml = customBgUrl ? `<img class="card-bg-template-img" src="${esc(customBgUrl)}" alt="Template Belakang">` : `<div class="back-top-polygon"></div>`;
+
   return `<div class="id-back-v2">
-    <div class="back-top-polygon"></div>
+    ${bgHtml}
 
     <div class="back-header">
       <div class="back-header-left">
@@ -553,4 +575,185 @@ body{margin:0;font-family:'Inter','Segoe UI',Roboto,sans-serif;background:${medi
 .web-icon{font-size:5pt}
 .web-url{letter-spacing:0.2px}
 `;
+}
+
+
+async function cardTemplatesPage(root: HTMLElement, content: HTMLElement, alive: () => boolean) {
+  let activeLevel: 'SD' | 'SMP' | 'SMA' = 'SMA';
+  let templatesData: Row[] = [];
+
+  async function loadTemplates() {
+    content.innerHTML = '<p style="padding:1rem;color:#64748b">Memuat template kartu...</p>';
+    try {
+      const res = await api<Row[]>('/platform/card-templates');
+      if (!alive()) return;
+      templatesData = res.data || [];
+      renderUI();
+    } catch (e) {
+      if (alive()) feedback(root, e);
+    }
+  }
+
+  function getTemplateUrl(level: string, side: string): string {
+    const found = templatesData.find(t => t.level === level && t.side === side);
+    return found ? found.template_url : '';
+  }
+
+  function renderUI() {
+    const frontUrl = getTemplateUrl(activeLevel, 'front');
+    const backUrl = getTemplateUrl(activeLevel, 'back');
+
+    const sampleCard: Row = {
+      print_snapshot: {
+        student_name: 'ANDI MUHAMMAD ASYRAAF',
+        school_name: activeLevel === 'SD' ? 'SD NEGERI 1 WATAMPONE' : activeLevel === 'SMP' ? 'SMP NEGERI 1 WATAMPONE' : 'SMA NEGERI 3 WATAMPONE',
+        school_code: activeLevel === 'SD' ? 'SDN1WTP' : activeLevel === 'SMP' ? 'SMPN1WTP' : 'SMAN3WTP',
+        nisn: '0064821736',
+        class_name: activeLevel === 'SD' ? 'VI-A' : activeLevel === 'SMP' ? 'IX-B' : 'X-2',
+        gender: 'Laki-laki',
+        date_of_birth: '2008-08-14',
+        address: 'Jl. Pendidikan No. 12 Watampone, Bone',
+        principal_name: 'Drs. H. Muh. Yusuf, M.Pd',
+        principal_nip: '19681231 199403 1 006'
+      }
+    };
+    const sampleQr = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="%230052cc"/><text x="50" y="55" font-size="20" fill="white" text-anchor="middle">QR</text></svg>';
+
+    content.innerHTML = `
+      <div style="margin-bottom:1.5rem">
+        <h2 style="font-size:1.25rem;font-weight:700;color:#0f172a;margin-bottom:0.25rem">Template Desain Kartu Siswa</h2>
+        <p style="color:#64748b;font-size:0.9rem">Upload template background gambar untuk sisi depan & belakang kartu pada jenjang SD, SMP, dan SMA. Posisi teks, foto, QR, barcode, dan logo diseragamkan secara presisi untuk semua jenjang.</p>
+      </div>
+
+      <div class="sa-tabs" style="margin-bottom:1.5rem">
+        <button type="button" data-level="SD" ${activeLevel === 'SD' ? 'data-active="true"' : ''}>🔴 SD (Sekolah Dasar)</button>
+        <button type="button" data-level="SMP" ${activeLevel === 'SMP' ? 'data-active="true"' : ''}>🔵 SMP (Sekolah Menengah Pertama)</button>
+        <button type="button" data-level="SMA" ${activeLevel === 'SMA' ? 'data-active="true"' : ''}>⚪ SMA / SMK (Sekolah Menengah Atas)</button>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:1.5rem">
+        <!-- FRONT TEMPLATE CARD -->
+        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:0.75rem;padding:1.25rem;display:flex;flex-direction:column;gap:1rem">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <h3 style="font-size:1rem;font-weight:700;color:#0f172a">Sisi Depan (Front) — ${activeLevel}</h3>
+            ${frontUrl ? '<span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:12px;font-size:0.75rem;font-weight:600">Terpasang ✓</span>' : '<span style="background:#fef3c7;color:#b45309;padding:2px 8px;border-radius:12px;font-size:0.75rem;font-weight:600">Belum diunggah</span>'}
+          </div>
+
+          <div style="display:flex;justify-content:center;background:#f8fafc;padding:1rem;border-radius:0.5rem;border:1px dashed #cbd5e1;min-height:360px">
+            <div data-preview-front-wrap style="display:flex;justify-content:center">
+              <article class="id-card">
+                ${front(sampleCard, sampleQr, frontUrl)}
+              </article>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:0.5rem">
+            <label style="font-size:0.85rem;font-weight:600;color:#334155">Pilih Gambar Background Depan (Ratio 54 x 85.6 mm)</label>
+            <input type="file" data-file-front accept="image/*" class="button secondary" style="font-size:0.85rem">
+            <button type="button" data-save-front class="button primary" style="width:100%">Simpan Template Depan ${activeLevel}</button>
+          </div>
+        </div>
+
+        <!-- BACK TEMPLATE CARD -->
+        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:0.75rem;padding:1.25rem;display:flex;flex-direction:column;gap:1rem">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <h3 style="font-size:1rem;font-weight:700;color:#0f172a">Sisi Belakang (Back) — ${activeLevel}</h3>
+            ${backUrl ? '<span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:12px;font-size:0.75rem;font-weight:600">Terpasang ✓</span>' : '<span style="background:#fef3c7;color:#b45309;padding:2px 8px;border-radius:12px;font-size:0.75rem;font-weight:600">Belum diunggah</span>'}
+          </div>
+
+          <div style="display:flex;justify-content:center;background:#f8fafc;padding:1rem;border-radius:0.5rem;border:1px dashed #cbd5e1;min-height:360px">
+            <div data-preview-back-wrap style="display:flex;justify-content:center">
+              <article class="id-card">
+                ${back(sampleCard, backUrl)}
+              </article>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:0.5rem">
+            <label style="font-size:0.85rem;font-weight:600;color:#334155">Pilih Gambar Background Belakang (Ratio 54 x 85.6 mm)</label>
+            <input type="file" data-file-back accept="image/*" class="button secondary" style="font-size:0.85rem">
+            <button type="button" data-save-back class="button primary" style="width:100%">Simpan Template Belakang ${activeLevel}</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Tab level change
+    content.querySelectorAll<HTMLButtonElement>('[data-level]').forEach(b => {
+      b.onclick = () => {
+        activeLevel = b.dataset.level as any;
+        renderUI();
+      };
+    });
+
+    // Front file change & save
+    const fileFront = content.querySelector<HTMLInputElement>('[data-file-front]')!;
+    const btnSaveFront = content.querySelector<HTMLButtonElement>('[data-save-front]')!;
+    let newFrontBase64 = '';
+
+    fileFront.onchange = () => {
+      const file = fileFront.files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          newFrontBase64 = String(e.target?.result || '');
+          const wrap = content.querySelector<HTMLElement>('[data-preview-front-wrap]');
+          if (wrap) {
+            wrap.innerHTML = `<article class="id-card">${front(sampleCard, sampleQr, newFrontBase64)}</article>`;
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+    };
+
+    btnSaveFront.onclick = () => void busy(btnSaveFront, root, async () => {
+      if (!newFrontBase64 && !frontUrl) {
+        feedback(root, 'Pilih file gambar template depan terlebih dahulu.');
+        return;
+      }
+      const targetUrl = newFrontBase64 || frontUrl;
+      await api('/platform/card-templates', {
+        method: 'POST',
+        body: JSON.stringify({ level: activeLevel, side: 'front', template_url: targetUrl })
+      });
+      toastSuccess(`Template Depan ${activeLevel} berhasil disimpan!`);
+      await loadTemplates();
+    });
+
+    // Back file change & save
+    const fileBack = content.querySelector<HTMLInputElement>('[data-file-back]')!;
+    const btnSaveBack = content.querySelector<HTMLButtonElement>('[data-save-back]')!;
+    let newBackBase64 = '';
+
+    fileBack.onchange = () => {
+      const file = fileBack.files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          newBackBase64 = String(e.target?.result || '');
+          const wrap = content.querySelector<HTMLElement>('[data-preview-back-wrap]');
+          if (wrap) {
+            wrap.innerHTML = `<article class="id-card">${back(sampleCard, newBackBase64)}</article>`;
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+    };
+
+    btnSaveBack.onclick = () => void busy(btnSaveBack, root, async () => {
+      if (!newBackBase64 && !backUrl) {
+        feedback(root, 'Pilih file gambar template belakang terlebih dahulu.');
+        return;
+      }
+      const targetUrl = newBackBase64 || backUrl;
+      await api('/platform/card-templates', {
+        method: 'POST',
+        body: JSON.stringify({ level: activeLevel, side: 'back', template_url: targetUrl })
+      });
+      toastSuccess(`Template Belakang ${activeLevel} berhasil disimpan!`);
+      await loadTemplates();
+    });
+  }
+
+  await loadTemplates();
 }

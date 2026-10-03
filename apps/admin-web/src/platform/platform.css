@@ -183,6 +183,17 @@
   box-sizing: border-box;
 }
 
+.card-bg-template-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+  pointer-events: none;
+}
+
 .bg-shape-top-1 {
   position: absolute;
   top: -12mm;

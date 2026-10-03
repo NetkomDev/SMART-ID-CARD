@@ -70,6 +70,7 @@ const superAdminNavItems = [
   ["/platform-schools", "Daftar Sekolah", "🏢"],
   ["/platform-iam", "IAM & Hak Akses", "🔐"],
   ["/platform-devices", "Monitor Perangkat", "📡"],
+  ["/platform-card-templates", "Template Kartu Siswa", "🎨"],
   ["/platform-card-jobs", "Produksi Kartu Siswa", "💳"],
   ["/platform-audit", "Global Audit Logs", "↗"]
 ] as const;
