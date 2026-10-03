@@ -315,6 +315,7 @@ async function studentsPage(): Promise<void> {
         </div>
         <form id="principal-form" class="sa-form" style="margin-top:0.5rem;display:flex;flex-direction:column;gap:1rem;">
           <label>Nama Lengkap Kepala Sekolah<input type="text" id="principal-name" placeholder="Nama beserta gelar" /></label>
+          <label>NIP Kepala Sekolah<input type="text" id="principal-nip" placeholder="NIP (contoh: 19700101 199512 1 001)" /></label>
           <label>Upload Tanda Tangan<input type="file" id="principal-signature-file" accept="image/*" /></label>
           <img id="signature-preview" style="max-height: 80px; object-fit: contain; border: 1px dashed var(--line); padding: 4px; display: none; background: #f8fafc;" alt="Preview" />
           <input type="hidden" id="principal-signature-base64" />
@@ -763,6 +764,7 @@ async function studentsPage(): Promise<void> {
   
   const principalForm = document.getElementById("principal-form") as HTMLFormElement;
   const principalNameInput = document.getElementById("principal-name") as HTMLInputElement;
+  const principalNipInput = document.getElementById("principal-nip") as HTMLInputElement | null;
   const signatureFileInput = document.getElementById("principal-signature-file") as HTMLInputElement;
   const signaturePreview = document.getElementById("signature-preview") as HTMLImageElement;
   const signatureBase64 = document.getElementById("principal-signature-base64") as HTMLInputElement;
@@ -770,13 +772,15 @@ async function studentsPage(): Promise<void> {
   const saveBtn = document.getElementById("btn-save-principal") as HTMLButtonElement | null;
 
   let lastSavedName = "";
+  let lastSavedNip = "";
   let lastSavedSig = "";
 
   const updateSaveButtonState = () => {
     if (!saveBtn || !principalNameInput || !signatureBase64) return;
     const currentName = principalNameInput.value.trim();
+    const currentNip = principalNipInput ? principalNipInput.value.trim() : "";
     const currentSig = signatureBase64.value.trim();
-    const isDirty = (currentName !== lastSavedName) || (currentSig !== lastSavedSig);
+    const isDirty = (currentName !== lastSavedName) || (currentNip !== lastSavedNip) || (currentSig !== lastSavedSig);
 
     if (isDirty) {
       saveBtn.disabled = false;
@@ -795,6 +799,7 @@ async function studentsPage(): Promise<void> {
 
   cancelBtn?.addEventListener("click", () => {
     principalNameInput.value = lastSavedName;
+    if (principalNipInput) principalNipInput.value = lastSavedNip;
     signatureBase64.value = lastSavedSig;
     signatureFileInput.value = "";
     if (lastSavedSig) {
@@ -808,6 +813,7 @@ async function studentsPage(): Promise<void> {
   });
 
   principalNameInput?.addEventListener("input", updateSaveButtonState);
+  principalNipInput?.addEventListener("input", updateSaveButtonState);
   
   signatureFileInput.onchange = (e) => {
     const file = (e.target as HTMLInputElement).files?.[0];
@@ -846,8 +852,10 @@ async function studentsPage(): Promise<void> {
   api<any>("/schools/current").then(res => {
     if (res.data) {
       lastSavedName = (res.data.principal_name || "").trim();
+      lastSavedNip = (res.data.principal_nip || "").trim();
       lastSavedSig = (res.data.principal_signature_url || "").trim();
       principalNameInput.value = res.data.principal_name || "";
+      if (principalNipInput) principalNipInput.value = res.data.principal_nip || "";
       if (res.data.principal_signature_url) {
         signaturePreview.src = res.data.principal_signature_url;
         signaturePreview.style.display = 'block';
@@ -861,13 +869,16 @@ async function studentsPage(): Promise<void> {
   principalForm.onsubmit = async (e) => {
     e.preventDefault();
     const prevName = principalNameInput.value;
+    const prevNip = principalNipInput ? principalNipInput.value : "";
     const prevSig = signatureBase64.value;
     const newName = principalNameInput.value.trim() || null;
+    const newNip = principalNipInput ? (principalNipInput.value.trim() || null) : null;
     const newSig = signatureBase64.value.trim() || null;
 
     await optimistic({
       apply: () => {
         lastSavedName = (newName || "").trim();
+        lastSavedNip = (newNip || "").trim();
         lastSavedSig = (newSig || "").trim();
         updateSaveButtonState();
       },
@@ -875,13 +886,16 @@ async function studentsPage(): Promise<void> {
         method: "PATCH",
         body: JSON.stringify({
           principal_name: newName,
+          principal_nip: newNip,
           principal_signature_url: newSig
         })
       }),
       rollback: () => {
         principalNameInput.value = prevName;
+        if (principalNipInput) principalNipInput.value = prevNip;
         signatureBase64.value = prevSig;
         lastSavedName = (prevName || "").trim();
+        lastSavedNip = (prevNip || "").trim();
         lastSavedSig = (prevSig || "").trim();
         updateSaveButtonState();
       },

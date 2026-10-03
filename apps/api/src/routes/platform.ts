@@ -17,7 +17,7 @@ const adminSchema = z.object({email:z.email(),password:z.string().min(8).max(128
 const id = z.object({id:z.uuid()});
 router.get('/schools', validate({query:paginationSchema}), asyncHandler(async(req,res)=>{
   const page=Number(req.query.page),size=Number(req.query.page_size);
-  const {data,error,count}=await req.auth!.client.from('schools').select('id,code,name,status,timezone,is_active,logo_url,level,principal_name,principal_signature_url',{count:'exact'}).is('deleted_at',null).order('name').range((page-1)*size,page*size-1);
+  const {data,error,count}=await req.auth!.client.from('schools').select('id,code,name,status,timezone,is_active,logo_url,level,principal_name,principal_nip,principal_signature_url',{count:'exact'}).is('deleted_at',null).order('name').range((page-1)*size,page*size-1);
   if(error)throw fromDatabaseError(error);
   sendData(res,data,200,{page,page_size:size,total:count??0});
 }));
