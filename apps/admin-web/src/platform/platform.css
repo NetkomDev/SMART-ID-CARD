@@ -501,6 +501,7 @@
 .addr-text {
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   font-weight: 500;
@@ -551,7 +552,7 @@
   padding: 7mm 1.5mm 0mm 5.5mm;
   /* Header digeser turun disamakan dengan sisi depan (10mm) */
   overflow: hidden;
-  color: #0f172a;
+  color: #6082af;
   box-sizing: border-box;
 }
 
@@ -577,8 +578,8 @@
 
 .back-school-title {
   font-size: 8.5pt;
-  font-weight: 900;
-  color: #002554;
+  font-weight: 700;
+  color: #6082af;
   text-transform: uppercase;
   line-height: 1.1;
 }
@@ -682,7 +683,8 @@
    Ukuran kartu: lebar 54mm x tinggi 85.6mm.
    ========================================================================== */
 .back-bottom-row {
-  position: static; /* Wadah saja, tidak ikut mengatur posisi (jangan diubah) */
+  position: static;
+  /* Wadah saja, tidak ikut mengatur posisi (jangan diubah) */
   margin: 0;
   padding: 0;
 }
@@ -702,9 +704,12 @@
 .barcode-block {
   position: absolute;
   z-index: 2;
-  top: 43mm;    /* <-- GESER BARCODE ATAS/BAWAH */
-  left: -8mm;   /* <-- GESER BARCODE LEBIH KE KIRI (contoh: -8mm, -10mm) */
-  width: 20mm;  /* <-- LEBAR BARCODE */
+  top: 43mm;
+  /* <-- GESER BARCODE ATAS/BAWAH */
+  left: -8mm;
+  /* <-- GESER BARCODE LEBIH KE KIRI (contoh: -8mm, -10mm) */
+  width: 20mm;
+  /* <-- LEBAR BARCODE */
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -737,10 +742,14 @@
 .signature-block {
   position: absolute;
   z-index: 2;
-  top: 45mm;    /* <-- GESER TTD/KEPALA SEKOLAH ATAS/BAWAH */
-  left: 13mm;   /* <-- GESER TTD/KEPALA SEKOLAH KIRI/KANAN */
-  width: 24mm;  /* <-- LEBAR AREA TTD/KEPALA SEKOLAH */
-  text-align: center; /* <-- PERATAAN TEKS: center / left / right */
+  top: 45mm;
+  /* <-- GESER TTD/KEPALA SEKOLAH ATAS/BAWAH */
+  left: 13mm;
+  /* <-- GESER TTD/KEPALA SEKOLAH KIRI/KANAN */
+  width: 24mm;
+  /* <-- LEBAR AREA TTD/KEPALA SEKOLAH */
+  text-align: center;
+  /* <-- PERATAAN TEKS: center / left / right */
   display: flex;
   flex-direction: column;
 }
@@ -782,7 +791,8 @@
   font-weight: 600;
   color: #475569;
   line-height: 1;
-  margin-top: 0.5mm; /* <-- GESER NIP TURUN 0.5mm DARI GARIS NAMA */
+  margin-top: 0.5mm;
+  /* <-- GESER NIP TURUN 0.5mm DARI GARIS NAMA */
 }
 
 .back-footer-bar {
