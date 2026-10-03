@@ -1038,8 +1038,7 @@ async function studentsPage(): Promise<void> {
     });
   };
 
-  await loadClasses();
-  void loadStudents();
+  await Promise.all([loadClasses(), loadStudents()]);
 }
 
 async function academicYearsPage(): Promise<void> {

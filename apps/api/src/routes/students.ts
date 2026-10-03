@@ -23,22 +23,17 @@ const studentQuerySchema = z.object({
 router.get("/", requirePermission("student.read"), validate({ query: studentQuerySchema }), asyncHandler(async (req, res) => {
   const { page, page_size: pageSize, search, class_id } = req.query as unknown as { page: number; page_size: number; search?: string; class_id?: string };
   
-  let targetStudentIds: string[] | null = null;
-  if (class_id) {
-    const { data: historyRows, error: historyError } = await req.auth!.client.from("student_class_history")
-      .select("student_id")
-      .eq("school_id", req.tenant!.schoolId)
-      .eq("class_id", class_id)
-      .eq("is_current", true);
-    if (historyError) throw fromDatabaseError(historyError);
-    targetStudentIds = (historyRows ?? []).map(r => r.student_id);
-  }
+  const currentSelection = class_id 
+    ? selection.replace("student_class_history(", "student_class_history!inner(") 
+    : selection;
 
-  let query = req.auth!.client.from("students").select(selection, { count: "exact" })
+  let query = req.auth!.client.from("students").select(currentSelection, { count: "exact" })
     .eq("school_id", req.tenant!.schoolId).is("deleted_at", null);
 
-  if (targetStudentIds !== null) {
-    query = query.in("id", targetStudentIds.length > 0 ? targetStudentIds : ["00000000-0000-0000-0000-000000000000"]);
+  if (class_id) {
+    query = query
+      .eq("student_class_history.class_id", class_id)
+      .eq("student_class_history.is_current", true);
   }
 
   if (search) query = query.or(`full_name.ilike.%${search}%,student_number.ilike.%${search}%,nisn.ilike.%${search}%`);

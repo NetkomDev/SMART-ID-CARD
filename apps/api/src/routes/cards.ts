@@ -26,38 +26,41 @@ router.get("/", requirePermission("card.read"), validate({ query: cardListQueryS
 }));
 
 router.get("/summary", requirePermission("card.read"), asyncHandler(async (req, res) => {
-  const { count: activeCount, error: activeError } = await req.auth!.client.from("student_cards")
-    .select("id", { count: "exact", head: true })
-    .eq("school_id", req.tenant!.schoolId)
-    .eq("status", "ACTIVE");
-  
-  if (activeError) throw fromDatabaseError(activeError);
+  const schoolId = req.tenant!.schoolId;
 
-  const { count: pendingCount, error: pendingError } = await req.auth!.client.from("student_cards")
-    .select("id", { count: "exact", head: true })
-    .eq("school_id", req.tenant!.schoolId)
-    .in("production_status", ["DRAFT", "PRINTED", "READY_TO_WRITE", "WRITING", "FAILED"]);
+  const [activeRes, pendingRes, blockedRes, missingPhotoRes] = await Promise.all([
+    req.auth!.client.from("student_cards")
+      .select("id", { count: "exact", head: true })
+      .eq("school_id", schoolId)
+      .eq("status", "ACTIVE"),
+    req.auth!.client.from("student_cards")
+      .select("id", { count: "exact", head: true })
+      .eq("school_id", schoolId)
+      .in("production_status", ["DRAFT", "PRINTED", "READY_TO_WRITE", "WRITING", "FAILED"]),
+    req.auth!.client.from("student_cards")
+      .select("id", { count: "exact", head: true })
+      .eq("school_id", schoolId)
+      .in("status", ["BLOCKED", "LOST"])
+      .not("production_status", "in", "(DRAFT,PRINTED,READY_TO_WRITE,WRITING,FAILED)"),
+    req.auth!.client.from("students")
+      .select("id", { count: "exact", head: true })
+      .eq("school_id", schoolId)
+      .eq("is_active", true)
+      .is("deleted_at", null)
+      .or("photo_url.is.null,photo_url.eq.")
+  ]);
 
-  if (pendingError) throw fromDatabaseError(pendingError);
+  if (activeRes.error) throw fromDatabaseError(activeRes.error);
+  if (pendingRes.error) throw fromDatabaseError(pendingRes.error);
+  if (blockedRes.error) throw fromDatabaseError(blockedRes.error);
+  if (missingPhotoRes.error) throw fromDatabaseError(missingPhotoRes.error);
 
-  const { count: blockedCount, error: blockedError } = await req.auth!.client.from("student_cards")
-    .select("id", { count: "exact", head: true })
-    .eq("school_id", req.tenant!.schoolId)
-    .in("status", ["BLOCKED", "LOST"])
-    .not("production_status", "in", "(DRAFT,PRINTED,READY_TO_WRITE,WRITING,FAILED)");
-
-  if (blockedError) throw fromDatabaseError(blockedError);
-
-  const { count: missingPhotoCount, error: missingPhotoError } = await req.auth!.client.from("students")
-    .select("id", { count: "exact", head: true })
-    .eq("school_id", req.tenant!.schoolId)
-    .eq("is_active", true)
-    .is("deleted_at", null)
-    .or("photo_url.is.null,photo_url.eq.");
-
-  if (missingPhotoError) throw fromDatabaseError(missingPhotoError);
-
-  sendData(res, { active: activeCount ?? 0, pending: pendingCount ?? 0, blocked: blockedCount ?? 0, missing_photo: missingPhotoCount ?? 0 });
+  sendData(res, {
+    active: activeRes.count ?? 0,
+    pending: pendingRes.count ?? 0,
+    blocked: blockedRes.count ?? 0,
+    missing_photo: missingPhotoRes.count ?? 0
+  });
 }));
 
 router.post("/resolve", requirePermission("student.read"), validate({ body: z.object({ qr_key: z.string().trim().min(16).max(128) }).strict() }), asyncHandler(async (req, res) => {

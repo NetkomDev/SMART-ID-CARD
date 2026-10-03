@@ -24,15 +24,20 @@ router.get("/", validate({ query: paginationSchema }), asyncHandler(async (req, 
 }));
 
 router.get("/summary", asyncHandler(async (req, res) => {
-  const { data: classes, error: classError } = await req.auth!.client.from("classes")
-    .select("id, name, grade_level").eq("school_id", req.tenant!.schoolId).is("deleted_at", null)
-    .order("grade_level", { ascending: true })
-    .order("name", { ascending: true });
-  if (classError) throw fromDatabaseError(classError);
+  const [classRes, countRes] = await Promise.all([
+    req.auth!.client.from("classes")
+      .select("id, name, grade_level").eq("school_id", req.tenant!.schoolId).is("deleted_at", null)
+      .order("grade_level", { ascending: true })
+      .order("name", { ascending: true }),
+    req.auth!.client.from("student_class_history")
+      .select("class_id").eq("school_id", req.tenant!.schoolId).eq("is_current", true)
+  ]);
 
-  const { data: counts, error: countError } = await req.auth!.client.from("student_class_history")
-    .select("class_id").eq("school_id", req.tenant!.schoolId).eq("is_current", true);
-  if (countError) throw fromDatabaseError(countError);
+  if (classRes.error) throw fromDatabaseError(classRes.error);
+  if (countRes.error) throw fromDatabaseError(countRes.error);
+
+  const classes = classRes.data;
+  const counts = countRes.data;
 
   const countMap = new Map<string, number>();
   for (const row of counts ?? []) {

@@ -35,26 +35,28 @@ router.get("/summary", requirePermission("attendance.read"), asyncHandler(async 
   today.setHours(23, 59, 59, 999);
   const endOfDay = today.toISOString();
 
-  const { count: totalPresent, error: presentError } = await req.auth!.client.from("attendance_logs")
-    .select("id", { count: "exact", head: true })
-    .eq("school_id", req.tenant!.schoolId)
-    .eq("direction", "CHECK_IN")
-    .gte("occurred_at_local", startOfDay)
-    .lte("occurred_at_local", endOfDay);
-  
-  if (presentError) throw fromDatabaseError(presentError);
+  const schoolId = req.tenant!.schoolId;
 
-  const { count: totalLate, error: lateError } = await req.auth!.client.from("attendance_logs")
-    .select("id", { count: "exact", head: true })
-    .eq("school_id", req.tenant!.schoolId)
-    .eq("direction", "CHECK_IN")
-    .eq("is_late", true)
-    .gte("occurred_at_local", startOfDay)
-    .lte("occurred_at_local", endOfDay);
+  const [presentRes, lateRes] = await Promise.all([
+    req.auth!.client.from("attendance_logs")
+      .select("id", { count: "exact", head: true })
+      .eq("school_id", schoolId)
+      .eq("direction", "CHECK_IN")
+      .gte("occurred_at_local", startOfDay)
+      .lte("occurred_at_local", endOfDay),
+    req.auth!.client.from("attendance_logs")
+      .select("id", { count: "exact", head: true })
+      .eq("school_id", schoolId)
+      .eq("direction", "CHECK_IN")
+      .eq("is_late", true)
+      .gte("occurred_at_local", startOfDay)
+      .lte("occurred_at_local", endOfDay)
+  ]);
 
-  if (lateError) throw fromDatabaseError(lateError);
+  if (presentRes.error) throw fromDatabaseError(presentRes.error);
+  if (lateRes.error) throw fromDatabaseError(lateRes.error);
 
-  sendData(res, { total_present: totalPresent ?? 0, total_late: totalLate ?? 0 });
+  sendData(res, { total_present: presentRes.count ?? 0, total_late: lateRes.count ?? 0 });
 }));
 
 export { router as attendanceRouter };
