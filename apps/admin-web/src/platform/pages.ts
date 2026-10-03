@@ -715,6 +715,7 @@ async function cardTemplatesPage(root: HTMLElement, content: HTMLElement, alive:
 
   // Render UI IMMEDIATELY (0ms)
   renderUI();
+  feedback(root, '');
   // Fetch templates in background and update previews in-place
   void loadTemplates();
 }
