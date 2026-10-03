@@ -482,11 +482,11 @@ function printStyles(media: string) {
 body{margin:0;font-family:'Inter','Segoe UI',Roboto,sans-serif;background:${media==='sheet'?'#f1f5f9':'#ffffff'};${media==='sheet'?'display:grid;grid-template-columns:repeat(3,54mm);gap:5mm;align-content:start;justify-content:center;padding:5mm;':''}}
 .id-card{width:54mm;height:85.6mm;overflow:hidden;border-radius:3mm;border:1px solid #cbd5e1;break-inside:avoid;${media==='card'?'break-after:page;':''}background:#ffffff;print-color-adjust:exact;-webkit-print-color-adjust:exact;position:relative;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1)}
 
-.id-front-v2{width:100%;height:100%;position:relative;background:#ffffff;display:flex;flex-direction:column;padding:3mm 3mm 2mm 3mm;overflow:hidden;color:#0f172a}
+.id-front-v2{width:100%;height:100%;position:relative;background:#ffffff;display:flex;flex-direction:column;padding:10mm 3mm 2mm 3mm;overflow:hidden;color:#0f172a}
 .bg-shape-top-1{position:absolute;top:-12mm;right:-10mm;width:38mm;height:38mm;background:linear-gradient(135deg,#0052cc 0%,#002554 100%);clip-path:polygon(30% 0%,100% 0%,100% 100%,0% 70%);z-index:1}
 .bg-shape-top-2{position:absolute;top:-8mm;right:12mm;width:18mm;height:25mm;background:#0284c7;opacity:0.85;clip-path:polygon(40% 0%,100% 0%,60% 100%,0% 100%);z-index:1}
 
-.id-header-v2{position:relative;z-index:2;display:flex;align-items:center;gap:2mm;margin-top:1mm;margin-bottom:2.5mm}
+.id-header-v2{position:relative;z-index:2;display:flex;align-items:center;gap:1.5mm;margin-bottom:1.8mm}
 .header-logo{width:11mm;height:11mm;flex:none;display:flex;align-items:center;justify-content:center}
 .school-logo-img{width:100%;height:100%;object-fit:contain}
 .school-logo-svg{width:100%;height:100%}
@@ -511,9 +511,10 @@ body{margin:0;font-family:'Inter','Segoe UI',Roboto,sans-serif;background:${medi
 
 .id-details-grid{position:relative;z-index:2;display:flex;flex-direction:column;gap:1.2mm;font-size:5.2pt;color:#334155;margin-bottom:auto}
 .detail-item{display:flex;align-items:flex-start;line-height:1.25}
-.detail-icon{width:3.5mm;flex:none;color:#0284c7;display:flex;align-items:center}
-.detail-label{width:14mm;flex:none;font-weight:600;color:#475569}
-.detail-colon{width:2mm;flex:none;font-weight:600;color:#475569}
+.detail-icon{width:3.5mm;height:2.8mm;flex:none;color:#0284c7;display:flex;align-items:flex-end;justify-content:flex-start}
+.detail-icon svg{width:10px;height:10px;display:block;margin-bottom:0.2mm}
+.detail-label{width:13.5mm;flex:none;font-weight:600;color:#475569;min-height:2.8mm;display:flex;align-items:flex-end}
+.detail-colon{width:1.5mm;flex:none;font-weight:600;color:#475569;min-height:2.8mm;display:flex;align-items:flex-end}
 .detail-val{flex:1;font-weight:700;color:#0f172a}
 .addr-text{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-weight:500}
 

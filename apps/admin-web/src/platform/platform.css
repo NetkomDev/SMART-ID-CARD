@@ -1,6 +1,7 @@
 .sa-page {
   overflow: hidden;
 }
+
 .sa-tabs {
   display: flex;
   gap: 4px;
@@ -10,6 +11,7 @@
   margin-bottom: 1.5rem;
   overflow-x: auto;
 }
+
 .sa-tabs button {
   flex: 1;
   min-width: max-content;
@@ -23,15 +25,18 @@
   transition: all 0.2s;
   white-space: nowrap;
 }
+
 .sa-tabs button:hover {
   color: #0f172a;
   background: #e2e8f0;
 }
+
 .sa-tabs button[data-active="true"] {
   background: #fff;
   color: #0f172a;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
+
 .sa-actions {
   display: flex;
   align-items: center;
@@ -39,24 +44,29 @@
   gap: 0.5rem;
   margin: 0.75rem 0;
 }
+
 .sa-page td .sa-actions {
   margin: 0;
 }
+
 .sa-form {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 1rem;
   margin: 1rem 0;
 }
+
 .sa-form button {
   align-self: end;
   height: 42px;
 }
+
 .sa-form label {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
 }
+
 .sa-form input,
 .sa-form select,
 .sa-form textarea,
@@ -70,14 +80,17 @@
   height: 42px;
   box-sizing: border-box;
 }
+
 .sa-form input[type="checkbox"] {
   width: auto;
   height: auto;
 }
+
 .sa-form label:has(input[type="checkbox"]) {
   flex-direction: row;
   align-items: center;
 }
+
 .sa-dialog {
   width: 100%;
   max-width: 440px;
@@ -88,49 +101,59 @@
   color: var(--text, #15223a);
   box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
 }
+
 .sa-dialog::backdrop {
   background: #0009;
 }
+
 .sa-dialog h2 {
   margin-top: 0;
   margin-bottom: 1rem;
   font-size: 1.25rem;
 }
+
 .sa-dialog .sa-form {
   display: flex;
   flex-direction: column;
   gap: 1rem;
   margin: 0;
 }
+
 .sa-dialog .sa-actions {
   justify-content: flex-end;
   margin-top: 1.5rem;
   margin-bottom: 0;
 }
+
 .sa-dialog pre,
 .sa-page pre {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   max-width: 40rem;
 }
+
 .sa-page [data-feedback]:not(:empty) {
   padding: 1rem;
   background: #fff3d4;
   color: #613f00;
   border-radius: 0.5rem;
 }
+
 .sa-page table small {
   display: block;
 }
+
 .sa-page td {
   vertical-align: middle;
 }
+
 .sa-card-previews {
   display: flex;
   flex-wrap: wrap;
   gap: 1.5rem;
   margin-top: 1rem;
 }
+
 .sa-preview {
   width: 54mm;
   height: 85.6mm;
@@ -181,7 +204,8 @@
   background: #ffffff;
   display: flex;
   flex-direction: column;
-  padding: 5.5mm 3mm 2mm 3mm; /* Edit padding atas, kanan, bawah, kiri di sini */
+  padding: 10mm 3mm 2mm 3mm;
+  /* Edit padding atas, kanan, bawah, kiri di sini (padding atas diperbesar agar semua konten digeser turun) */
   overflow: hidden;
   color: #0f172a;
   box-sizing: border-box;
@@ -210,6 +234,7 @@
   clip-path: polygon(30% 0%, 100% 0%, 100% 100%, 0% 70%);
   z-index: 1;
 }
+
 .bg-shape-top-2 {
   position: absolute;
   top: -8mm;
@@ -227,44 +252,55 @@
    -------------------------------------------------------------------------- */
 .id-header-v2 {
   position: relative;
-  z-index: 2;
+  z-index: 1;
   display: flex;
   align-items: center;
-  gap: 2mm; /* Jarak antara Logo dan Nama Sekolah */
-  margin-bottom: 2mm;
+  gap: 1mm;
+  /* Jarak antara Logo dan Nama Sekolah */
+  margin-bottom: 1mm;
 }
+
 /* Ukuran Logo Sekolah */
 .header-logo {
-  width: 11mm;  /* Ubah lebar logo sekolah di sini */
-  height: 11mm; /* Ubah tinggi logo sekolah di sini */
+  width: 11mm;
+  /* Ubah lebar logo sekolah di sini */
+  height: 11mm;
+  /* Ubah tinggi logo sekolah di sini */
   flex: none;
   display: flex;
   align-items: center;
   justify-content: center;
 }
+
 .school-logo-img {
   width: 100%;
   height: 100%;
   object-fit: contain;
 }
+
 .school-logo-svg {
   width: 100%;
   height: 100%;
   display: block;
 }
+
 .header-title-box {
   flex: 1;
   min-width: 0;
 }
+
 /* Ukuran & Gaya Font Nama Sekolah */
 .school-name-v2 {
-  font-size: 9.2pt; /* Ubah ukuran font Nama Sekolah di sini */
-  font-weight: 900;
-  color: #002554;   /* Ubah warna font Nama Sekolah di sini */
+  font-size: 9pt;
+  /* Ubah ukuran font Nama Sekolah di sini */
+  font-weight: 600;
+  color: #6082af;
+  /* Ubah warna font Nama Sekolah di sini */
   line-height: 1.1;
   text-transform: uppercase;
   letter-spacing: -0.2px;
 }
+
 /* Slogan Kecil di bawah Nama Sekolah */
 .school-slogan-v2 {
   font-size: 4pt;
@@ -285,29 +321,38 @@
   gap: 2mm;
   align-items: flex-start;
   margin-bottom: 1.8mm;
-  padding-left: 1mm; /* Geser foto dan kolom kanan lebih masuk ke dalam */
+  padding-left: 1mm;
+  /* Geser foto dan kolom kanan lebih masuk ke dalam */
 }
+
 /* Kolom Foto Siswa */
 .photo-col {
-  width: 21mm; /* Lebar kolom foto */
+  width: 21mm;
+  /* Lebar kolom foto */
   flex: none;
 }
+
 /* Bingkai / Frame Foto Siswa */
 .photo-frame {
-  width: 21mm;  /* Ubah lebar bingkai foto di sini */
-  height: 30mm; /* Ubah tinggi bingkai foto di sini (30mm sejajar bottom QR) */
+  width: 21mm;
+  /* Ubah lebar bingkai foto di sini */
+  height: 30mm;
+  /* Ubah tinggi bingkai foto di sini (30mm sejajar bottom QR) */
   border-radius: 2mm;
   overflow: hidden;
-  border: 1.5px solid #0284c7; /* Warna border foto */
+  border: 1.5px solid #0284c7;
+  /* Warna border foto */
   background: #e0f2fe;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
 }
+
 .student-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
 }
+
 /* Kolom Kanan (Kelas, NISN, QR Code) */
 .meta-col {
   flex: 1;
@@ -315,6 +360,7 @@
   display: flex;
   flex-direction: column;
 }
+
 .meta-label {
   font-size: 4.8pt;
   font-weight: 700;
@@ -323,31 +369,39 @@
   line-height: 1;
   margin-bottom: 0.4mm;
 }
+
 /* Ukuran Font Nilai KELAS (mis: X-2) */
 .meta-value-class {
-  font-size: 13.5pt; /* Ubah ukuran font Kelas di sini */
+  font-size: 13.5pt;
+  /* Ubah ukuran font Kelas di sini */
   font-weight: 900;
   color: #002554;
   line-height: 1;
   margin-bottom: 1.2mm;
 }
+
 /* Ukuran Font Nilai NISN */
 .meta-value-nisn {
-  font-size: 7.5pt; /* Ubah ukuran font NISN di sini */
+  font-size: 7.5pt;
+  /* Ubah ukuran font NISN di sini */
   font-weight: 800;
   color: #0f172a;
   line-height: 1;
   margin-bottom: 1.5mm;
 }
+
 /* Kotak QR Code */
 .qr-container {
-  width: 15.5mm;  /* Ubah lebar QR Code di sini */
-  height: 15.5mm; /* Ubah tinggi QR Code di sini */
+  width: 15.5mm;
+  /* Ubah lebar QR Code di sini */
+  height: 15.5mm;
+  /* Ubah tinggi QR Code di sini */
   padding: 0.8mm;
   border: 1px solid #0284c7;
   border-radius: 1mm;
   background: #fff;
 }
+
 .qr-img {
   width: 100%;
   height: 100%;
@@ -362,15 +416,18 @@
   z-index: 2;
   margin-bottom: 1.8mm;
 }
+
 /* Ukuran Font Nama Lengkap Siswa */
 .student-fullname {
-  font-size: 8.5pt; /* Ubah ukuran font Nama Siswa di sini */
+  font-size: 8.5pt;
+  /* Ubah ukuran font Nama Siswa di sini */
   font-weight: 900;
   color: #002554;
   text-transform: uppercase;
   line-height: 1.15;
   letter-spacing: -0.2px;
 }
+
 .school-subname {
   font-size: 5.8pt;
   font-weight: 700;
@@ -387,39 +444,64 @@
   display: flex;
   flex-direction: column;
   gap: 1mm;
-  font-size: 5pt; /* Ukuran font detail data siswa */
+  font-size: 5pt;
+  /* Ukuran font detail data siswa */
   color: #334155;
   margin-bottom: auto;
 }
+
 .detail-item {
   display: flex;
   align-items: flex-start;
   line-height: 1.2;
 }
+
+/* Icon / Logo kecil di depan detail (Jenis Kelamin, Tgl Lahir, Alamat) */
 .detail-icon {
   width: 3.5mm;
+  height: 2.8mm;
   flex: none;
   color: #0284c7;
   display: flex;
-  align-items: center;
+  align-items: flex-end; /* Logo/Icon sejajar bagian bawah dengan teks */
+  justify-content: flex-start;
 }
+
+.detail-icon svg {
+  width: 10px;
+  height: 10px;
+  display: block;
+  margin-bottom: 0.2mm; /* Align persis bagian bawah logo dengan baseline teks */
+}
+
+/* Label nama bidang (Jenis Kelamin, Tanggal Lahir, Alamat) */
 .detail-label {
   width: 13.5mm;
   flex: none;
   font-weight: 600;
   color: #475569;
+  min-height: 2.8mm;
+  display: flex;
+  align-items: flex-end; /* Teks label sejajar bagian bawah logo */
 }
+
+/* Titik dua (:) */
 .detail-colon {
-  width: 2mm;
+  width: 1.5mm;
   flex: none;
   font-weight: 600;
   color: #475569;
+  min-height: 2.8mm;
+  display: flex;
+  align-items: flex-end; /* Titik dua (:) sejajar bagian bawah */
 }
+
 .detail-val {
   flex: 1;
   font-weight: 700;
   color: #0f172a;
 }
+
 .addr-text {
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -438,7 +520,9 @@
   pointer-events: none;
   z-index: 1;
 }
-.emblem-watermark img, .emblem-watermark svg {
+
+.emblem-watermark img,
+.emblem-watermark svg {
   width: 100%;
   height: 100%;
   object-fit: contain;
@@ -482,16 +566,19 @@
   align-items: center;
   margin-bottom: 2mm;
 }
+
 .back-header-left {
   display: flex;
   align-items: center;
   gap: 1.5mm;
 }
+
 .back-logo {
   width: 7mm;
   height: 7mm;
   flex: none;
 }
+
 .back-school-title {
   font-size: 8.5pt;
   font-weight: 900;
@@ -500,10 +587,12 @@
   line-height: 1.1;
   max-width: 24mm;
 }
+
 .back-header-right {
   text-align: right;
   padding-right: 1mm;
 }
+
 .card-id-label {
   font-size: 4.5pt;
   font-weight: 900;
@@ -538,21 +627,25 @@
   flex-direction: column;
   gap: 1.2mm;
 }
+
 .card-info-row {
   display: flex;
   align-items: center;
   gap: 1.5mm;
 }
+
 .info-icon {
   font-size: 6.5pt;
   width: 3.5mm;
   text-align: center;
   flex: none;
 }
+
 .info-meta {
   display: flex;
   flex-direction: column;
 }
+
 .info-lbl {
   font-size: 4pt;
   font-weight: 700;
@@ -560,17 +653,21 @@
   text-transform: uppercase;
   line-height: 1;
 }
+
 .info-txt {
   font-size: 5.5pt;
   color: #0f172a;
   line-height: 1.1;
 }
+
 .info-txt.bold {
   font-weight: 800;
 }
+
 .info-txt.uppercase {
   text-transform: uppercase;
 }
+
 .card-divider {
   width: 100%;
   height: 1px;
@@ -584,6 +681,7 @@
   gap: 1.2mm;
   margin-bottom: 0.4mm;
 }
+
 .alert-icon {
   width: 3mm;
   height: 3mm;
@@ -597,18 +695,21 @@
   font-weight: 900;
   flex: none;
 }
+
 .rules-title {
   font-size: 4.8pt;
   font-weight: 900;
   color: #002554;
   letter-spacing: 0.3px;
 }
+
 .rules-list {
   padding-left: 3.2mm;
   font-size: 4pt;
   color: #334155;
   line-height: 1.3;
 }
+
 .rules-list li {
   margin-bottom: 0.3mm;
   font-weight: 500;
@@ -624,16 +725,19 @@
   margin-bottom: 1.5mm;
   padding: 0 1mm;
 }
+
 .barcode-block {
   width: 24mm;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
 }
+
 .barcode-svg {
   width: 100%;
   height: 6.5mm;
 }
+
 .barcode-text {
   font-size: 3.8pt;
   font-weight: 700;
@@ -642,32 +746,38 @@
   margin-top: 0.4mm;
   letter-spacing: -0.2px;
 }
+
 .signature-block {
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
 }
+
 .sig-title {
   font-size: 4.2pt;
   font-weight: 700;
   color: #334155;
   margin-bottom: 0.4mm;
 }
+
 .sig-image-wrap {
   height: 5.5mm;
   display: flex;
   align-items: center;
   justify-content: center;
 }
+
 .sig-img {
   max-height: 5.5mm;
   max-width: 18mm;
   object-fit: contain;
 }
+
 .sig-placeholder {
   height: 5.5mm;
 }
+
 .sig-name {
   font-size: 4.5pt;
   font-weight: 800;
@@ -675,6 +785,7 @@
   text-decoration: underline;
   line-height: 1.1;
 }
+
 .sig-nip {
   font-size: 3.8pt;
   font-weight: 600;
@@ -696,61 +807,76 @@
   font-weight: 700;
   margin-top: auto;
 }
+
 .web-icon {
   font-size: 4.8pt;
 }
+
 .web-url {
   letter-spacing: 0.2px;
 }
+
 .sa-page .button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
 @media (max-width: 480px) {
   .sa-preview {
     transform-origin: top left;
     max-width: 100%;
   }
+
   .sa-actions .button {
     font-size: 0.8rem;
   }
 }
+
 .sa-page h2 {
   overflow-wrap: anywhere;
 }
+
 @media (max-width: 640px) {
   .topbar {
     gap: 0.4rem;
     width: 100%;
     box-sizing: border-box;
   }
+
   .topbar .school-switch {
     flex: 1;
     min-width: 0;
   }
-  .topbar .school-switch > div {
+
+  .topbar .school-switch>div {
     min-width: 0;
     width: 100%;
   }
+
   .topbar .school-switch select {
     max-width: 100%;
     width: 100%;
   }
+
   .topbar .school-avatar,
   .topbar .profile,
   .topbar button[aria-label="Notifikasi"] {
     display: none;
   }
+
   .topbar .top-actions {
     gap: 0.25rem;
     flex-shrink: 0;
   }
+
   .sa-page .table-wrap {
     overflow-x: auto;
   }
+
   .sa-page {
     min-width: 0;
   }
+
   .workspace {
     min-width: 0;
   }
@@ -761,12 +887,30 @@
   table-layout: fixed;
   width: 100%;
 }
-.table-iam-wrap th:nth-child(1) { width: 20%; }
-.table-iam-wrap th:nth-child(2) { width: 18%; }
-.table-iam-wrap th:nth-child(3) { width: 18%; }
-.table-iam-wrap th:nth-child(4) { width: 24%; }
-.table-iam-wrap th:nth-child(5) { width: 11%; }
-.table-iam-wrap th:nth-child(6) { width: 9%; }
+
+.table-iam-wrap th:nth-child(1) {
+  width: 20%;
+}
+
+.table-iam-wrap th:nth-child(2) {
+  width: 18%;
+}
+
+.table-iam-wrap th:nth-child(3) {
+  width: 18%;
+}
+
+.table-iam-wrap th:nth-child(4) {
+  width: 24%;
+}
+
+.table-iam-wrap th:nth-child(5) {
+  width: 11%;
+}
+
+.table-iam-wrap th:nth-child(6) {
+  width: 9%;
+}
 
 .cell-scroll {
   overflow-x: auto;
@@ -775,9 +919,11 @@
   scrollbar-width: thin;
   padding-bottom: 2px;
 }
+
 .cell-scroll::-webkit-scrollbar {
   height: 4px;
 }
+
 .cell-scroll::-webkit-scrollbar-thumb {
   background: #cbd5e1;
   border-radius: 4px;
@@ -798,26 +944,29 @@
   transition: all 0.2s ease;
   user-select: none;
 }
+
 .status-toggle-btn.active {
   background: #dcfce7;
   color: #15803d;
   border-color: #86efac;
 }
+
 .status-toggle-btn.active:hover {
   background: #bbf7d0;
   border-color: #4ade80;
   transform: translateY(-1px);
   box-shadow: 0 2px 6px rgba(22, 101, 52, 0.15);
 }
+
 .status-toggle-btn.inactive {
   background: #fee2e2;
   color: #b91c1c;
   border-color: #fca5a5;
 }
+
 .status-toggle-btn.inactive:hover {
   background: #fecaca;
   border-color: #f87171;
   transform: translateY(-1px);
   box-shadow: 0 2px 6px rgba(153, 27, 27, 0.15);
 }
-
