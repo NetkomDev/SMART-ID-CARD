@@ -354,7 +354,7 @@
   display: block;
 }
 
-/* Kolom Kanan (Kelas, NISN, QR Code) */
+/* Kolom Kanan (Kelas, NISN, QR Code) - Lurus rata kiri mengikuti garis pandu vertikal */
 .meta-col {
   flex: 1;
   min-width: 0;
@@ -362,6 +362,8 @@
   /* Samakan tinggi kolom kanan dengan bingkai foto (30mm) */
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
+  /* Semua elemen (KELAS, NISN, QR Code) rata kiri sejajar garis pandu vertikal */
 }
 
 .meta-label {
@@ -393,7 +395,7 @@
   margin-bottom: 1.5mm;
 }
 
-/* Kotak QR Code (Border Dihapus, Bottom Sejajar Foto) */
+/* Kotak QR Code (Border Dihapus, Bottom Sejajar Foto, Rata Kiri Garis Pandu) */
 .qr-container {
   width: 17.5mm;
   height: 17.5mm;
@@ -401,7 +403,8 @@
   border: none;
   background: transparent;
   margin-top: auto;
-  /* Mendorong QR Code ke paling bawah sejajar bottom foto */
+  align-self: flex-start;
+  /* Mendorong QR Code ke paling bawah sejajar bottom foto & rata kiri vertikal */
 }
 
 .qr-img {
@@ -455,18 +458,17 @@
 .detail-item {
   display: flex;
   align-items: flex-start;
-  line-height: 1.2;
+  line-height: 1.25;
 }
 
 /* Icon / Logo kecil di depan detail (Jenis Kelamin, Tgl Lahir, Alamat) */
 .detail-icon {
   width: 3.5mm;
-  height: 2.8mm;
+  height: 1.25em;
   flex: none;
   color: #0284c7;
   display: flex;
-  align-items: flex-end;
-  /* Logo/Icon sejajar bagian bawah dengan teks */
+  align-items: center;
   justify-content: flex-start;
 }
 
@@ -474,33 +476,29 @@
   width: 10px;
   height: 10px;
   display: block;
-  margin-bottom: 0.2mm;
-  /* Align persis bagian bawah logo dengan baseline teks */
 }
 
 /* Label nama bidang (Jenis Kelamin, Tanggal Lahir, Alamat) */
 .detail-label {
-  width: 16mm; /* Lebar seragam 16mm agar ketiga titik dua sejajar vertikal */
+  width: 14mm;
+  height: 1.25em;
   flex: none;
   font-weight: 600;
   color: #475569;
-  min-height: 2.8mm;
   display: flex;
-  align-items: flex-end;
-  /* Teks label sejajar bagian bawah logo */
+  align-items: center;
 }
 
 /* Titik dua (:) */
 .detail-colon {
-  width: 1.5mm; /* Lebar titik dua seragam agar sejajar vertikal */
+  width: 1.5mm;
+  height: 1.25em;
   flex: none;
   font-weight: 600;
   color: #475569;
-  min-height: 2.8mm;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
-  /* Titik dua (:) sejajar bagian bawah */
 }
 
 .detail-val {
@@ -508,6 +506,7 @@
   min-width: 0;
   font-weight: 700;
   color: #0f172a;
+  line-height: 1.25;
 }
 
 .addr-text {

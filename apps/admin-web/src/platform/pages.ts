@@ -498,11 +498,11 @@ body{margin:0;font-family:'Inter','Segoe UI',Roboto,sans-serif;background:${medi
 .photo-col{width:21mm;flex:none}
 .photo-frame{width:21mm;height:30mm;border-radius:2mm;overflow:hidden;border:1.5px solid #0284c7;background:#e0f2fe;box-shadow:0 2px 4px rgba(0,0,0,0.08)}
 .student-img{width:100%;height:100%;object-fit:cover}
-.meta-col{flex:1;min-width:0;height:30mm;display:flex;flex-direction:column}
+.meta-col{flex:1;min-width:0;height:30mm;display:flex;flex-direction:column;align-items:flex-start}
 .meta-label{font-size:4.8pt;font-weight:700;color:#0284c7;letter-spacing:0.3px;line-height:1;margin-bottom:0.5mm}
 .meta-value-class{font-size:13pt;font-weight:900;color:#002554;line-height:1;margin-bottom:1.5mm}
 .meta-value-nisn{font-size:7.5pt;font-weight:800;color:#0f172a;line-height:1;margin-bottom:2mm}
-.qr-container{width:17.5mm;height:17.5mm;padding:0;border:none;background:transparent;margin-top:auto}
+.qr-container{width:17.5mm;height:17.5mm;padding:0;border:none;background:transparent;margin-top:auto;align-self:flex-start}
 .qr-img{width:100%;height:100%;display:block}
 
 .id-name-block{position:relative;z-index:2;margin-bottom:1.5mm}
@@ -511,11 +511,11 @@ body{margin:0;font-family:'Inter','Segoe UI',Roboto,sans-serif;background:${medi
 
 .id-details-grid{position:relative;z-index:2;display:flex;flex-direction:column;gap:1.2mm;font-size:5.2pt;color:#334155;margin-bottom:auto}
 .detail-item{display:flex;align-items:flex-start;line-height:1.25}
-.detail-icon{width:3.5mm;height:2.8mm;flex:none;color:#0284c7;display:flex;align-items:flex-end;justify-content:flex-start}
-.detail-icon svg{width:10px;height:10px;display:block;margin-bottom:0.2mm}
-.detail-label{width:16mm;flex:none;font-weight:600;color:#475569;min-height:2.8mm;display:flex;align-items:flex-end}
-.detail-colon{width:1.5mm;flex:none;font-weight:600;color:#475569;min-height:2.8mm;display:flex;align-items:flex-end;justify-content:center}
-.detail-val{flex:1;min-width:0;font-weight:700;color:#0f172a}
+.detail-icon{width:3.5mm;height:1.25em;flex:none;color:#0284c7;display:flex;align-items:center;justify-content:flex-start}
+.detail-icon svg{width:10px;height:10px;display:block}
+.detail-label{width:14mm;height:1.25em;flex:none;font-weight:600;color:#475569;display:flex;align-items:center}
+.detail-colon{width:1.5mm;height:1.25em;flex:none;font-weight:600;color:#475569;display:flex;align-items:center;justify-content:center}
+.detail-val{flex:1;min-width:0;font-weight:700;color:#0f172a;line-height:1.25}
 .addr-text{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-weight:500}
 
 .emblem-watermark{position:absolute;bottom:6mm;right:2mm;width:22mm;height:22mm;opacity:0.08;pointer-events:none;z-index:1}
