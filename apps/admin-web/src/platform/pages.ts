@@ -444,11 +444,6 @@ function back(c: Row, customBgUrl?: string) {
         <div class="sig-name">${esc(principalName)}</div>
         <div class="sig-nip">NIP. ${esc(principalNip)}</div>
       </div>
-    </div>
-
-    <div class="back-footer-bar">
-      <span class="web-url">${esc(websiteUrl)}</span>
-    </div>
   </div>`;
 }
 

@@ -699,8 +699,8 @@
 .barcode-block {
   position: absolute;
   z-index: 2;
-  top: 45mm;    /* <-- GESER BARCODE ATAS/BAWAH */
-  left: 6mm;    /* <-- GESER BARCODE KIRI/KANAN */
+  top: 43mm;    /* <-- GESER BARCODE ATAS/BAWAH */
+  left: 0mm;    /* <-- GESER BARCODE KIRI/KANAN */
   width: 20mm;  /* <-- LEBAR BARCODE */
   display: flex;
   flex-direction: column;
@@ -734,8 +734,8 @@
 .signature-block {
   position: absolute;
   z-index: 2;
-  top: 62mm;    /* <-- GESER TTD/KEPALA SEKOLAH ATAS/BAWAH */
-  left: 27mm;   /* <-- GESER TTD/KEPALA SEKOLAH KIRI/KANAN */
+  top: 45mm;    /* <-- GESER TTD/KEPALA SEKOLAH ATAS/BAWAH */
+  left: 13mm;   /* <-- GESER TTD/KEPALA SEKOLAH KIRI/KANAN */
   width: 24mm;  /* <-- LEBAR AREA TTD/KEPALA SEKOLAH */
   text-align: center; /* <-- PERATAAN TEKS: center / left / right */
   display: flex;
@@ -782,18 +782,7 @@
 }
 
 .back-footer-bar {
-  width: calc(100% + 6mm);
-  margin-left: -3mm;
-  height: 5mm;
-  background: linear-gradient(90deg, #002554 0%, #0052cc 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 1.2mm;
-  color: #ffffff;
-  font-size: 4.5pt;
-  font-weight: 700;
-  margin-top: auto;
+  display: none !important;
 }
 
 .web-icon {
