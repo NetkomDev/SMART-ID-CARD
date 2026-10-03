@@ -673,35 +673,38 @@
 }
 
 /* ==========================================================================
-   BARIS BAWAH: CONTAINER KELOMPOK BARCODE & TANDA TANGAN
+   BARIS BAWAH: BARCODE & TANDA TANGAN KEPALA SEKOLAH
+   --------------------------------------------------------------------------
+   Barcode dan Tanda Tangan memakai `position: absolute` yang diukur dari
+   TEPI KARTU (bukan dari elemen lain). Artinya:
+   - Menggeser keduanya TIDAK mempengaruhi NISN/NAMA/KELAS/TAHUN AJARAN.
+   - Barcode dan Tanda Tangan TIDAK saling mempengaruhi (independen).
+   Ukuran kartu: lebar 54mm x tinggi 85.6mm.
    ========================================================================== */
 .back-bottom-row {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 5.5mm;
-  pointer-events: none;
-  z-index: 2;
+  position: static; /* Wadah saja, tidak ikut mengatur posisi (jangan diubah) */
+  margin: 0;
+  padding: 0;
 }
 
 /* ==========================================================================
-   PETUNJUK PENGATURAN POSISI BARCODE (INDEPENDEN / BEBAS)
+   PETUNJUK PENGATURAN POSISI BARCODE (INDEPENDEN)
    --------------------------------------------------------------------------
-   - `position: absolute` membuat Barcode BEBAS digeser tanpa mempengaruhi data siswa di atasnya & tanpa mempengaruhi Kepala Sekolah.
-   - ATAS / BAWAH  : Ubah nilai `bottom: 7mm;` (misal `10mm` untuk NAIK, `5mm` untuk TURUN, atau gunakan `top: 60mm;`)
-   - KIRI / KANAN  : Ubah nilai `left: 5mm;` (misal `8mm` untuk GESER KANAN, `2mm` untuk GESER KIRI)
+   - ATAS / BAWAH  : Ubah `top`  -> jarak dari TEPI ATAS kartu
+                     (angka DIBESARKAN = TURUN, DIKECILKAN = NAIK)
+   - KIRI / KANAN  : Ubah `left` -> jarak dari TEPI KIRI kartu
+                     (angka DIBESARKAN = KE KANAN, DIKECILKAN = KE KIRI)
+   - LEBAR BARCODE : Ubah `width`
    ========================================================================== */
 .barcode-block {
   position: absolute;
-  pointer-events: auto;
-  bottom: 7mm;        /* <-- POSISI VERTIKAL BARCODE (Dari Bawah) */
-  left: 5.5mm;       /* <-- POSISI HORISONTAL BARCODE (Dari Kiri) */
-  width: 22mm;
+  z-index: 2;
+  top: 45mm;    /* <-- GESER BARCODE ATAS/BAWAH */
+  left: 6mm;    /* <-- GESER BARCODE KIRI/KANAN */
+  width: 20mm;  /* <-- LEBAR BARCODE */
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  z-index: 3;
 }
 
 .barcode-svg {
@@ -719,22 +722,24 @@
 }
 
 /* ==========================================================================
-   PETUNJUK PENGATURAN POSISI KEPALA SEKOLAH & TANDA TANGAN (INDEPENDEN / BEBAS)
+   PETUNJUK PENGATURAN POSISI KEPALA SEKOLAH & TANDA TANGAN (INDEPENDEN)
    --------------------------------------------------------------------------
-   - `position: absolute` membuat Kepala Sekolah & TTD BEBAS digeser tanpa mempengaruhi data siswa di atasnya & tanpa mempengaruhi Barcode.
-   - ATAS / BAWAH  : Ubah nilai `bottom: 6.5mm;` (misal `10mm` untuk NAIK, `4mm` untuk TURUN, atau gunakan `top: 55mm;`)
-   - KIRI / KANAN  : Ubah nilai `right: 5.5mm;` (misal `2mm` untuk GESER KANAN, `10mm` untuk GESER KIRI)
+   - ATAS / BAWAH  : Ubah `top`  -> jarak dari TEPI ATAS kartu
+                     (angka DIBESARKAN = TURUN, DIKECILKAN = NAIK)
+   - KIRI / KANAN  : Ubah `left` -> jarak dari TEPI KIRI kartu
+                     (angka DIBESARKAN = KE KANAN, DIKECILKAN = KE KIRI)
+   - LEBAR AREA    : Ubah `width` (nama panjang akan turun ke baris baru jika melebihi)
+   - PERATAAN TEKS : `text-align: center;` (bisa diganti `left` atau `right`)
    ========================================================================== */
 .signature-block {
   position: absolute;
-  pointer-events: auto;
-  bottom: 6.5mm;      /* <-- POSISI VERTIKAL TTD/KEPALA SEKOLAH (Dari Bawah) */
-  right: 5.5mm;       /* <-- POSISI HORISONTAL TTD/KEPALA SEKOLAH (Dari Kanan) */
-  text-align: center;
+  z-index: 2;
+  top: 62mm;    /* <-- GESER TTD/KEPALA SEKOLAH ATAS/BAWAH */
+  left: 27mm;   /* <-- GESER TTD/KEPALA SEKOLAH KIRI/KANAN */
+  width: 24mm;  /* <-- LEBAR AREA TTD/KEPALA SEKOLAH */
+  text-align: center; /* <-- PERATAAN TEKS: center / left / right */
   display: flex;
   flex-direction: column;
-  align-items: center;
-  z-index: 3;
 }
 
 .sig-title {

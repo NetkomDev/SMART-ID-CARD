@@ -5,6 +5,8 @@ import { optimistic, removeRowOptimistic } from '../lib/optimistic';
 // @ts-ignore
 import QRCode from 'qrcode/lib/browser.js';
 import './platform.css';
+// @ts-ignore -- Vite: impor isi platform.css sebagai teks untuk jendela cetak
+import platformCss from './platform.css?raw';
 type Row = Record<string, any>;
 type Shell = (content:string,title:string,subtitle:string)=>void;
 const esc=(v:unknown)=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
@@ -454,85 +456,10 @@ function printStyles(media: string) {
   return `@page{size:${media==='card'?'54mm 85.6mm':'A4 portrait'};margin:${media==='card'?'0':'8mm'}}
 *{box-sizing:border-box;margin:0;padding:0}
 body{margin:0;font-family:'Inter','Segoe UI',Roboto,sans-serif;background:${media==='sheet'?'#f1f5f9':'#ffffff'};${media==='sheet'?'display:grid;grid-template-columns:repeat(3,54mm);gap:5mm;align-content:start;justify-content:center;padding:5mm;':''}}
-.id-card{width:54mm;height:85.6mm;overflow:hidden;border-radius:3mm;border:1px solid #cbd5e1;break-inside:avoid;${media==='card'?'break-after:page;':''}background:#ffffff;print-color-adjust:exact;-webkit-print-color-adjust:exact;position:relative;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1)}
-
-.id-front-v2{width:100%;height:100%;position:relative;background:#ffffff;display:flex;flex-direction:column;padding:10mm 3mm 2mm 3mm;overflow:hidden;color:#0f172a}
-.bg-shape-top-1{position:absolute;top:-12mm;right:-10mm;width:38mm;height:38mm;background:linear-gradient(135deg,#0052cc 0%,#002554 100%);clip-path:polygon(30% 0%,100% 0%,100% 100%,0% 70%);z-index:1}
-.bg-shape-top-2{position:absolute;top:-8mm;right:12mm;width:18mm;height:25mm;background:#0284c7;opacity:0.85;clip-path:polygon(40% 0%,100% 0%,60% 100%,0% 100%);z-index:1}
-
-.id-header-v2{position:relative;z-index:2;display:flex;align-items:center;gap:1.5mm;margin-bottom:1.8mm}
-.header-logo{width:11mm;height:11mm;flex:none;display:flex;align-items:center;justify-content:center}
-.school-logo-img{width:100%;height:100%;object-fit:contain}
-.school-logo-svg{width:100%;height:100%}
-.header-title-box{flex:1;min-width:0}
-.school-name-v2{font-size:9.2pt;font-weight:900;color:#003366;line-height:1.1;text-transform:uppercase;letter-spacing:-0.2px}
-.school-slogan-v2{font-size:4.2pt;font-style:italic;color:#0284c7;margin-top:0.5mm;font-weight:600;white-space:nowrap}
-
-.id-main-row{position:relative;z-index:2;display:flex;gap:2.5mm;align-items:flex-start;margin-bottom:0.8mm;padding-left:1mm}
-.photo-col{width:21mm;flex:none}
-.photo-frame{width:21mm;height:30mm;border-radius:2mm;overflow:hidden;border:1.5px solid #0284c7;background:#e0f2fe;box-shadow:0 2px 4px rgba(0,0,0,0.08)}
-.student-img{width:100%;height:100%;object-fit:cover}
-.meta-col{flex:1;min-width:0;height:30mm;display:flex;flex-direction:column;align-items:flex-start}
-.meta-label{font-size:4.8pt;font-weight:700;color:#0284c7;letter-spacing:0.3px;line-height:1;margin-bottom:0.5mm}
-.meta-value-class{font-size:13pt;font-weight:900;color:#002554;line-height:1;margin-bottom:1.5mm}
-.meta-value-nisn{font-size:7.5pt;font-weight:800;color:#0f172a;line-height:1;margin-bottom:2mm}
-.qr-container{width:17.5mm;height:17.5mm;padding:0;border:none;background:transparent;margin-top:auto;align-self:flex-start;margin-left:-0.8mm}
-.qr-img{width:100%;height:100%;display:block}
-
-.id-name-block{position:relative;z-index:2;margin-bottom:1.5mm}
-.student-fullname{font-size:8.5pt;font-weight:900;color:#002554;text-transform:uppercase;line-height:1.15;letter-spacing:-0.2px}
-.school-subname{font-size:6pt;font-weight:700;color:#0369a1;margin-top:0.5mm}
-
-.id-details-grid{position:relative;z-index:2;display:flex;flex-direction:column;gap:1.2mm;font-size:5.2pt;color:#334155;margin-bottom:auto}
-.detail-item{display:flex;align-items:flex-start;line-height:1.25}
-.detail-icon{display:none}
-.detail-label{width:14mm;height:1.25em;flex:none;font-weight:600;color:#475569;display:flex;align-items:center}
-.detail-colon{width:1.5mm;height:1.25em;flex:none;font-weight:600;color:#475569;display:flex;align-items:center;justify-content:center}
-.detail-val{flex:1;min-width:0;font-weight:700;color:#0f172a;line-height:1.25}
-.addr-text{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-weight:500}
-
-.emblem-watermark{position:absolute;bottom:6mm;right:2mm;width:22mm;height:22mm;opacity:0.08;pointer-events:none;z-index:1}
-.emblem-watermark img,.emblem-watermark svg{width:100%;height:100%;object-fit:contain}
-
-
-.bg-shape-bottom-right{position:absolute;bottom:-3mm;right:-3mm;width:16mm;height:12mm;background:linear-gradient(135deg,#0284c7 0%,#0052cc 100%);clip-path:polygon(40% 0,100% 60%,100% 100%,0 100%);z-index:2}
-
-.id-back-v2{width:100%;height:100%;position:relative;background:#ffffff;display:flex;flex-direction:column;padding:10mm 3.5mm 0mm 3.5mm;overflow:hidden;color:#0f172a}
-.back-header{position:relative;z-index:2;display:flex;align-items:center;margin-bottom:2mm}
-.back-header-left{display:flex;align-items:center;gap:1.5mm}
-.back-logo{width:8mm;height:8mm;flex:none}
-.back-school-title{font-size:8.5pt;font-weight:900;color:#002554;text-transform:uppercase;line-height:1.1}
-.back-header-right,.card-id-label{display:none}
-
-.back-top-polygon{position:absolute;top:-8mm;right:-8mm;width:25mm;height:25mm;background:linear-gradient(135deg,#0052cc 0%,#002554 100%);clip-path:polygon(0 0,100% 0,100% 100%);z-index:1}
-
-.back-blue-card{position:relative;z-index:2;background:transparent;border:none;padding:0;margin-bottom:1.5mm;display:flex;flex-direction:column;gap:1.2mm}
-.card-info-row{display:flex;align-items:center;gap:2mm}
-.info-icon{display:none}
-.info-meta{display:flex;flex-direction:column}
-.info-lbl{font-size:4.2pt;font-weight:700;color:#64748b;text-transform:uppercase;line-height:1}
-.info-txt{font-size:5.8pt;color:#0f172a;line-height:1.15}
-.info-txt.bold{font-weight:800}
-.info-txt.uppercase{text-transform:uppercase}
-.card-divider{display:none}
-
-.rules-header,.rules-list{display:none}
-
-.back-bottom-row{position:absolute;top:0;left:0;right:0;bottom:5.5mm;pointer-events:none;z-index:2}
-.barcode-block{position:absolute;pointer-events:auto;bottom:7mm;left:5.5mm;width:22mm;display:flex;flex-direction:column;align-items:flex-start;z-index:3}
-.barcode-svg{width:100%;height:6.5mm}
-.barcode-text{font-size:3.8pt;font-weight:700;color:#1e293b;font-family:monospace;margin-top:0.4mm;letter-spacing:-0.2px}
-.signature-block{position:absolute;pointer-events:auto;bottom:6.5mm;right:5.5mm;text-align:center;display:flex;flex-direction:column;align-items:center;z-index:3}
-.sig-title{font-size:4.5pt;font-weight:700;color:#334155;margin-bottom:0.5mm}
-.sig-image-wrap{height:6mm;display:flex;align-items:center;justify-content:center}
-.sig-img{max-height:6mm;max-width:18mm;object-fit:contain}
-.sig-placeholder{height:6mm}
-.sig-name{font-size:4.8pt;font-weight:800;color:#0f172a;text-decoration:underline;line-height:1.1}
-.sig-nip{font-size:4pt;font-weight:600;color:#475569;line-height:1.1}
-
-.back-footer-bar{width:calc(100% + 6mm);margin-left:-3mm;height:5.5mm;background:linear-gradient(90deg,#002554 0%,#0052cc 100%);display:flex;align-items:center;justify-content:center;gap:1.5mm;color:#ffffff;font-size:4.8pt;font-weight:700;margin-top:auto}
-.web-icon{display:none}
-.web-url{letter-spacing:0.2px}
+/* Semua gaya kartu diambil langsung dari platform.css agar hasil cetak = tampilan layar */
+${platformCss}
+/* Penyesuaian khusus cetak */
+.id-card{break-inside:avoid;${media==='card'?'break-after:page;':''}print-color-adjust:exact;-webkit-print-color-adjust:exact}
 `;
 }
 
