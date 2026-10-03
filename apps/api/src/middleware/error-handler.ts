@@ -13,7 +13,7 @@ export const errorHandler: ErrorRequestHandler = (error: unknown, req, res, _nex
     : expressError.type === "entity.parse.failed"
       ? new ApiError(400, "INVALID_JSON", "Request body contains invalid JSON")
       : expressError.type === "entity.too.large"
-        ? new ApiError(413, "PAYLOAD_TOO_LARGE", "Request body exceeds the 1 MB limit")
+        ? new ApiError(413, "PAYLOAD_TOO_LARGE", "Ukuran unggahan file melebihi batas maksimal 2 MB")
         : new ApiError(500, "INTERNAL_ERROR", "An unexpected error occurred");
 
   if (apiError.status >= 500) {

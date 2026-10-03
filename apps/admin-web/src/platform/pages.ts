@@ -685,6 +685,11 @@ async function cardTemplatesPage(root: HTMLElement, content: HTMLElement, alive:
     fileFront.onchange = () => {
       const file = fileFront.files?.[0];
       if (file) {
+        if (file.size > 2.5 * 1024 * 1024) {
+          feedback(root, `Ukuran file gambar (${(file.size / 1024 / 1024).toFixed(1)} MB) melebihi batas maksimal 2 MB. Silakan pilih gambar lain.`);
+          fileFront.value = '';
+          return;
+        }
         const reader = new FileReader();
         reader.onload = (e) => {
           newFrontBase64 = String(e.target?.result || '');
@@ -719,6 +724,11 @@ async function cardTemplatesPage(root: HTMLElement, content: HTMLElement, alive:
     fileBack.onchange = () => {
       const file = fileBack.files?.[0];
       if (file) {
+        if (file.size > 2.5 * 1024 * 1024) {
+          feedback(root, `Ukuran file gambar (${(file.size / 1024 / 1024).toFixed(1)} MB) melebihi batas maksimal 2 MB. Silakan pilih gambar lain.`);
+          fileBack.value = '';
+          return;
+        }
         const reader = new FileReader();
         reader.onload = (e) => {
           newBackBase64 = String(e.target?.result || '');
