@@ -429,18 +429,6 @@ function back(c: Row, customBgUrl?: string) {
           <div class="info-lbl">Tahun Ajaran</div>
           <div class="info-txt bold">${esc(academicYear)}</div>
         </div>
-      </div>
-
-      <div class="rules-header">
-        <span class="rules-title">PERHATIAN</span>
-      </div>
-
-      <ol class="rules-list">
-        <li>Kartu ini wajib dibawa setiap hari.</li>
-        <li>Jangan hilangkan kartu ini.</li>
-        <li>Segera lapor jika kartu hilang atau rusak.</li>
-        <li>Kartu ini hanya berlaku di lingkungan ${esc(schoolName)}.</li>
-      </ol>
     </div>
 
     <div class="back-bottom-row">
@@ -528,11 +516,7 @@ body{margin:0;font-family:'Inter','Segoe UI',Roboto,sans-serif;background:${medi
 .info-txt.uppercase{text-transform:uppercase}
 .card-divider{display:none}
 
-.rules-header{display:flex;align-items:center;gap:1.5mm;margin-bottom:0.5mm}
-.alert-icon{display:none}
-.rules-title{font-size:5pt;font-weight:900;color:#002554;letter-spacing:0.3px}
-.rules-list{padding-left:3.5mm;font-size:4.2pt;color:#334155;line-height:1.35}
-.rules-list li{margin-bottom:0.4mm;font-weight:500}
+.rules-header,.rules-list{display:none}
 
 .back-bottom-row{position:relative;z-index:2;display:flex;justify-content:space-between;align-items:flex-end;margin-top:auto;margin-bottom:2mm;padding:0 1mm}
 .barcode-block{width:25mm;display:flex;flex-direction:column;align-items:flex-start}
