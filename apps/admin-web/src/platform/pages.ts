@@ -502,7 +502,7 @@ body{margin:0;font-family:'Inter','Segoe UI',Roboto,sans-serif;background:${medi
 .meta-label{font-size:4.8pt;font-weight:700;color:#0284c7;letter-spacing:0.3px;line-height:1;margin-bottom:0.5mm}
 .meta-value-class{font-size:13pt;font-weight:900;color:#002554;line-height:1;margin-bottom:1.5mm}
 .meta-value-nisn{font-size:7.5pt;font-weight:800;color:#0f172a;line-height:1;margin-bottom:2mm}
-.qr-container{width:17.5mm;height:17.5mm;padding:0;border:none;background:transparent;margin-top:auto;align-self:flex-start}
+.qr-container{width:17.5mm;height:17.5mm;padding:0;border:none;background:transparent;margin-top:auto;align-self:flex-start;margin-left:-0.8mm}
 .qr-img{width:100%;height:100%;display:block}
 
 .id-name-block{position:relative;z-index:2;margin-bottom:1.5mm}

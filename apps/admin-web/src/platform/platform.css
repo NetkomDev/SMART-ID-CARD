@@ -395,7 +395,7 @@
   margin-bottom: 1.5mm;
 }
 
-/* Kotak QR Code (Border Dihapus, Bottom Sejajar Foto, Rata Kiri Garis Pandu) */
+/* Kotak QR Code (Border Dihapus, Bottom Sejajar Foto, Rata Kiri Garis Pandu & Flush dengan KELAS/NISN) */
 .qr-container {
   width: 17.5mm;
   height: 17.5mm;
@@ -404,7 +404,7 @@
   background: transparent;
   margin-top: auto;
   align-self: flex-start;
-  /* Mendorong QR Code ke paling bawah sejajar bottom foto & rata kiri vertikal */
+  margin-left: -0.8mm; /* Penyesuaian margin agar piksel QR Code sejajar lurus dengan KELAS & NISN */
 }
 
 .qr-img {
@@ -426,7 +426,7 @@
 .student-fullname {
   font-size: 8.5pt;
   /* Ubah ukuran font Nama Siswa di sini */
-  font-weight: 900;
+  font-weight: 800;
   color: #002554;
   text-transform: uppercase;
   line-height: 1.15;
@@ -436,7 +436,7 @@
 .school-subname {
   font-size: 5.8pt;
   font-weight: 700;
-  color: #0369a1;
+  color: #548cab;
   margin-top: 0.4mm;
 }
 
@@ -466,7 +466,7 @@
   width: 3.5mm;
   height: 1.25em;
   flex: none;
-  color: #0284c7;
+  color: #56667c;
   display: flex;
   align-items: center;
   justify-content: flex-start;
