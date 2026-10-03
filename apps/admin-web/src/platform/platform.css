@@ -395,8 +395,9 @@
   margin-bottom: 1.5mm;
 }
 
-/* Kotak QR Code (Border Dihapus, Bottom Sejajar Foto, Rata Kiri Garis Pandu & Flush dengan KELAS/NISN) */
-.qr-container {
+.student-card-front .qr-container,
+.card-canvas .qr-container,
+.id-card-preview .qr-container {
   width: 17.5mm;
   height: 17.5mm;
   padding: 0;

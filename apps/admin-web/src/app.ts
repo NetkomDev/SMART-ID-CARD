@@ -2590,11 +2590,22 @@ async function pwaPortalsPage() {
       { key: "extracurricular", role: "TEACHER", name: "Ekstrakurikuler", icon: "☆", description: "Akses kegiatan, sesi, dan presensi ekstrakurikuler sekolah.", port: 4176 },
       { key: "parent", role: "PARENT", name: "Portal Orang Tua", icon: "♡", description: "Satu QR sekolah untuk semua orang tua. Wali mencari data anak dengan NISN & Tgl Lahir.", port: 4174 }
     ];
-    shell(`<section class="panel portal-intro"><div><span class="eyebrow">AKSES TANPA USERNAME & PASSWORD</span><h2>Satu kali pindai, selanjutnya tinggal buka.</h2><p>Buat QR, bagikan kepada pengguna, lalu simpan aplikasi ke layar utama smartphone.</p></div><ol><li>Buat QR portal</li><li>Pindai dengan kamera</li><li>Simpan ke layar utama</li></ol></section>
+    shell(`<section class="panel portal-intro"><div><span class="eyebrow">AKSES TANPA USERNAME & PASSWORD</span><h2>Satu kali pindai, selanjutnya tinggal buka.</h2><p>Buat QR portal, bagikan kepada pengguna, lalu simpan aplikasi ke layar utama smartphone.</p></div><ol><li><span>1</span> Buat QR portal</li><li><span>2</span> Pindai kamera</li><li><span>3</span> Simpan di HP</li></ol></section>
       <section class="qr-grid">${definitions.map(d => `<article class="qr-card" id="card-${d.key}">
-        <div class="portal-icon">${d.icon}</div><div class="qr-header"><h3>${d.name}</h3><p>${d.description}</p></div>
-        ${d.key === "waste" ? `<label class="no-print">Kelas<select id="scope-waste"><option value="">Pilih kelas…</option>${classes.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("")}</select></label>` : ""}
-        <div class="qr-container" id="qr-${d.key}"><p>QR akan tampil di sini</p></div>
+        <div class="qr-card-head">
+          <div class="portal-icon">${d.icon}</div>
+          <div class="qr-header">
+            <h3>${d.name}</h3>
+            <p>${d.description}</p>
+          </div>
+        </div>
+        ${d.key === "waste" ? `<label class="no-print">Lingkup Kelas<select id="scope-waste"><option value="">Pilih kelas…</option>${classes.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("")}</select></label>` : ""}
+        <div class="qr-container" id="qr-${d.key}">
+          <div class="qr-placeholder-content">
+            <span class="qr-placeholder-icon">📱</span>
+            <p class="qr-placeholder-text">${d.key === "waste" ? "Pilih kelas & buat QR akses" : "Klik tombol di bawah untuk membuat QR akses baru"}</p>
+          </div>
+        </div>
         <p class="portal-feedback no-print" id="feedback-${d.key}" role="status"></p>
         <button class="button primary wide no-print" id="generate-${d.key}">Buat QR akses</button>
         <div class="portal-actions no-print" id="actions-${d.key}" hidden></div>
@@ -2611,7 +2622,8 @@ async function pwaPortalsPage() {
         const result = await api<Array<{ id: string; role_code: string; metadata: { class_id?: string; student_id?: string }; created_at: string; revoked_at: string | null }>>(`/auth/qr?school_id=${schoolId}`);
         container.innerHTML = result.data.length ? `<div class="table-wrap"><table><thead><tr><th>Portal</th><th>Lingkup</th><th>Dibuat</th><th>Status</th><th></th></tr></thead><tbody>${result.data.map(q => {
           const scope = classes.find(c => c.id === q.metadata?.class_id)?.name ?? students.find(s => s.id === q.metadata?.student_id)?.full_name ?? state.school!.name;
-          return `<tr><td>${escapeHtml(definitions.find(d => d.role === q.role_code)?.name ?? q.role_code)}</td><td>${escapeHtml(scope)}</td><td>${escapeHtml(new Date(q.created_at).toLocaleDateString("id-ID"))}</td><td>${q.revoked_at ? "Nonaktif" : "Aktif"}</td><td>${q.revoked_at ? "" : `<button class="button secondary" data-revoke="${q.id}">Nonaktifkan</button>`}<button class="button danger" style="margin-left: 8px;" data-hard-delete="${q.id}">Hapus</button></td></tr>`;
+          const statusBadge = q.revoked_at ? `<span class="status neutral">Nonaktif</span>` : `<span class="status success">● Aktif</span>`;
+          return `<tr><td><strong>${escapeHtml(definitions.find(d => d.role === q.role_code)?.name ?? q.role_code)}</strong></td><td>${escapeHtml(scope)}</td><td>${escapeHtml(new Date(q.created_at).toLocaleDateString("id-ID"))}</td><td>${statusBadge}</td><td>${q.revoked_at ? "" : `<button class="button secondary" data-revoke="${q.id}">Nonaktifkan</button>`}<button class="button danger" style="margin-left: 8px;" data-hard-delete="${q.id}">Hapus</button></td></tr>`;
         }).join("")}</tbody></table></div>` : `<p>Belum ada QR diterbitkan untuk sekolah ini.</p>`;
         container.querySelectorAll<HTMLButtonElement>("[data-revoke]").forEach(button => {
           button.onclick = async () => {
@@ -2654,7 +2666,7 @@ async function pwaPortalsPage() {
       let revision = 0;
       if (select) {
         button.disabled = !select.value;
-        select.onchange = () => { revision++; button.disabled = !select.value; container.innerHTML = "<p>QR akan tampil di sini</p>"; actions.hidden = true; feedback.textContent = ""; };
+        select.onchange = () => { revision++; button.disabled = !select.value; container.innerHTML = `<div class="qr-placeholder-content"><span class="qr-placeholder-icon">📱</span><p class="qr-placeholder-text">Pilih kelas & buat QR akses</p></div>`; actions.hidden = true; feedback.textContent = ""; };
       }
       button.onclick = async () => {
         const current = ++revision;
@@ -2671,13 +2683,13 @@ async function pwaPortalsPage() {
           const dataUrl = await QRCode.toDataURL(url.toString(), { width: 320, margin: 3, errorCorrectionLevel: "M" });
           await loadAccess();
           if (revision !== current || state.school?.id !== schoolId) return;
-          container.innerHTML = `<div class="qr-print-wrapper"><img src="${dataUrl}" width="250" height="250" alt="QR akses ${d.name}"/><div class="qr-label"><strong>${escapeHtml(state.school!.name)}</strong><p>${escapeHtml(d.name)}<br/>${escapeHtml(label)}</p><small>Pindai → buka portal → simpan ke layar utama</small></div></div>`;
-          feedback.textContent = "QR siap digunakan. Unduh atau cetak sebelum meninggalkan halaman.";
+          container.innerHTML = `<div class="qr-print-wrapper"><img src="${dataUrl}" width="180" height="180" alt="QR akses ${d.name}"/><div class="qr-label"><strong>${escapeHtml(state.school!.name)}</strong><p>${escapeHtml(d.name)}${d.key === "waste" ? " (" + escapeHtml(label) + ")" : ""}</p></div></div>`;
+          feedback.textContent = "✓ QR Siap digunakan. Unduh atau cetak sebelum meninggalkan halaman.";
           actions.replaceChildren(); actions.hidden = false;
-          const download = document.createElement("a"); download.className = "button secondary"; download.href = dataUrl; download.download = `aksis-${d.key}.png`; download.textContent = "Unduh QR";
-          const open = document.createElement("a"); open.className = "button secondary"; open.href = url.toString(); open.target = "_blank"; open.rel = "noopener noreferrer"; open.textContent = "Buka portal";
-          const print = document.createElement("button"); print.className = "button secondary"; print.textContent = "Cetak QR";
+          const download = document.createElement("a"); download.className = "button secondary"; download.href = dataUrl; download.download = `aksis-${d.key}.png`; download.textContent = "📥 Unduh";
+          const print = document.createElement("button"); print.className = "button secondary"; print.textContent = "🖨️ Cetak";
           print.onclick = () => { const card = document.getElementById(`card-${d.key}`)!; card.classList.add("print-active"); window.print(); card.classList.remove("print-active"); };
+          const open = document.createElement("a"); open.className = "button secondary"; open.href = url.toString(); open.target = "_blank"; open.rel = "noopener noreferrer"; open.textContent = "↗ Buka";
           actions.append(download, print, open);
         } catch (error) { if (revision === current) feedback.textContent = error instanceof Error ? error.message : "QR belum berhasil dibuat. Coba kembali."; }
         finally { if (revision === current) { button.disabled = Boolean(select && !select.value); button.textContent = "Buat QR baru"; } }
