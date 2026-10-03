@@ -392,11 +392,11 @@
 
 /* Kotak QR Code */
 .qr-container {
-  width: 15.5mm;
+  width: 17.5mm;
   /* Ubah lebar QR Code di sini */
-  height: 15.5mm;
+  height: 17.5mm;
   /* Ubah tinggi QR Code di sini */
-  padding: 0.8mm;
+  padding: 0.1mm;
   border: 1px solid #0284c7;
   border-radius: 1mm;
   background: #fff;
@@ -463,7 +463,8 @@
   flex: none;
   color: #0284c7;
   display: flex;
-  align-items: flex-end; /* Logo/Icon sejajar bagian bawah dengan teks */
+  align-items: flex-end;
+  /* Logo/Icon sejajar bagian bawah dengan teks */
   justify-content: flex-start;
 }
 
@@ -471,33 +472,38 @@
   width: 10px;
   height: 10px;
   display: block;
-  margin-bottom: 0.2mm; /* Align persis bagian bawah logo dengan baseline teks */
+  margin-bottom: 0.2mm;
+  /* Align persis bagian bawah logo dengan baseline teks */
 }
 
-/* Label nama bidang (Jenis Kelamin, Tanggal Lahir, Alamat) */
+/* Label nama bidang (Jenis Kelamin, Tanggal Lahir, Alamat) - Alur inline menyamping */
 .detail-label {
-  width: 13.5mm;
   flex: none;
   font-weight: 600;
   color: #475569;
   min-height: 2.8mm;
   display: flex;
-  align-items: flex-end; /* Teks label sejajar bagian bawah logo */
+  align-items: flex-end;
+  /* Teks label sejajar bagian bawah logo */
+  white-space: nowrap;
 }
 
 /* Titik dua (:) */
 .detail-colon {
-  width: 1.5mm;
   flex: none;
   font-weight: 600;
   color: #475569;
   min-height: 2.8mm;
   display: flex;
-  align-items: flex-end; /* Titik dua (:) sejajar bagian bawah */
+  align-items: flex-end;
+  /* Titik dua (:) sejajar bagian bawah */
+  margin-left: 0.8mm;
+  margin-right: 1.2mm;
 }
 
 .detail-val {
   flex: 1;
+  min-width: 0;
   font-weight: 700;
   color: #0f172a;
 }

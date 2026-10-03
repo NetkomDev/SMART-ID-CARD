@@ -513,9 +513,9 @@ body{margin:0;font-family:'Inter','Segoe UI',Roboto,sans-serif;background:${medi
 .detail-item{display:flex;align-items:flex-start;line-height:1.25}
 .detail-icon{width:3.5mm;height:2.8mm;flex:none;color:#0284c7;display:flex;align-items:flex-end;justify-content:flex-start}
 .detail-icon svg{width:10px;height:10px;display:block;margin-bottom:0.2mm}
-.detail-label{width:13.5mm;flex:none;font-weight:600;color:#475569;min-height:2.8mm;display:flex;align-items:flex-end}
-.detail-colon{width:1.5mm;flex:none;font-weight:600;color:#475569;min-height:2.8mm;display:flex;align-items:flex-end}
-.detail-val{flex:1;font-weight:700;color:#0f172a}
+.detail-label{flex:none;font-weight:600;color:#475569;min-height:2.8mm;display:flex;align-items:flex-end;white-space:nowrap}
+.detail-colon{flex:none;font-weight:600;color:#475569;min-height:2.8mm;display:flex;align-items:flex-end;margin-left:0.8mm;margin-right:1.2mm}
+.detail-val{flex:1;min-width:0;font-weight:700;color:#0f172a}
 .addr-text{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-weight:500}
 
 .emblem-watermark{position:absolute;bottom:6mm;right:2mm;width:22mm;height:22mm;opacity:0.08;pointer-events:none;z-index:1}
