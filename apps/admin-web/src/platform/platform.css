@@ -341,7 +341,7 @@
   /* Ubah tinggi bingkai foto di sini (30mm sejajar bottom QR) */
   border-radius: 2mm;
   overflow: hidden;
-  border: 1.5px solid #0284c7;
+  border: 1.5px solid #5d7b8a;
   /* Warna border foto */
   background: #e0f2fe;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
@@ -559,7 +559,7 @@
   background: #ffffff;
   display: flex;
   flex-direction: column;
-  padding: 5.5mm 3mm 0mm 3mm;
+  padding: 10mm 3.5mm 0mm 3.5mm; /* Header digeser turun disamakan dengan sisi depan (10mm) */
   overflow: hidden;
   color: #0f172a;
   box-sizing: border-box;
@@ -569,7 +569,6 @@
   position: relative;
   z-index: 2;
   display: flex;
-  justify-content: space-between;
   align-items: center;
   margin-bottom: 2mm;
 }
@@ -581,8 +580,8 @@
 }
 
 .back-logo {
-  width: 7mm;
-  height: 7mm;
+  width: 8mm;
+  height: 8mm;
   flex: none;
 }
 
@@ -592,23 +591,11 @@
   color: #002554;
   text-transform: uppercase;
   line-height: 1.1;
-  max-width: 24mm;
 }
 
-.back-header-right {
-  text-align: right;
-  padding-right: 1mm;
-}
-
+.back-header-right,
 .card-id-label {
-  font-size: 4.5pt;
-  font-weight: 900;
-  color: #002554;
-  line-height: 1.1;
-  letter-spacing: 0.3px;
-  text-transform: uppercase;
-  border-bottom: 1.5px solid #0284c7;
-  padding-bottom: 0.4mm;
+  display: none; /* Dihapus sesuai permintaan pengguna */
 }
 
 .back-top-polygon {
@@ -622,13 +609,13 @@
   z-index: 1;
 }
 
+/* Latar kelompok data belakang dibuat transparan (latar belakang bawaan template gambar) */
 .back-blue-card {
   position: relative;
   z-index: 2;
-  background: #eff6ff;
-  border: 1px solid #dbeafe;
-  border-radius: 2mm;
-  padding: 2mm;
+  background: transparent;
+  border: none;
+  padding: 0;
   margin-bottom: 1.5mm;
   display: flex;
   flex-direction: column;
@@ -676,10 +663,7 @@
 }
 
 .card-divider {
-  width: 100%;
-  height: 1px;
-  background: #cbd5e1;
-  margin: 0.4mm 0;
+  display: none;
 }
 
 .rules-header {

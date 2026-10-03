@@ -403,9 +403,6 @@ function back(c: Row, customBgUrl?: string) {
         <div class="back-logo">${logoHtml}</div>
         <div class="back-school-title">${esc(schoolName)}</div>
       </div>
-      <div class="back-header-right">
-        <div class="card-id-label">KARTU<br>IDENTITAS<br>SISWA</div>
-      </div>
     </div>
 
     <div class="back-blue-card">
@@ -524,17 +521,16 @@ body{margin:0;font-family:'Inter','Segoe UI',Roboto,sans-serif;background:${medi
 
 .bg-shape-bottom-right{position:absolute;bottom:-3mm;right:-3mm;width:16mm;height:12mm;background:linear-gradient(135deg,#0284c7 0%,#0052cc 100%);clip-path:polygon(40% 0,100% 60%,100% 100%,0 100%);z-index:2}
 
-.id-back-v2{width:100%;height:100%;position:relative;background:#ffffff;display:flex;flex-direction:column;padding:3mm 3mm 0mm 3mm;overflow:hidden;color:#0f172a}
-.back-header{position:relative;z-index:2;display:flex;justify-content:space-between;align-items:center;margin-bottom:2mm}
+.id-back-v2{width:100%;height:100%;position:relative;background:#ffffff;display:flex;flex-direction:column;padding:10mm 3.5mm 0mm 3.5mm;overflow:hidden;color:#0f172a}
+.back-header{position:relative;z-index:2;display:flex;align-items:center;margin-bottom:2mm}
 .back-header-left{display:flex;align-items:center;gap:1.5mm}
-.back-logo{width:7.5mm;height:7.5mm}
-.back-school-title{font-size:6.5pt;font-weight:900;color:#002554;text-transform:uppercase;line-height:1.1;max-width:24mm}
-.back-header-right{text-align:right;padding-right:1mm}
-.card-id-label{font-size:4.8pt;font-weight:900;color:#002554;line-height:1.1;letter-spacing:0.3px;text-transform:uppercase;border-bottom:1.5px solid #0284c7;padding-bottom:0.5mm}
+.back-logo{width:8mm;height:8mm;flex:none}
+.back-school-title{font-size:8.5pt;font-weight:900;color:#002554;text-transform:uppercase;line-height:1.1}
+.back-header-right,.card-id-label{display:none}
 
 .back-top-polygon{position:absolute;top:-8mm;right:-8mm;width:25mm;height:25mm;background:linear-gradient(135deg,#0052cc 0%,#002554 100%);clip-path:polygon(0 0,100% 0,100% 100%);z-index:1}
 
-.back-blue-card{position:relative;z-index:2;background:#eff6ff;border:1px solid #dbeafe;border-radius:2.5mm;padding:2.5mm 2.5mm 2mm 2.5mm;margin-bottom:2mm;display:flex;flex-direction:column;gap:1.5mm}
+.back-blue-card{position:relative;z-index:2;background:transparent;border:none;padding:0;margin-bottom:1.5mm;display:flex;flex-direction:column;gap:1.2mm}
 .card-info-row{display:flex;align-items:center;gap:2mm}
 .info-icon{font-size:7pt;width:4mm;text-align:center;flex:none}
 .info-meta{display:flex;flex-direction:column}
@@ -542,7 +538,7 @@ body{margin:0;font-family:'Inter','Segoe UI',Roboto,sans-serif;background:${medi
 .info-txt{font-size:5.8pt;color:#0f172a;line-height:1.15}
 .info-txt.bold{font-weight:800}
 .info-txt.uppercase{text-transform:uppercase}
-.card-divider{width:100%;height:1px;background:#cbd5e1;margin:0.5mm 0}
+.card-divider{display:none}
 
 .rules-header{display:flex;align-items:center;gap:1.5mm;margin-bottom:0.5mm}
 .alert-icon{width:3.2mm;height:3.2mm;background:#0052cc;color:#ffffff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:4.5pt;font-weight:900;flex:none}
