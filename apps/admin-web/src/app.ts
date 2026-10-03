@@ -317,7 +317,8 @@ async function studentsPage(): Promise<void> {
           <label>Nama Lengkap Kepala Sekolah<input type="text" id="principal-name" placeholder="Nama beserta gelar" /></label>
           <label>NIP Kepala Sekolah<input type="text" id="principal-nip" placeholder="NIP (contoh: 19700101 199512 1 001)" /></label>
           <label>Upload Logo Sekolah<input type="file" id="school-logo-file" accept="image/*" /></label>
-          <img id="logo-preview" style="max-height: 80px; object-fit: contain; border: 1px dashed var(--line); padding: 4px; display: none; background: #f8fafc;" alt="Preview Logo" />
+          <label style="display:inline-flex;align-items:center;gap:6px;font-size:0.85rem;margin-top:-0.5rem;cursor:pointer;color:var(--text);"><input type="checkbox" id="school-logo-remove-bg" checked /> Hapus Background Otomatis (Transparan)</label>
+          <img id="logo-preview" style="max-height: 90px; object-fit: contain; border: 1px dashed var(--line); padding: 6px; display: none; background: repeating-conic-gradient(#e2e8f0 0% 25%, #ffffff 0% 50%) 50% / 16px 16px; border-radius: 0.5rem;" alt="Preview Logo" />
           <input type="hidden" id="school-logo-base64" />
           <label>Upload Tanda Tangan Kepala Sekolah<input type="file" id="principal-signature-file" accept="image/*" /></label>
           <img id="signature-preview" style="max-height: 80px; object-fit: contain; border: 1px dashed var(--line); padding: 4px; display: none; background: #f8fafc;" alt="Preview TTD" />
@@ -834,6 +835,86 @@ async function studentsPage(): Promise<void> {
   principalNameInput?.addEventListener("input", updateSaveButtonState);
   principalNipInput?.addEventListener("input", updateSaveButtonState);
 
+  const removeBgCheckbox = document.getElementById("school-logo-remove-bg") as HTMLInputElement | null;
+  let rawLogoImage: HTMLImageElement | null = null;
+
+  const processAndSetLogo = () => {
+    if (!rawLogoImage) return;
+    const removeBg = removeBgCheckbox ? removeBgCheckbox.checked : true;
+    const canvas = document.createElement('canvas');
+    const MAX_WIDTH = 400;
+    let width = rawLogoImage.width;
+    let height = rawLogoImage.height;
+    if (width > MAX_WIDTH) {
+      height = Math.round(height * (MAX_WIDTH / width));
+      width = MAX_WIDTH;
+    }
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d')!;
+    ctx.drawImage(rawLogoImage, 0, 0, width, height);
+
+    if (removeBg) {
+      const imgData = ctx.getImageData(0, 0, width, height);
+      const data = imgData.data;
+
+      // Sample perimeter & corner pixels to detect dominant background color
+      const samplePoints = [
+        [0, 0], [width - 1, 0], [0, height - 1], [width - 1, height - 1],
+        [Math.floor(width / 2), 0], [0, Math.floor(height / 2)],
+        [width - 1, Math.floor(height / 2)], [Math.floor(width / 2), height - 1]
+      ];
+
+      let rSum = 0, gSum = 0, bSum = 0, count = 0;
+      for (const [x, y] of samplePoints) {
+        const idx = (y * width + x) * 4;
+        const a = data[idx + 3]!;
+        if (a > 10) {
+          rSum += data[idx]!;
+          gSum += data[idx + 1]!;
+          bSum += data[idx + 2]!;
+          count++;
+        }
+      }
+
+      if (count > 0) {
+        const bgR = rSum / count;
+        const bgG = gSum / count;
+        const bgB = bSum / count;
+
+        const maxDistance = 45;
+        const fadeDistance = 75;
+
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i]!;
+          const g = data[i + 1]!;
+          const b = data[i + 2]!;
+          const a = data[i + 3]!;
+
+          if (a < 10) continue;
+
+          const dist = Math.sqrt((r - bgR) ** 2 + (g - bgG) ** 2 + (b - bgB) ** 2);
+
+          if (dist <= maxDistance) {
+            data[i + 3] = 0;
+          } else if (dist < fadeDistance) {
+            const factor = (dist - maxDistance) / (fadeDistance - maxDistance);
+            data[i + 3] = Math.round(a * factor);
+          }
+        }
+        ctx.putImageData(imgData, 0, 0);
+      }
+    }
+
+    const pngBase64 = canvas.toDataURL('image/png');
+    logoPreview.src = pngBase64;
+    logoPreview.style.display = 'block';
+    logoBase64.value = pngBase64;
+    updateSaveButtonState();
+  };
+
+  removeBgCheckbox?.addEventListener("change", processAndSetLogo);
+
   if (logoFileInput) {
     logoFileInput.onchange = (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
@@ -846,23 +927,9 @@ async function studentsPage(): Promise<void> {
       const url = URL.createObjectURL(file);
       const img = new Image();
       img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 400;
-        let width = img.width;
-        let height = img.height;
-        if (width > MAX_WIDTH) {
-          height = Math.round(height * (MAX_WIDTH / width));
-          width = MAX_WIDTH;
-        }
-        canvas.width = width; canvas.height = height;
-        const ctx = canvas.getContext('2d')!;
-        ctx.drawImage(img, 0, 0, width, height);
-        const pngBase64 = canvas.toDataURL('image/png');
-        logoPreview.src = pngBase64;
-        logoPreview.style.display = 'block';
-        logoBase64.value = pngBase64;
+        rawLogoImage = img;
+        processAndSetLogo();
         URL.revokeObjectURL(url);
-        updateSaveButtonState();
       };
       img.src = url;
     };
