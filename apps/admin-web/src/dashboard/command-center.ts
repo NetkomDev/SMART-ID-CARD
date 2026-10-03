@@ -45,9 +45,7 @@ function getDemoData() {
     arrivals: [
       { student_id: "1", name: "Andi Muhammad Asyraaf", class_name: "X-A", at: new Date(Date.now() - 7200000).toISOString(), rank: 1 },
       { student_id: "2", name: "Nur Aisyah Dahlan", class_name: "X-B", at: new Date(Date.now() - 7140000).toISOString(), rank: 2 },
-      { student_id: "3", name: "Fajri Ramadan", class_name: "XI MIPA 1", at: new Date(Date.now() - 7080000).toISOString(), rank: 3 },
-      { student_id: "4", name: "Siti Nurhaliza", class_name: "XII IPS 2", at: new Date(Date.now() - 7020000).toISOString(), rank: 4 },
-      { student_id: "5", name: "Rahmat Hidayat", class_name: "X-C", at: new Date(Date.now() - 6960000).toISOString(), rank: 5 }
+      { student_id: "3", name: "Fajri Ramadan", class_name: "XI MIPA 1", at: new Date(Date.now() - 7080000).toISOString(), rank: 3 }
     ],
     waste: [
       { class_id: "c1", name: "XII IPA 1", value: 42.5, rank: 1 },
@@ -111,13 +109,13 @@ function getDemoData() {
 
 // Render Radial/Donut SVG Gauge Component
 function renderDonutGauge(percent: number, gradientId: string, startColor: string, stopColor: string, iconD: string, centerText: string, label: string, note: string) {
-  const radius = 38;
+  const radius = 34;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (Math.min(100, Math.max(0, percent)) / 100) * circumference;
 
   return `
     <div class="cc-kpi-card">
-      <svg class="cc-gauge-svg" viewBox="0 0 100 100">
+      <svg class="cc-gauge-svg" viewBox="0 0 90 90">
         <defs>
           <linearGradient id="${gradientId}" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stop-color="${startColor}" />
@@ -128,8 +126,8 @@ function renderDonutGauge(percent: number, gradientId: string, startColor: strin
             <feComposite in="SourceGraphic" in2="blur" operator="over" />
           </filter>
         </defs>
-        <circle class="cc-gauge-bg" cx="50" cy="50" r="${radius}" />
-        <circle class="cc-gauge-fill" cx="50" cy="50" r="${radius}" 
+        <circle class="cc-gauge-bg" cx="45" cy="45" r="${radius}" />
+        <circle class="cc-gauge-fill" cx="45" cy="45" r="${radius}" 
           stroke="url(#${gradientId})" 
           stroke-dasharray="${circumference}" 
           stroke-dashoffset="${strokeDashoffset}"
@@ -137,7 +135,7 @@ function renderDonutGauge(percent: number, gradientId: string, startColor: strin
         />
       </svg>
       <div class="cc-gauge-center">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="${startColor}" stroke-width="2" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="${startColor}" stroke-width="2" aria-hidden="true">
           <path d="${iconD}" />
         </svg>
         <span class="cc-gauge-value">${centerText}</span>
@@ -156,9 +154,9 @@ function renderArrivalLineChart(points: HourlyPoint[]) {
   if (!points || points.length === 0) return empty("Belum ada data kurva kehadiran.");
 
   const width = 500;
-  const height = 140;
+  const height = 110;
   const paddingX = 35;
-  const paddingY = 25;
+  const paddingY = 20;
 
   const maxVal = Math.max(...points.map(p => p.count), 10);
   const chartW = width - paddingX * 2;
@@ -203,16 +201,16 @@ function renderArrivalLineChart(points: HourlyPoint[]) {
         <path d="${areaD}" fill="url(#arrivalGrad)"/>
 
         <!-- Smooth Line -->
-        <path d="${pathD}" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" filter="url(#lineGlow)"/>
+        <path d="${pathD}" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" filter="url(#lineGlow)"/>
 
         <!-- Data Nodes & Tooltips -->
         ${coords.map(c => `
           <g class="cc-chart-node" transform="translate(${c.x}, ${c.y})">
-            <circle r="5" fill="#090d16" stroke="#10b981" stroke-width="2.5" />
-            <circle class="cc-node-pulse" r="9" fill="#10b981" opacity="0.25" />
-            <text class="cc-node-val" y="-10" text-anchor="middle">${c.count}</text>
+            <circle r="4" fill="#090d16" stroke="#10b981" stroke-width="2" />
+            <circle class="cc-node-pulse" r="7" fill="#10b981" opacity="0.25" />
+            <text class="cc-node-val" y="-8" text-anchor="middle">${c.count}</text>
           </g>
-          <text class="cc-axis-label" x="${c.x}" y="${height - 6}" text-anchor="middle">${c.hour}</text>
+          <text class="cc-axis-label" x="${c.x}" y="${height - 4}" text-anchor="middle">${c.hour}</text>
         `).join("")}
       </svg>
     </div>
@@ -269,10 +267,6 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
       </div>
     </header>
 
-    <div class="cc-banner" data-cc="banner" style="display:none;">
-      <span>✨ Mode Demo Aktif: Menampilkan data simulasi visual grafik interaktif. Klik tombol "Demo Data" untuk kembali ke telemetri live.</span>
-    </div>
-
     <!-- Modern Gauge KPI Cards -->
     <div class="cc-kpis" data-cc="kpis">
       ${Array.from({ length: 4 }, () => `<div class="cc-card cc-placeholder">Memuat metrik telemetry…</div>`).join("")}
@@ -284,7 +278,7 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
         <div class="cc-card-heading">
           <div>
             <span class="cc-eyebrow">DISIPLIN & ARUS PRESENSI</span>
-            <h3>Kurva Kehadiran & 5 Pelopor Pertama</h3>
+            <h3>Kurva Kehadiran & 3 Pelopor Pertama</h3>
           </div>
           <span class="cc-medallion">◷</span>
         </div>
@@ -365,26 +359,16 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
         <button type="button" class="cc-refresh">↻ Perbarui Data</button>
       </div>
     </footer>
-
-    <nav class="cc-shortcuts" aria-label="Aksi cepat">
-      <strong>Aksi Cepat:</strong>
-      ${[["/students", "Kelola Siswa", "student.read"], ["/waste", "Bank Sampah", "waste.manage"], ["/library", "Perpustakaan", "library.manage"], ["/devices", "Status Perangkat", "device.read"]]
-        .filter(([, , permission]) => allowed(permission!))
-        .map(([path, label]) => `<a href="${path}" data-cc-link>${label} ↗</a>`)
-        .join("")}
-    </nav>
   `;
 
   const el = (name: string) => root.querySelector<HTMLElement>(`[data-cc="${name}"]`)!;
   const toggle = root.querySelector<HTMLButtonElement>(".cc-tv-button")!;
   const demoBtn = root.querySelector<HTMLButtonElement>(".cc-demo-toggle")!;
   const refreshButton = root.querySelector<HTMLButtonElement>(".cc-refresh")!;
-  const bannerEl = root.querySelector<HTMLElement>("[data-cc='banner']")!;
 
   demoBtn.onclick = () => {
     useDemoData = !useDemoData;
     demoBtn.classList.toggle("active", useDemoData);
-    bannerEl.style.display = useDemoData ? "block" : "none";
     void refresh();
   };
 
@@ -407,9 +391,6 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
       const demo = getDemoData();
       m = demo.snapshot.metrics;
       isDemo = true;
-      bannerEl.style.display = "block";
-    } else if (!useDemoData) {
-      bannerEl.style.display = "none";
     }
 
     if (!m) return;
@@ -439,7 +420,6 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
     if (useDemoData || !snapshot || snapshot.metrics.attendance.students === 0) {
       points = getDemoData().hourly;
     } else {
-      // Build realistic hourly intervals from snapshot or mock curve
       points = [
         { hour: "06:00", count: Math.round(snapshot.metrics.attendance.students * 0.05) },
         { hour: "06:15", count: Math.round(snapshot.metrics.attendance.students * 0.15) },
@@ -478,9 +458,12 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
 
     const arrivalTime = (value: string) => new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: r!.timezone }).format(new Date(value));
 
-    el("arrivals").innerHTML = r.arrivals.length
+    // Show top 3 early arrivals only
+    const topArrivals = r.arrivals.slice(0, 3);
+
+    el("arrivals").innerHTML = topArrivals.length
       ? `<ol class="cc-arrival-list">
-          ${r.arrivals.map(row => `
+          ${topArrivals.map(row => `
             <li class="${row.rank === 1 ? "cc-first-arrival" : ""}">
               <span class="cc-place">${row.rank === 1 ? "🥇" : row.rank === 2 ? "🥈" : row.rank === 3 ? "🥉" : row.rank}</span>
               <div>
@@ -682,7 +665,6 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { void acquireWakeLock(); void refresh(); } }, { signal: lifetime.signal });
   window.addEventListener("online", () => void refresh(), { signal: lifetime.signal });
 
-  root.querySelectorAll<HTMLAnchorElement>("[data-cc-link]").forEach(link => link.addEventListener("click", event => { event.preventDefault(); options.navigate(link.getAttribute("href")!); }, { signal: lifetime.signal }));
   refreshButton.onclick = () => void refresh();
 
   const clockTimer = window.setInterval(tick, 1000);
