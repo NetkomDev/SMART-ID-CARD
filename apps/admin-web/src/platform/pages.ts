@@ -374,14 +374,6 @@ function front(c: Row, qr: string, customBgUrl?: string) {
     </div>
 
     ${!customBgUrl ? `<div class="emblem-watermark">${logoHtml}</div>` : ''}
-
-    <div class="id-bottom-banner">
-      <div class="banner-slogan">
-        <span>Cerdas Hari Ini</span>
-        <span>Hebat Esok Nanti</span>
-      </div>
-      <div class="banner-line"></div>
-    </div>
     ${!customBgUrl ? '<div class="bg-shape-bottom-right"></div>' : ''}
   </div>`;
 }
@@ -495,16 +487,16 @@ body{margin:0;font-family:'Inter','Segoe UI',Roboto,sans-serif;background:${medi
 .bg-shape-top-2{position:absolute;top:-8mm;right:12mm;width:18mm;height:25mm;background:#0284c7;opacity:0.85;clip-path:polygon(40% 0%,100% 0%,60% 100%,0% 100%);z-index:1}
 
 .id-header-v2{position:relative;z-index:2;display:flex;align-items:center;gap:2mm;margin-top:1mm;margin-bottom:2.5mm}
-.header-logo{width:10mm;height:10mm;flex:none;display:flex;align-items:center;justify-content:center}
+.header-logo{width:11mm;height:11mm;flex:none;display:flex;align-items:center;justify-content:center}
 .school-logo-img{width:100%;height:100%;object-fit:contain}
 .school-logo-svg{width:100%;height:100%}
 .header-title-box{flex:1;min-width:0}
-.school-name-v2{font-size:7.5pt;font-weight:900;color:#003366;line-height:1.1;text-transform:uppercase;letter-spacing:-0.2px}
+.school-name-v2{font-size:9.2pt;font-weight:900;color:#003366;line-height:1.1;text-transform:uppercase;letter-spacing:-0.2px}
 .school-slogan-v2{font-size:4.2pt;font-style:italic;color:#0284c7;margin-top:0.5mm;font-weight:600;white-space:nowrap}
 
-.id-main-row{position:relative;z-index:2;display:flex;gap:2.5mm;align-items:flex-start;margin-bottom:2mm}
-.photo-col{width:22.5mm;flex:none}
-.photo-frame{width:22.5mm;height:28.5mm;border-radius:2mm;overflow:hidden;border:1.5px solid #0284c7;background:#e0f2fe;box-shadow:0 2px 4px rgba(0,0,0,0.08)}
+.id-main-row{position:relative;z-index:2;display:flex;gap:2.5mm;align-items:flex-start;margin-bottom:2mm;padding-left:1mm}
+.photo-col{width:21mm;flex:none}
+.photo-frame{width:21mm;height:30mm;border-radius:2mm;overflow:hidden;border:1.5px solid #0284c7;background:#e0f2fe;box-shadow:0 2px 4px rgba(0,0,0,0.08)}
 .student-img{width:100%;height:100%;object-fit:cover}
 .meta-col{flex:1;min-width:0;display:flex;flex-direction:column}
 .meta-label{font-size:4.8pt;font-weight:700;color:#0284c7;letter-spacing:0.3px;line-height:1;margin-bottom:0.5mm}
@@ -528,9 +520,7 @@ body{margin:0;font-family:'Inter','Segoe UI',Roboto,sans-serif;background:${medi
 .emblem-watermark{position:absolute;bottom:6mm;right:2mm;width:22mm;height:22mm;opacity:0.08;pointer-events:none;z-index:1}
 .emblem-watermark img,.emblem-watermark svg{width:100%;height:100%;object-fit:contain}
 
-.id-bottom-banner{position:absolute;bottom:0;left:0;width:38mm;height:7mm;background:#002554;clip-path:polygon(0 0,90% 0,100% 100%,0 100%);z-index:3;padding:1mm 2mm;display:flex;flex-direction:column;justify-content:center}
-.banner-slogan{font-size:3.8pt;font-style:italic;font-weight:700;color:#ffffff;line-height:1.1;display:flex;flex-direction:column}
-.banner-line{width:10mm;height:0.8px;background:#0284c7;margin-top:0.4mm}
+
 .bg-shape-bottom-right{position:absolute;bottom:-3mm;right:-3mm;width:16mm;height:12mm;background:linear-gradient(135deg,#0284c7 0%,#0052cc 100%);clip-path:polygon(40% 0,100% 60%,100% 100%,0 100%);z-index:2}
 
 .id-back-v2{width:100%;height:100%;position:relative;background:#ffffff;display:flex;flex-direction:column;padding:3mm 3mm 0mm 3mm;overflow:hidden;color:#0f172a}
