@@ -285,8 +285,8 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
         <div class="cc-chart-section" data-cc="arrival-chart">
           <!-- SVG Line chart inserted here -->
         </div>
-        <div class="cc-arrival-subheader">
-          <span class="cc-eyebrow">3 PELOPOR PERTAMA HARI INI</span>
+        <div class="cc-arrival-heading">
+          <h3>3 Pelopor Pertama Hari Ini</h3>
         </div>
         <div data-cc="arrivals" class="cc-ranking-content">
           ${empty("Memuat urutan kehadiran…")}

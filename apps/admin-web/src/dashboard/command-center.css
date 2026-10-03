@@ -385,16 +385,17 @@
 }
 
 /* Arrivals & Podiums */
-.cc-arrival-subheader {
-  margin: 4px 0 6px;
-  display: flex;
-  align-items: center;
+.cc-arrival-heading {
+  margin-top: 14px;
+  margin-bottom: 8px;
 }
 
-.cc-arrival-subheader .cc-eyebrow {
-  font-size: 9px;
-  color: #34d399;
-  letter-spacing: 0.12em;
+.cc-arrival-heading h3 {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0;
+  color: #f8fafc;
+  letter-spacing: -0.02em;
 }
 
 .cc-ranking-content {
@@ -507,8 +508,8 @@
   justify-content: center;
   gap: 8px;
   height: 100px;
-  margin-top: 22px;
-  margin-bottom: 2px;
+  margin-top: auto;
+  margin-bottom: 8px;
   align-items: flex-end;
 }
 
@@ -569,6 +570,10 @@
   margin-top: auto;
   padding-top: 6px;
   border-top: 1px solid var(--cc-border);
+}
+
+.cc-podium-note {
+  margin-top: 0;
 }
 
 /* Support Matrix */
