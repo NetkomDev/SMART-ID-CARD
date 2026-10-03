@@ -463,21 +463,68 @@ async function cardTemplatesPage(root: HTMLElement, content: HTMLElement, alive:
   let activeLevel: 'SD' | 'SMP' | 'SMA' = 'SMA';
   let templatesData: Row[] = [];
 
+  function getTemplateUrl(level: string, side: string): string {
+    const found = templatesData.find(t => t.level === level && t.side === side);
+    return found ? found.template_url : '';
+  }
+
+  function updateCardPreviews() {
+    const frontUrl = getTemplateUrl(activeLevel, 'front');
+    const backUrl = getTemplateUrl(activeLevel, 'back');
+
+    const sampleCard: Row = {
+      print_snapshot: {
+        student_name: 'ANDI MUHAMMAD ASYRAAF',
+        school_name: activeLevel === 'SD' ? 'SD NEGERI 1 WATAMPONE' : activeLevel === 'SMP' ? 'SMP NEGERI 1 WATAMPONE' : 'SMA NEGERI 3 WATAMPONE',
+        school_code: activeLevel === 'SD' ? 'SDN1WTP' : activeLevel === 'SMP' ? 'SMPN1WTP' : 'SMAN3WTP',
+        nisn: '0064821736',
+        class_name: activeLevel === 'SD' ? 'VI-A' : activeLevel === 'SMP' ? 'IX-B' : 'X-2',
+        gender: 'Laki-laki',
+        date_of_birth: '2008-08-14',
+        address: 'Jl. Pendidikan No. 12 Watampone, Bone',
+        principal_name: 'Drs. H. Muh. Yusuf, M.Pd',
+        principal_nip: '19681231 199403 1 006'
+      }
+    };
+    const sampleQr = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="%230052cc"/><text x="50" y="55" font-size="20" fill="white" text-anchor="middle">QR</text></svg>';
+
+    const frontWrap = content.querySelector<HTMLElement>('[data-preview-front-wrap]');
+    if (frontWrap) {
+      frontWrap.innerHTML = `<article class="id-card">${front(sampleCard, sampleQr, frontUrl)}</article>`;
+    }
+    const backWrap = content.querySelector<HTMLElement>('[data-preview-back-wrap]');
+    if (backWrap) {
+      backWrap.innerHTML = `<article class="id-card">${back(sampleCard, backUrl)}</article>`;
+    }
+
+    const frontBadge = content.querySelector<HTMLElement>('[data-badge-front]');
+    if (frontBadge) {
+      frontBadge.innerHTML = frontUrl ? '<span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:12px;font-size:0.75rem;font-weight:600">Terpasang ✓</span>' : '<span style="background:#fef3c7;color:#b45309;padding:2px 8px;border-radius:12px;font-size:0.75rem;font-weight:600">Belum diunggah</span>';
+    }
+
+    const backBadge = content.querySelector<HTMLElement>('[data-badge-back]');
+    if (backBadge) {
+      backBadge.innerHTML = backUrl ? '<span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:12px;font-size:0.75rem;font-weight:600">Terpasang ✓</span>' : '<span style="background:#fef3c7;color:#b45309;padding:2px 8px;border-radius:12px;font-size:0.75rem;font-weight:600">Belum diunggah</span>';
+    }
+
+    content.querySelectorAll<HTMLElement>('[data-title-level]').forEach(el => {
+      el.textContent = activeLevel;
+    });
+
+    content.querySelectorAll<HTMLButtonElement>('[data-level]').forEach(b => {
+      b.dataset.active = String(b.dataset.level === activeLevel);
+    });
+  }
+
   async function loadTemplates() {
-    content.innerHTML = '<p style="padding:1rem;color:#64748b">Memuat template kartu...</p>';
     try {
       const res = await api<Row[]>('/platform/card-templates');
       if (!alive()) return;
       templatesData = res.data || [];
-      renderUI();
+      updateCardPreviews();
     } catch (e) {
       if (alive()) feedback(root, e);
     }
-  }
-
-  function getTemplateUrl(level: string, side: string): string {
-    const found = templatesData.find(t => t.level === level && t.side === side);
-    return found ? found.template_url : '';
   }
 
   function renderUI() {
@@ -516,8 +563,8 @@ async function cardTemplatesPage(root: HTMLElement, content: HTMLElement, alive:
         <!-- FRONT TEMPLATE CARD -->
         <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:0.75rem;padding:1.25rem;display:flex;flex-direction:column;gap:1rem">
           <div style="display:flex;align-items:center;justify-content:space-between">
-            <h3 style="font-size:1rem;font-weight:700;color:#0f172a">Sisi Depan (Front) — ${activeLevel}</h3>
-            ${frontUrl ? '<span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:12px;font-size:0.75rem;font-weight:600">Terpasang ✓</span>' : '<span style="background:#fef3c7;color:#b45309;padding:2px 8px;border-radius:12px;font-size:0.75rem;font-weight:600">Belum diunggah</span>'}
+            <h3 style="font-size:1rem;font-weight:700;color:#0f172a">Sisi Depan (Front) — <span data-title-level>${activeLevel}</span></h3>
+            <div data-badge-front>${frontUrl ? '<span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:12px;font-size:0.75rem;font-weight:600">Terpasang ✓</span>' : '<span style="background:#fef3c7;color:#b45309;padding:2px 8px;border-radius:12px;font-size:0.75rem;font-weight:600">Belum diunggah</span>'}</div>
           </div>
 
           <div style="display:flex;justify-content:center;background:#f8fafc;padding:1rem;border-radius:0.5rem;border:1px dashed #cbd5e1;min-height:360px">
@@ -531,15 +578,15 @@ async function cardTemplatesPage(root: HTMLElement, content: HTMLElement, alive:
           <div style="display:flex;flex-direction:column;gap:0.5rem">
             <label style="font-size:0.85rem;font-weight:600;color:#334155">Pilih Gambar Background Depan (Ratio 54 x 85.6 mm)</label>
             <input type="file" data-file-front accept="image/*" class="button secondary" style="font-size:0.85rem">
-            <button type="button" data-save-front class="button primary" style="width:100%">Simpan Template Depan ${activeLevel}</button>
+            <button type="button" data-save-front class="button primary" style="width:100%">Simpan Template Depan <span data-title-level>${activeLevel}</span></button>
           </div>
         </div>
 
         <!-- BACK TEMPLATE CARD -->
         <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:0.75rem;padding:1.25rem;display:flex;flex-direction:column;gap:1rem">
           <div style="display:flex;align-items:center;justify-content:space-between">
-            <h3 style="font-size:1rem;font-weight:700;color:#0f172a">Sisi Belakang (Back) — ${activeLevel}</h3>
-            ${backUrl ? '<span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:12px;font-size:0.75rem;font-weight:600">Terpasang ✓</span>' : '<span style="background:#fef3c7;color:#b45309;padding:2px 8px;border-radius:12px;font-size:0.75rem;font-weight:600">Belum diunggah</span>'}
+            <h3 style="font-size:1rem;font-weight:700;color:#0f172a">Sisi Belakang (Back) — <span data-title-level>${activeLevel}</span></h3>
+            <div data-badge-back>${backUrl ? '<span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:12px;font-size:0.75rem;font-weight:600">Terpasang ✓</span>' : '<span style="background:#fef3c7;color:#b45309;padding:2px 8px;border-radius:12px;font-size:0.75rem;font-weight:600">Belum diunggah</span>'}</div>
           </div>
 
           <div style="display:flex;justify-content:center;background:#f8fafc;padding:1rem;border-radius:0.5rem;border:1px dashed #cbd5e1;min-height:360px">
@@ -553,17 +600,17 @@ async function cardTemplatesPage(root: HTMLElement, content: HTMLElement, alive:
           <div style="display:flex;flex-direction:column;gap:0.5rem">
             <label style="font-size:0.85rem;font-weight:600;color:#334155">Pilih Gambar Background Belakang (Ratio 54 x 85.6 mm)</label>
             <input type="file" data-file-back accept="image/*" class="button secondary" style="font-size:0.85rem">
-            <button type="button" data-save-back class="button primary" style="width:100%">Simpan Template Belakang ${activeLevel}</button>
+            <button type="button" data-save-back class="button primary" style="width:100%">Simpan Template Belakang <span data-title-level>${activeLevel}</span></button>
           </div>
         </div>
       </div>
     `;
 
-    // Tab level change
+    // Tab level change - 0ms instant DOM update
     content.querySelectorAll<HTMLButtonElement>('[data-level]').forEach(b => {
       b.onclick = () => {
         activeLevel = b.dataset.level as any;
-        renderUI();
+        updateCardPreviews();
       };
     });
 
@@ -593,17 +640,27 @@ async function cardTemplatesPage(root: HTMLElement, content: HTMLElement, alive:
     };
 
     btnSaveFront.onclick = () => void busy(btnSaveFront, root, async () => {
-      if (!newFrontBase64 && !frontUrl) {
+      const currentUrl = getTemplateUrl(activeLevel, 'front');
+      if (!newFrontBase64 && !currentUrl) {
         feedback(root, 'Pilih file gambar template depan terlebih dahulu.');
         return;
       }
-      const targetUrl = newFrontBase64 || frontUrl;
-      await api('/platform/card-templates', {
+      const targetUrl = newFrontBase64 || currentUrl;
+      const res = await api<Row>('/platform/card-templates', {
         method: 'POST',
         body: JSON.stringify({ level: activeLevel, side: 'front', template_url: targetUrl })
       });
+      // Update in-memory templatesData optimistically
+      const idx = templatesData.findIndex(t => t.level === activeLevel && t.side === 'front');
+      if (idx >= 0) {
+        templatesData[idx] = res.data;
+      } else {
+        templatesData.push(res.data);
+      }
+      newFrontBase64 = '';
+      fileFront.value = '';
       toastSuccess(`Template Depan ${activeLevel} berhasil disimpan!`);
-      await loadTemplates();
+      updateCardPreviews();
     });
 
     // Back file change & save
@@ -632,19 +689,32 @@ async function cardTemplatesPage(root: HTMLElement, content: HTMLElement, alive:
     };
 
     btnSaveBack.onclick = () => void busy(btnSaveBack, root, async () => {
-      if (!newBackBase64 && !backUrl) {
+      const currentUrl = getTemplateUrl(activeLevel, 'back');
+      if (!newBackBase64 && !currentUrl) {
         feedback(root, 'Pilih file gambar template belakang terlebih dahulu.');
         return;
       }
-      const targetUrl = newBackBase64 || backUrl;
-      await api('/platform/card-templates', {
+      const targetUrl = newBackBase64 || currentUrl;
+      const res = await api<Row>('/platform/card-templates', {
         method: 'POST',
         body: JSON.stringify({ level: activeLevel, side: 'back', template_url: targetUrl })
       });
+      // Update in-memory templatesData optimistically
+      const idx = templatesData.findIndex(t => t.level === activeLevel && t.side === 'back');
+      if (idx >= 0) {
+        templatesData[idx] = res.data;
+      } else {
+        templatesData.push(res.data);
+      }
+      newBackBase64 = '';
+      fileBack.value = '';
       toastSuccess(`Template Belakang ${activeLevel} berhasil disimpan!`);
-      await loadTemplates();
+      updateCardPreviews();
     });
   }
 
-  await loadTemplates();
+  // Render UI IMMEDIATELY (0ms)
+  renderUI();
+  // Fetch templates in background and update previews in-place
+  void loadTemplates();
 }
