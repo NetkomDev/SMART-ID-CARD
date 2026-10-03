@@ -385,6 +385,18 @@
 }
 
 /* Arrivals & Podiums */
+.cc-arrival-subheader {
+  margin: 4px 0 6px;
+  display: flex;
+  align-items: center;
+}
+
+.cc-arrival-subheader .cc-eyebrow {
+  font-size: 9px;
+  color: #34d399;
+  letter-spacing: 0.12em;
+}
+
 .cc-ranking-content {
   flex: 1;
   display: flex;
@@ -494,8 +506,9 @@
   display: flex;
   justify-content: center;
   gap: 8px;
-  height: 110px;
-  margin-top: 6px;
+  height: 100px;
+  margin-top: 22px;
+  margin-bottom: 2px;
   align-items: flex-end;
 }
 
