@@ -461,21 +461,9 @@
   line-height: 1.25;
 }
 
-/* Icon / Logo kecil di depan detail (Jenis Kelamin, Tgl Lahir, Alamat) */
+/* Icon / Logo kecil di depan detail - Dihapus karena sudah ada pada gambar template */
 .detail-icon {
-  width: 3.5mm;
-  height: 1.25em;
-  flex: none;
-  color: #56667c;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-}
-
-.detail-icon svg {
-  width: 10px;
-  height: 10px;
-  display: block;
+  display: none;
 }
 
 /* Label nama bidang (Jenis Kelamin, Tanggal Lahir, Alamat) */
@@ -559,7 +547,7 @@
   background: #ffffff;
   display: flex;
   flex-direction: column;
-  padding: 10mm 3.5mm 0mm 3.5mm; /* Header digeser turun disamakan dengan sisi depan (10mm) */
+  padding: 7mm 1.5mm 0mm 5.5mm; /* Header digeser turun disamakan dengan sisi depan (10mm) */
   overflow: hidden;
   color: #0f172a;
   box-sizing: border-box;
@@ -629,10 +617,7 @@
 }
 
 .info-icon {
-  font-size: 6.5pt;
-  width: 3.5mm;
-  text-align: center;
-  flex: none;
+  display: none;
 }
 
 .info-meta {
@@ -674,17 +659,7 @@
 }
 
 .alert-icon {
-  width: 3mm;
-  height: 3mm;
-  background: #0052cc;
-  color: #ffffff;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 4.5pt;
-  font-weight: 900;
-  flex: none;
+  display: none;
 }
 
 .rules-title {
@@ -800,7 +775,7 @@
 }
 
 .web-icon {
-  font-size: 4.8pt;
+  display: none;
 }
 
 .web-url {

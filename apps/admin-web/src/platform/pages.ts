@@ -354,19 +354,16 @@ function front(c: Row, qr: string, customBgUrl?: string) {
 
     <div class="id-details-grid">
       <div class="detail-item">
-        <span class="detail-icon"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg></span>
         <span class="detail-label">Jenis Kelamin</span>
         <span class="detail-colon">:</span>
         <span class="detail-val">${esc(genderText)}</span>
       </div>
       <div class="detail-item">
-        <span class="detail-icon"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zm0-12H5V6h14v2z"/></svg></span>
         <span class="detail-label">Tanggal Lahir</span>
         <span class="detail-colon">:</span>
         <span class="detail-val">${esc(formattedDob)}</span>
       </div>
       <div class="detail-item">
-        <span class="detail-icon"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></span>
         <span class="detail-label">Alamat</span>
         <span class="detail-colon">:</span>
         <span class="detail-val addr-text">${esc(addressText)}</span>
@@ -407,7 +404,6 @@ function back(c: Row, customBgUrl?: string) {
 
     <div class="back-blue-card">
       <div class="card-info-row">
-        <span class="info-icon">🎓</span>
         <div class="info-meta">
           <div class="info-lbl">NISN</div>
           <div class="info-txt bold">${esc(nisn)}</div>
@@ -415,7 +411,6 @@ function back(c: Row, customBgUrl?: string) {
       </div>
 
       <div class="card-info-row">
-        <span class="info-icon">👤</span>
         <div class="info-meta">
           <div class="info-lbl">Nama</div>
           <div class="info-txt bold uppercase">${esc(studentName)}</div>
@@ -423,7 +418,6 @@ function back(c: Row, customBgUrl?: string) {
       </div>
 
       <div class="card-info-row">
-        <span class="info-icon">👥</span>
         <div class="info-meta">
           <div class="info-lbl">Kelas</div>
           <div class="info-txt bold">${esc(className)}</div>
@@ -431,17 +425,13 @@ function back(c: Row, customBgUrl?: string) {
       </div>
 
       <div class="card-info-row">
-        <span class="info-icon">📅</span>
         <div class="info-meta">
           <div class="info-lbl">Tahun Ajaran</div>
           <div class="info-txt bold">${esc(academicYear)}</div>
         </div>
       </div>
 
-      <div class="card-divider"></div>
-
       <div class="rules-header">
-        <span class="alert-icon">!</span>
         <span class="rules-title">PERHATIAN</span>
       </div>
 
@@ -467,7 +457,6 @@ function back(c: Row, customBgUrl?: string) {
     </div>
 
     <div class="back-footer-bar">
-      <span class="web-icon">🌐</span>
       <span class="web-url">${esc(websiteUrl)}</span>
     </div>
   </div>`;
@@ -508,8 +497,7 @@ body{margin:0;font-family:'Inter','Segoe UI',Roboto,sans-serif;background:${medi
 
 .id-details-grid{position:relative;z-index:2;display:flex;flex-direction:column;gap:1.2mm;font-size:5.2pt;color:#334155;margin-bottom:auto}
 .detail-item{display:flex;align-items:flex-start;line-height:1.25}
-.detail-icon{width:3.5mm;height:1.25em;flex:none;color:#0284c7;display:flex;align-items:center;justify-content:flex-start}
-.detail-icon svg{width:10px;height:10px;display:block}
+.detail-icon{display:none}
 .detail-label{width:14mm;height:1.25em;flex:none;font-weight:600;color:#475569;display:flex;align-items:center}
 .detail-colon{width:1.5mm;height:1.25em;flex:none;font-weight:600;color:#475569;display:flex;align-items:center;justify-content:center}
 .detail-val{flex:1;min-width:0;font-weight:700;color:#0f172a;line-height:1.25}
@@ -532,7 +520,7 @@ body{margin:0;font-family:'Inter','Segoe UI',Roboto,sans-serif;background:${medi
 
 .back-blue-card{position:relative;z-index:2;background:transparent;border:none;padding:0;margin-bottom:1.5mm;display:flex;flex-direction:column;gap:1.2mm}
 .card-info-row{display:flex;align-items:center;gap:2mm}
-.info-icon{font-size:7pt;width:4mm;text-align:center;flex:none}
+.info-icon{display:none}
 .info-meta{display:flex;flex-direction:column}
 .info-lbl{font-size:4.2pt;font-weight:700;color:#64748b;text-transform:uppercase;line-height:1}
 .info-txt{font-size:5.8pt;color:#0f172a;line-height:1.15}
@@ -541,7 +529,7 @@ body{margin:0;font-family:'Inter','Segoe UI',Roboto,sans-serif;background:${medi
 .card-divider{display:none}
 
 .rules-header{display:flex;align-items:center;gap:1.5mm;margin-bottom:0.5mm}
-.alert-icon{width:3.2mm;height:3.2mm;background:#0052cc;color:#ffffff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:4.5pt;font-weight:900;flex:none}
+.alert-icon{display:none}
 .rules-title{font-size:5pt;font-weight:900;color:#002554;letter-spacing:0.3px}
 .rules-list{padding-left:3.5mm;font-size:4.2pt;color:#334155;line-height:1.35}
 .rules-list li{margin-bottom:0.4mm;font-weight:500}
@@ -559,7 +547,7 @@ body{margin:0;font-family:'Inter','Segoe UI',Roboto,sans-serif;background:${medi
 .sig-nip{font-size:4pt;font-weight:600;color:#475569;line-height:1.1}
 
 .back-footer-bar{width:calc(100% + 6mm);margin-left:-3mm;height:5.5mm;background:linear-gradient(90deg,#002554 0%,#0052cc 100%);display:flex;align-items:center;justify-content:center;gap:1.5mm;color:#ffffff;font-size:4.8pt;font-weight:700;margin-top:auto}
-.web-icon{font-size:5pt}
+.web-icon{display:none}
 .web-url{letter-spacing:0.2px}
 `;
 }
