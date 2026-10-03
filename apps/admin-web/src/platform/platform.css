@@ -320,7 +320,8 @@
   display: flex;
   gap: 2mm;
   align-items: flex-start;
-  margin-bottom: 1.8mm;
+  margin-bottom: 0.8mm;
+  /* Jarak dibuat lebih rapat agar Nama Siswa naik mendekat ke Foto */
   padding-left: 1mm;
   /* Geser foto dan kolom kanan lebih masuk ke dalam */
 }
@@ -357,6 +358,8 @@
 .meta-col {
   flex: 1;
   min-width: 0;
+  height: 30mm;
+  /* Samakan tinggi kolom kanan dengan bingkai foto (30mm) */
   display: flex;
   flex-direction: column;
 }
@@ -390,16 +393,15 @@
   margin-bottom: 1.5mm;
 }
 
-/* Kotak QR Code */
+/* Kotak QR Code (Border Dihapus, Bottom Sejajar Foto) */
 .qr-container {
   width: 17.5mm;
-  /* Ubah lebar QR Code di sini */
   height: 17.5mm;
-  /* Ubah tinggi QR Code di sini */
-  padding: 0.1mm;
-  border: 1px solid #0284c7;
-  border-radius: 1mm;
-  background: #fff;
+  padding: 0;
+  border: none;
+  background: transparent;
+  margin-top: auto;
+  /* Mendorong QR Code ke paling bawah sejajar bottom foto */
 }
 
 .qr-img {
@@ -414,7 +416,7 @@
 .id-name-block {
   position: relative;
   z-index: 2;
-  margin-bottom: 1.8mm;
+  margin-bottom: 1.5mm;
 }
 
 /* Ukuran Font Nama Lengkap Siswa */
@@ -476,8 +478,9 @@
   /* Align persis bagian bawah logo dengan baseline teks */
 }
 
-/* Label nama bidang (Jenis Kelamin, Tanggal Lahir, Alamat) - Alur inline menyamping */
+/* Label nama bidang (Jenis Kelamin, Tanggal Lahir, Alamat) */
 .detail-label {
+  width: 16mm; /* Lebar seragam 16mm agar ketiga titik dua sejajar vertikal */
   flex: none;
   font-weight: 600;
   color: #475569;
@@ -485,20 +488,19 @@
   display: flex;
   align-items: flex-end;
   /* Teks label sejajar bagian bawah logo */
-  white-space: nowrap;
 }
 
 /* Titik dua (:) */
 .detail-colon {
+  width: 1.5mm; /* Lebar titik dua seragam agar sejajar vertikal */
   flex: none;
   font-weight: 600;
   color: #475569;
   min-height: 2.8mm;
   display: flex;
   align-items: flex-end;
+  justify-content: center;
   /* Titik dua (:) sejajar bagian bawah */
-  margin-left: 0.8mm;
-  margin-right: 1.2mm;
 }
 
 .detail-val {
