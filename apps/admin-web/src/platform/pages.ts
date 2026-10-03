@@ -518,11 +518,11 @@ body{margin:0;font-family:'Inter','Segoe UI',Roboto,sans-serif;background:${medi
 
 .rules-header,.rules-list{display:none}
 
-.back-bottom-row{position:relative;z-index:2;display:flex;justify-content:space-between;align-items:flex-end;margin-top:auto;margin-bottom:2mm;padding:0 1mm}
-.barcode-block{width:25mm;display:flex;flex-direction:column;align-items:flex-start}
-.barcode-svg{width:100%;height:7mm}
-.barcode-text{font-size:4pt;font-weight:700;color:#1e293b;font-family:monospace;margin-top:0.5mm;letter-spacing:-0.2px}
-.signature-block{text-align:center;display:flex;flex-direction:column;align-items:center}
+.back-bottom-row{position:absolute;top:0;left:0;right:0;bottom:5.5mm;pointer-events:none;z-index:2}
+.barcode-block{position:absolute;pointer-events:auto;bottom:7mm;left:5.5mm;width:22mm;display:flex;flex-direction:column;align-items:flex-start;z-index:3}
+.barcode-svg{width:100%;height:6.5mm}
+.barcode-text{font-size:3.8pt;font-weight:700;color:#1e293b;font-family:monospace;margin-top:0.4mm;letter-spacing:-0.2px}
+.signature-block{position:absolute;pointer-events:auto;bottom:6.5mm;right:5.5mm;text-align:center;display:flex;flex-direction:column;align-items:center;z-index:3}
 .sig-title{font-size:4.5pt;font-weight:700;color:#334155;margin-bottom:0.5mm}
 .sig-image-wrap{height:6mm;display:flex;align-items:center;justify-content:center}
 .sig-img{max-height:6mm;max-width:18mm;object-fit:contain}

@@ -404,7 +404,8 @@
   background: transparent;
   margin-top: auto;
   align-self: flex-start;
-  margin-left: -0.8mm; /* Penyesuaian margin agar piksel QR Code sejajar lurus dengan KELAS & NISN */
+  margin-left: -0.8mm;
+  /* Penyesuaian margin agar piksel QR Code sejajar lurus dengan KELAS & NISN */
 }
 
 .qr-img {
@@ -547,7 +548,8 @@
   background: #ffffff;
   display: flex;
   flex-direction: column;
-  padding: 7mm 1.5mm 0mm 5.5mm; /* Header digeser turun disamakan dengan sisi depan (10mm) */
+  padding: 7mm 1.5mm 0mm 5.5mm;
+  /* Header digeser turun disamakan dengan sisi depan (10mm) */
   overflow: hidden;
   color: #0f172a;
   box-sizing: border-box;
@@ -583,7 +585,8 @@
 
 .back-header-right,
 .card-id-label {
-  display: none; /* Dihapus sesuai permintaan pengguna */
+  display: none;
+  /* Dihapus sesuai permintaan pengguna */
 }
 
 .back-top-polygon {
@@ -610,12 +613,15 @@
   background: transparent;
   border: none;
   padding: 0;
-  margin-top: 0mm;   /* <-- GESER ATAS/BAWAH (Positif = Turun, Negatif = Naik) */
-  margin-left: 0mm;  /* <-- GESER KIRI/KANAN (Positif = Kanan, Negatif = Kiri) */
-  margin-bottom: 1.5mm;
+  margin-top: 1.6mm;
+  /* <-- GESER ATAS/BAWAH (Positif = Turun, Negatif = Naik) */
+  margin-left: 7mm;
+  /* <-- GESER KIRI/KANAN (Positif = Kanan, Negatif = Kiri) */
+  margin-bottom: 1mm;
   display: flex;
   flex-direction: column;
-  gap: 1.2mm;        /* <-- JARAK ANTAR KELOMPOK BARIS DATA */
+  gap: 2mm;
+  /* <-- JARAK ANTAR KELOMPOK BARIS DATA */
 }
 
 .card-info-row {
@@ -634,7 +640,7 @@
 }
 
 .info-lbl {
-  font-size: 4pt;
+  font-size: 5pt;
   font-weight: 700;
   color: #64748b;
   text-transform: uppercase;
@@ -667,32 +673,35 @@
 }
 
 /* ==========================================================================
-   BARIS BAWAH: BARCODE & TANDA TANGAN KEPALA SEKOLAH
+   BARIS BAWAH: CONTAINER KELOMPOK BARCODE & TANDA TANGAN
    ========================================================================== */
 .back-bottom-row {
-  position: relative;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 5.5mm;
+  pointer-events: none;
   z-index: 2;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  margin-top: auto;
-  margin-bottom: 1.5mm;
-  padding: 0 1mm;
 }
 
 /* ==========================================================================
-   PETUNJUK PENGATURAN POSISI BARCODE
+   PETUNJUK PENGATURAN POSISI BARCODE (INDEPENDEN / BEBAS)
    --------------------------------------------------------------------------
-   - ATAS / BAWAH  : Tambahkan `margin-top: 0mm;` atau `transform: translateY(Xmm);`
-   - KIRI / KANAN  : Ubah `margin-left: 0mm;` (Positif = Kanan, Negatif = Kiri)
+   - `position: absolute` membuat Barcode BEBAS digeser tanpa mempengaruhi data siswa di atasnya & tanpa mempengaruhi Kepala Sekolah.
+   - ATAS / BAWAH  : Ubah nilai `bottom: 7mm;` (misal `10mm` untuk NAIK, `5mm` untuk TURUN, atau gunakan `top: 60mm;`)
+   - KIRI / KANAN  : Ubah nilai `left: 5mm;` (misal `8mm` untuk GESER KANAN, `2mm` untuk GESER KIRI)
    ========================================================================== */
 .barcode-block {
-  width: 24mm;
+  position: absolute;
+  pointer-events: auto;
+  bottom: 7mm;        /* <-- POSISI VERTIKAL BARCODE (Dari Bawah) */
+  left: 5.5mm;       /* <-- POSISI HORISONTAL BARCODE (Dari Kiri) */
+  width: 22mm;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  margin-top: 0mm;   /* <-- GESER BARCODE ATAS/BAWAH */
-  margin-left: 0mm;  /* <-- GESER BARCODE KIRI/KANAN */
+  z-index: 3;
 }
 
 .barcode-svg {
@@ -710,18 +719,22 @@
 }
 
 /* ==========================================================================
-   PETUNJUK PENGATURAN POSISI KEPALA SEKOLAH & TANDA TANGAN
+   PETUNJUK PENGATURAN POSISI KEPALA SEKOLAH & TANDA TANGAN (INDEPENDEN / BEBAS)
    --------------------------------------------------------------------------
-   - ATAS / BAWAH  : Tambahkan `margin-top: 0mm;` (Positif = Turun, Negatif = Naik)
-   - KIRI / KANAN  : Ubah `margin-right: 0mm;` atau `margin-left: 0mm;`
+   - `position: absolute` membuat Kepala Sekolah & TTD BEBAS digeser tanpa mempengaruhi data siswa di atasnya & tanpa mempengaruhi Barcode.
+   - ATAS / BAWAH  : Ubah nilai `bottom: 6.5mm;` (misal `10mm` untuk NAIK, `4mm` untuk TURUN, atau gunakan `top: 55mm;`)
+   - KIRI / KANAN  : Ubah nilai `right: 5.5mm;` (misal `2mm` untuk GESER KANAN, `10mm` untuk GESER KIRI)
    ========================================================================== */
 .signature-block {
+  position: absolute;
+  pointer-events: auto;
+  bottom: 6.5mm;      /* <-- POSISI VERTIKAL TTD/KEPALA SEKOLAH (Dari Bawah) */
+  right: 5.5mm;       /* <-- POSISI HORISONTAL TTD/KEPALA SEKOLAH (Dari Kanan) */
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-top: 0mm;   /* <-- GESER TTD/KEPALA SEKOLAH ATAS/BAWAH */
-  margin-right: 0mm; /* <-- GESER TTD/KEPALA SEKOLAH KIRI/KANAN */
+  z-index: 3;
 }
 
 .sig-title {
