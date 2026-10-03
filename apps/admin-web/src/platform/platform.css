@@ -781,7 +781,8 @@
   font-size: 3.8pt;
   font-weight: 600;
   color: #475569;
-  line-height: 1.1;
+  line-height: 1;
+  margin-top: 0.5mm; /* <-- GESER NIP TURUN 0.5mm DARI GARIS NAMA */
 }
 
 .back-footer-bar {
