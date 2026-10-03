@@ -157,7 +157,7 @@ async function production(root:HTMLElement,content:HTMLElement,schools:School[],
 
     const printable = cards.every(c => ['DRAFT', 'PRINTED'].includes(c.production_status));
     const images = await Promise.all(
-      cards.map(c => QRCode.toDataURL(c.qr_key, { errorCorrectionLevel: 'M', margin: 4, width: 300 }))
+      cards.map(c => QRCode.toDataURL(c.qr_key, { errorCorrectionLevel: 'M', margin: 0, width: 300 }))
     );
     if (!alive() || tabEpoch !== batchEpoch) return;
 

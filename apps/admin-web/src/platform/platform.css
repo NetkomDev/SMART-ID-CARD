@@ -400,20 +400,21 @@
 .student-card-front .qr-container,
 .card-canvas .qr-container,
 .id-card-preview .qr-container {
-  width: 15mm;
-  height: 15mm;
+  width: 14.5mm;
+  height: 14.5mm;
   padding: 0;
   border: none;
   background: transparent;
   margin-top: auto;
   align-self: flex-start;
-  margin-left: -0.6mm;
-  /* Penyesuaian margin & ukuran agar QR Code sejajar lurus dengan KELAS & NISN (kiri) dan sejajar bottom foto (bawah) */
+  margin-left: 0;
+  /* QR Code 0-margin sejajar lurus rata kiri dengan KELAS & NISN, dan rata bawah dengan foto siswa (30mm) */
 }
 
 .qr-img {
   width: 100%;
   height: 100%;
+  object-fit: contain;
   display: block;
 }
 
