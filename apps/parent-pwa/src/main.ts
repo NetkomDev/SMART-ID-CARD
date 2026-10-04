@@ -2,6 +2,7 @@ import { gateIntro, gateHelp } from "../../shared/portal-ui";
 import "./styles.css";
 import { PortalSession } from "../../shared/portal-session";
 import { setupInstallPrompt, offerInstall } from "../../shared/install-prompt";
+
 const portal = new PortalSession("PARENT", import.meta.env.VITE_API_BASE_URL ?? "/api/v1");
 setupInstallPrompt("Portal Orang Tua", import.meta.env.BASE_URL, import.meta.env.PROD);
 
@@ -26,19 +27,19 @@ type ParentTodayData = {
     photo_url?: string | null;
   };
   attendance?: {
-    status: "HADIR" | "TERLAMBAT" | "PULANG" | "BELUM_HADIR";
+    status: "HADIR" | "TERLAMBAT" | "PULANG" | "BELUM_HADIR" | "SAKIT" | "IZIN" | "ALASAN_LAIN";
     check_in: string;
     check_out: string;
   };
   waste?: {
     today_kg: number;
-    total_points: number;
-    today_points: number;
+    total_points: number | null;
+    today_points: number | null;
     unscored?: number;
   };
   library?: {
     today_visits: number;
-    month_visits: number;
+    month_visits: number | null;
   };
   extracurricular?: {
     name: string;
@@ -60,12 +61,48 @@ const root = document.querySelector<HTMLDivElement>("#app")!;
 const esc = (v: unknown) => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 const request = <T>(path: string, init: RequestInit = {}) => portal.request<T>(path, init);
 
+// High-Performance Local Cache Layer
+const CACHE_KEYS = {
+  CHILDREN: "aksis_parent_children_v3",
+  PROFILE_NAME: "aksis_parent_name_v3",
+  SELECTED_CHILD: "aksis_parent_selected_child_v3",
+  TODAY: (studentId: string) => `aksis_parent_today_${studentId}_v3`
+};
+
+function getStoredCache<T>(key: string): T | null {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : null;
+  } catch {
+    return null;
+  }
+}
+
+function setStoredCache<T>(key: string, value: T): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {}
+}
+
 let loginScanner: any = null;
-let selectedChildId = "";
-let cachedParentName = "";
+let cachedParentName = getStoredCache<string>(CACHE_KEYS.PROFILE_NAME) || "";
+let selectedChildId = getStoredCache<string>(CACHE_KEYS.SELECTED_CHILD) || "";
+let cachedChildren: Child[] | null = getStoredCache<Child[]>(CACHE_KEYS.CHILDREN);
+
 let viewRevision = 0;
 let dashboardVisible = false;
+let isRefreshingData = false;
+let activeTab: "home" | "add" | "profile" = "home";
+
 const number = (value: number | null) => value == null ? "—" : value.toLocaleString("id-ID", { maximumFractionDigits: 2 });
+
+function showSyncBar(show: boolean) {
+  const bar = document.getElementById("sync-bar");
+  if (bar) {
+    if (show) bar.classList.add("active");
+    else bar.classList.remove("active");
+  }
+}
 
 function openPhotoCropperModal(studentId: string, studentName: string) {
   const modal = document.createElement("div");
@@ -116,9 +153,8 @@ function openPhotoCropperModal(studentId: string, studentName: string) {
           💾 Simpan Foto (Rasio 3:4 Pas PVC)
         </button>
         
-        <!-- Progress Bar Wrap -->
         <div id="upload-progress-wrap" style="display:none;margin-top:14px;width:100%;">
-          <div style="display:flex;justify-space-between;align-items:center;margin-bottom:6px;font-size:0.82rem;font-weight:600;color:#1e293b;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:0.82rem;font-weight:600;color:#1e293b;">
             <span id="upload-progress-status">⏳ Memproses foto...</span>
             <span id="upload-progress-percent" style="color:#2563eb;font-weight:700;">0%</span>
           </div>
@@ -268,7 +304,7 @@ function openPhotoCropperModal(studentId: string, studentName: string) {
 
       setTimeout(() => {
         modal.remove();
-        void dashboard();
+        void fetchDashboardData(studentId);
       }, 1200);
     } catch (err: any) {
       saveBtn.disabled = false;
@@ -290,7 +326,7 @@ function openPhotoPreviewModal(studentId: string, studentName: string, photoUrl:
 
   modal.innerHTML = `
     <div style="background:linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);border-radius:28px;width:100%;max-width:380px;padding:24px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.4);display:flex;flex-direction:column;align-items:center;text-align:center;font-family:sans-serif;border:1px solid rgba(255,255,255,0.2);">
-      <div style="display:flex;align-items:center;justify-space-between;width:100%;margin-bottom:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-bottom:16px;">
         <span style="font-size:0.75rem;font-weight:800;color:#2563eb;letter-spacing:0.08em;text-transform:uppercase;">Foto Kartu PVC Siswa</span>
         <button id="close-preview-x" style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:#64748b;padding:2px 6px;">&times;</button>
       </div>
@@ -495,7 +531,7 @@ function openAbsencePermitModal(
 
       setTimeout(() => {
         close();
-        void dashboard();
+        void fetchDashboardData(studentId);
       }, 1200);
     } catch (err: any) {
       submitBtn.disabled = false;
@@ -566,9 +602,11 @@ function loginView(message = "Pindai QR dari admin sekolah untuk membuka aktivit
   });
 }
 
-function parentLayout(contentHTML: string, activeTab: "home" | "add" | "profile" = "home"): string {
+function parentLayout(contentHTML: string, tabName: "home" | "add" | "profile" = "home"): string {
+  activeTab = tabName;
   return `
     <div class="parent-shell">
+      <div id="sync-bar" class="sync-progress-bar"></div>
       <header class="aksis-pwa-header parent-header">
         <div class="brand">
           <img src="${import.meta.env.BASE_URL}logo.png" alt="AKSIS Logo">
@@ -585,15 +623,15 @@ function parentLayout(contentHTML: string, activeTab: "home" | "add" | "profile"
       </main>
 
       <nav class="parent-nav" aria-label="Navigasi portal">
-        <button id="nav-home" class="${activeTab === 'home' ? 'active' : ''}">
+        <button id="nav-home" class="${tabName === 'home' ? 'active' : ''}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
           <span>Beranda</span>
         </button>
-        <button id="nav-add" class="${activeTab === 'add' ? 'active' : ''}">
+        <button id="nav-add" class="${tabName === 'add' ? 'active' : ''}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
           <span>Tambah anak</span>
         </button>
-        <button id="nav-profile" class="${activeTab === 'profile' ? 'active' : ''}">
+        <button id="nav-profile" class="${tabName === 'profile' ? 'active' : ''}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           <span>Akses saya</span>
         </button>
@@ -602,355 +640,434 @@ function parentLayout(contentHTML: string, activeTab: "home" | "add" | "profile"
   `;
 }
 
-async function dashboard(): Promise<boolean> {
-  const revision = ++viewRevision;
-  try {
-    if (!cachedParentName) {
-      try {
-        const prof = await request<{ full_name: string | null }>("/parent/profile");
-        if (prof?.full_name && prof.full_name !== "Orang Tua") cachedParentName = prof.full_name;
-      } catch {}
-    }
-    const children = await request<Child[]>("/parent/children");
-    if (revision !== viewRevision) return false;
-    if (!children.length) {
-      dashboardVisible = false;
-      root.innerHTML = parentLayout(`
-        <div class="parent-content">
-          <section class="student-profile-card" style="flex-direction: column; text-align: center; padding: 32px 20px;">
-            <div class="avatar-fallback" style="margin: 0 auto 12px; width: 64px; height: 64px; font-size: 1.5rem;">♡</div>
-            <h2 style="font-size: 1.3rem;">Hubungkan Anak Anda</h2>
-            <p style="font-size: 0.88rem; color: var(--parent-text-muted); margin: 6px 0 18px;">
-              Masukkan NISN dan Tanggal Lahir untuk memverifikasi data siswa dan memantau aktivitas sekolah.
-            </p>
-            <button id="link-child-btn" style="width: 100%; max-width: 240px;">Hubungkan Anak</button>
-          </section>
-        </div>
-      `, "home");
-      bindGlobalEvents();
-      document.getElementById("link-child-btn")?.addEventListener("click", linkView);
-      return false;
-    }
+// Synchronous 0ms Dashboard UI Renderer
+function renderDashboardUI(children: Child[], selected: Child, data: ParentTodayData) {
+  dashboardVisible = true;
+  selectedChildId = selected.student_id;
 
-    const selected = children.find(child => child.student_id === selectedChildId) ?? children[0]!;
-    selectedChildId = selected.student_id;
+  const profile = data.profile ?? {
+    full_name: selected.full_name,
+    first_name: selected.full_name.split(/\s+/)[0] ?? "Siswa",
+    school_name: selected.school_name,
+    class_name: selected.class_name ?? "Belum ada kelas",
+    photo_url: null
+  };
 
-    const data = await request<ParentTodayData>(`/parent/children/${selected.student_id}/today`);
+  const attendance = data.attendance ?? calculateAttendanceFallback(data.events, data.timezone);
+  const waste = data.waste ?? calculateWasteFallback(data.events);
+  const library = data.library ?? calculateLibraryFallback(data.events);
+  const extracurricular = data.extracurricular ?? calculateEkskulFallback(data.events, data.timezone);
 
-    if (revision !== viewRevision) return false;
-    dashboardVisible = true;
+  const formattedDate = new Intl.DateTimeFormat("id-ID", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: data.timezone || "Asia/Makassar"
+  }).format(new Date(data.as_of ?? Date.now()));
 
-    // Older APIs show unavailable totals rather than example figures.
-    const profile = data.profile ?? {
-      full_name: selected.full_name,
-      first_name: selected.full_name.split(/\s+/)[0] ?? "Siswa",
-      school_name: selected.school_name,
-      class_name: selected.class_name ?? "Belum ada kelas",
-      photo_url: null
-    };
+  const initials = profile.full_name.split(/\s+/).slice(0, 2).map(n => n[0]).join("").toUpperCase();
 
-    const attendance = data.attendance ?? calculateAttendanceFallback(data.events, data.timezone);
-    const waste = data.waste ?? calculateWasteFallback(data.events);
-    const library = data.library ?? calculateLibraryFallback(data.events);
-    const extracurricular = data.extracurricular ?? calculateEkskulFallback(data.events, data.timezone);
+  const contentHTML = `
+    ${children.length > 1 ? `
+      <div class="child-picker-container">
+        <label class="sr-only" for="child-picker">Pilih anak</label>
+        <select id="child-picker" class="child-picker-select">
+          ${children.map(c => `<option value="${esc(c.student_id)}" ${c.student_id === selectedChildId ? 'selected' : ''}>Anak: ${esc(c.full_name)} (${esc(c.school_name)})</option>`).join("")}
+        </select>
+      </div>
+    ` : ""}
 
-    // Formatted date string (e.g., Senin, 28 September 2026)
-    const formattedDate = new Intl.DateTimeFormat("id-ID", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-      timeZone: data.timezone || "Asia/Makassar"
-    }).format(new Date(data.as_of ?? Date.now()));
-
-    const initials = profile.full_name.split(/\s+/).slice(0, 2).map(n => n[0]).join("").toUpperCase();
-
-    // Render Main Dashboard HTML
-    const contentHTML = `
-      ${children.length > 1 ? `
-        <div class="child-picker-container">
-          <label class="sr-only" for="child-picker">Pilih anak</label>
-          <select id="child-picker" class="child-picker-select">
-            ${children.map(c => `<option value="${esc(c.student_id)}" ${c.student_id === selectedChildId ? 'selected' : ''}>Anak: ${esc(c.full_name)} (${esc(c.school_name)})</option>`).join("")}
-          </select>
+    <div class="parent-content">
+      ${!profile.photo_url ? `
+        <div class="photo-warning-banner" style="background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%); border: 1.5px solid #fdba74; border-radius: 16px; padding: 16px 18px; margin-bottom: 18px; display: flex; align-items: center; gap: 14px; box-shadow: 0 4px 12px rgba(234,88,12,0.08);">
+          <div style="background: #ea580c; color: white; width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">📷</div>
+          <div style="flex: 1;">
+            <h4 style="margin: 0 0 4px; font-size: 0.95rem; font-weight: 700; color: #9a3412;">Aksi Diperlukan: Unggah Foto Siswa</h4>
+            <p style="margin: 0; font-size: 0.82rem; color: #c2410c;">Foto resmi sekolah diperlukan untuk pencetakan ID Card PVC ${esc(profile.first_name)}.</p>
+          </div>
+          <button type="button" id="btn-open-photo-modal" style="background: #ea580c; border: none; padding: 8px 16px; border-radius: 10px; color: white; font-weight: 700; font-size: 0.85rem; cursor: pointer; white-space: nowrap;">Unggah Foto</button>
         </div>
       ` : ""}
 
-      <div class="parent-content">
-        ${!profile.photo_url ? `
-          <div class="photo-warning-banner" style="background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%); border: 1.5px solid #fdba74; border-radius: 16px; padding: 16px 18px; margin-bottom: 18px; display: flex; align-items: center; gap: 14px; box-shadow: 0 4px 12px rgba(234,88,12,0.08);">
-            <div style="background: #ea580c; color: white; width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">📷</div>
-            <div style="flex: 1;">
-              <h4 style="margin: 0 0 4px; font-size: 0.95rem; font-weight: 700; color: #9a3412;">Aksi Diperlukan: Unggah Foto Siswa</h4>
-              <p style="margin: 0; font-size: 0.82rem; color: #c2410c;">Foto resmi sekolah diperlukan untuk pencetakan ID Card PVC ${esc(profile.first_name)}.</p>
-            </div>
-            <button type="button" id="btn-open-photo-modal" style="background: #ea580c; border: none; padding: 8px 16px; border-radius: 10px; color: white; font-weight: 700; font-size: 0.85rem; cursor: pointer; white-space: nowrap;">Unggah Foto</button>
+      <!-- Student Profile Card -->
+      <section class="student-profile-card" style="cursor:pointer;" title="${profile.photo_url ? 'Klik untuk melihat foto full / mengganti foto' : 'Klik untuk mengunggah foto siswa'}">
+        <div class="student-avatar-wrap">
+          ${profile.photo_url ? `
+            <img src="${esc(profile.photo_url)}" class="student-avatar" alt="${esc(profile.full_name)}" />
+          ` : `
+            <div class="avatar-fallback">${esc(initials)}</div>
+          `}
+        </div>
+        <div class="student-details">
+          <h2>${esc(profile.full_name)}</h2>
+          <div class="info-row">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M3 7v14M21 7v14M6 21V11M18 21V11M12 21V4M12 4L4 7M12 4l8 3"/></svg>
+            <span>${esc(profile.school_name)}</span>
           </div>
-        ` : ""}
+          <div class="info-row">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+            <span>${esc(profile.class_name)}</span>
+          </div>
+          <div class="info-row">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <span>${esc(formattedDate)}</span>
+          </div>
+        </div>
+      </section>
 
-        <!-- Student Profile Card -->
-        <section class="student-profile-card" style="cursor:pointer;" title="${profile.photo_url ? 'Klik untuk melihat foto full / mengganti foto' : 'Klik untuk mengunggah foto siswa'}">
-          <div class="student-avatar-wrap">
-            ${profile.photo_url ? `
-              <img src="${esc(profile.photo_url)}" class="student-avatar" alt="${esc(profile.full_name)}" />
-            ` : `
-              <div class="avatar-fallback">${esc(initials)}</div>
-            `}
-          </div>
-          <div class="student-details">
-            <h2>${esc(profile.full_name)}</h2>
-            <div class="info-row">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M3 7v14M21 7v14M6 21V11M18 21V11M12 21V4M12 4L4 7M12 4l8 3"/></svg>
-              <span>${esc(profile.school_name)}</span>
-            </div>
-            <div class="info-row">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
-              <span>${esc(profile.class_name)}</span>
-            </div>
-            <div class="info-row">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-              <span>${esc(formattedDate)}</span>
-            </div>
-          </div>
-        </section>
-
-        <!-- 2x2 Grid -->
-        <div class="parent-grid">
-          <!-- Card 1: Attendance -->
-          <div class="grid-card card-attendance" id="card-attendance">
-            <div>
-              <div class="card-top">
-                <div class="card-top-header">
-                  <div class="icon-badge green">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                  </div>
-                  <span class="card-title">Kehadiran Hari Ini</span>
+      <!-- 2x2 Grid -->
+      <div class="parent-grid">
+        <!-- Card 1: Attendance -->
+        <div class="grid-card card-attendance" id="card-attendance">
+          <div>
+            <div class="card-top">
+              <div class="card-top-header">
+                <div class="icon-badge green">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                 </div>
-                <span class="card-arrow">&rsaquo;</span>
+                <span class="card-title">Kehadiran Hari Ini</span>
               </div>
-
-              ${renderAttendancePill(attendance.status)}
+              <span class="card-arrow">&rsaquo;</span>
             </div>
 
-            <div class="time-cols">
-              <div class="time-box">
-                <label>Jam Datang</label>
-                <span>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                  ${esc(attendance.check_in)}
-                </span>
-              </div>
-              <div class="time-box" style="text-align: right; align-items: flex-end;">
-                <label>Jam Pulang</label>
-                <span>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                  ${esc(attendance.check_out)}
-                </span>
-              </div>
-            </div>
+            ${renderAttendancePill(attendance.status)}
           </div>
 
-          <!-- Card 2: Waste Points -->
-          <div class="grid-card card-waste" id="card-waste">
-            <div>
-              <div class="card-top">
-                <div class="card-top-header">
-                  <div class="icon-badge green">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>
-                  </div>
-                  <span class="card-title">Poin Sampah</span>
-                </div>
-                <span class="card-arrow">&rsaquo;</span>
-              </div>
-
-              <div class="waste-body">
-                <div class="donut-gauge" aria-label="Total poin tercatat">
-                  <div class="donut-center">
-                    <span class="donut-val">${number(waste.total_points)}</span>
-                    <span class="donut-lbl">poin</span>
-                  </div>
-                </div>
-                <div class="waste-info">
-                  <span class="sub">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/></svg>
-                    Setoran hari ini
-                  </span>
-                  <span class="val">${number(waste.today_kg)} kg</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="card-banner teal">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-              <span>${waste.unscored ? "Sebagian setoran belum memiliki nilai poin." : "Terus jaga lingkungan sekolah tetap bersih!"}</span>
-            </div>
-          </div>
-
-          <!-- Card 3: Library Visits -->
-          <div class="grid-card card-library" id="card-library">
-            <div>
-              <div class="card-top">
-                <div class="card-top-header">
-                  <div class="icon-badge blue">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-                  </div>
-                  <span class="card-title">Kunjungan Perpustakaan</span>
-                </div>
-                <span class="card-arrow">&rsaquo;</span>
-              </div>
-
-              <div class="stat-primary">
-                <span class="big-num">${library.today_visits}</span>
-                <span class="unit">kunjungan hari ini</span>
-              </div>
-              <div class="stat-sub">
-                Total bulan ini <b>${number(library.month_visits)} kunjungan</b>
-              </div>
-            </div>
-
-            <div class="card-banner blue">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-              <span>Membaca membuka lebih banyak peluang!</span>
-            </div>
-          </div>
-
-          <!-- Card 4: Extracurricular -->
-          <div class="grid-card card-ekskul" id="card-ekskul">
-            <div>
-              <div class="card-top">
-                <div class="card-top-header">
-                  <div class="icon-badge orange">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M4.93 4.93l14.14 14.14"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                  </div>
-                  <span class="card-title">Ekstrakurikuler</span>
-                </div>
-                <span class="card-arrow">&rsaquo;</span>
-              </div>
-
-              <div class="ekskul-title">${esc(extracurricular.name)}</div>${(extracurricular.activities_count ?? 0) > 1 ? `<p class="activity-count">${extracurricular.activities_count} kegiatan hari ini · lihat detail</p>` : ""}
-
-              <div style="display: flex; align-items: center; gap: 8px; margin: 4px 0 6px;">
-                <span style="font-size: 0.72rem; color: var(--parent-text-muted); display: flex; align-items: center; gap: 4px;">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-                </span>
-                <span style="font-size: 0.78rem; font-weight: 800; padding: 2px 8px; border-radius: 8px; background: ${extracurricular.status === 'HADIR' ? '#d4f1e3' : '#edf2ef'}; color: ${extracurricular.status === 'HADIR' ? '#115c3c' : '#557065'};">
-                  ${({ HADIR: "✔ Hadir", IZIN: "Izin", ALPA: "Tidak hadir", TIDAK_ADA: "Tidak ada jadwal", BELUM_HADIR: "Belum presensi" })[extracurricular.status]}
-                </span>
-              </div>
-
-              <div class="ekskul-time">
+          <div class="time-cols">
+            <div class="time-box">
+              <label>Jam Datang</label>
+              <span>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                <span>${esc(extracurricular.schedule ?? (extracurricular.time_attended !== "—" ? `Presensi ${extracurricular.time_attended}` : "Belum ada jadwal hari ini"))}</span>
-              </div>
+                ${esc(attendance.check_in)}
+              </span>
             </div>
-
-            <div class="card-banner warm">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg>
-              <span>Terus kembangkan bakat dan minatmu!</span>
+            <div class="time-box" style="text-align: right; align-items: flex-end;">
+              <label>Jam Pulang</label>
+              <span>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                ${esc(attendance.check_out)}
+              </span>
             </div>
           </div>
         </div>
 
-        <!-- Motivation Banner -->
-        <section class="motivation-card">
-          <div class="star-circle">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        <!-- Card 2: Waste Points -->
+        <div class="grid-card card-waste" id="card-waste">
+          <div>
+            <div class="card-top">
+              <div class="card-top-header">
+                <div class="icon-badge green">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>
+                </div>
+                <span class="card-title">Poin Sampah</span>
+              </div>
+              <span class="card-arrow">&rsaquo;</span>
+            </div>
+
+            <div class="waste-body">
+              <div class="donut-gauge" aria-label="Total poin tercatat">
+                <div class="donut-center">
+                  <span class="donut-val">${number(waste.total_points)}</span>
+                  <span class="donut-lbl">poin</span>
+                </div>
+              </div>
+              <div class="waste-info">
+                <span class="sub">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/></svg>
+                  Setoran hari ini
+                </span>
+                <span class="val">${number(waste.today_kg)} kg</span>
+              </div>
+            </div>
           </div>
-          <div class="motivation-text">
-            <h3>Terus semangat, ${esc(profile.first_name)}!</h3>
-            <p>Kami selalu mendukung langkah terbaikmu.</p>
+
+          <div class="card-banner teal">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            <span>${waste.unscored ? "Sebagian setoran belum memiliki nilai poin." : "Terus jaga lingkungan sekolah tetap bersih!"}</span>
           </div>
-        </section>
+        </div>
+
+        <!-- Card 3: Library Visits -->
+        <div class="grid-card card-library" id="card-library">
+          <div>
+            <div class="card-top">
+              <div class="card-top-header">
+                <div class="icon-badge blue">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                </div>
+                <span class="card-title">Kunjungan Perpustakaan</span>
+              </div>
+              <span class="card-arrow">&rsaquo;</span>
+            </div>
+
+            <div class="stat-primary">
+              <span class="big-num">${library.today_visits}</span>
+              <span class="unit">kunjungan hari ini</span>
+            </div>
+            <div class="stat-sub">
+              Total bulan ini <b>${number(library.month_visits)} kunjungan</b>
+            </div>
+          </div>
+
+          <div class="card-banner blue">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+            <span>Membaca membuka lebih banyak peluang!</span>
+          </div>
+        </div>
+
+        <!-- Card 4: Extracurricular -->
+        <div class="grid-card card-ekskul" id="card-ekskul">
+          <div>
+            <div class="card-top">
+              <div class="card-top-header">
+                <div class="icon-badge orange">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M4.93 4.93l14.14 14.14"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                </div>
+                <span class="card-title">Ekstrakurikuler</span>
+              </div>
+              <span class="card-arrow">&rsaquo;</span>
+            </div>
+
+            <div class="ekskul-title">${esc(extracurricular.name)}</div>${(extracurricular.activities_count ?? 0) > 1 ? `<p class="activity-count">${extracurricular.activities_count} kegiatan hari ini · lihat detail</p>` : ""}
+
+            <div style="display: flex; align-items: center; gap: 8px; margin: 4px 0 6px;">
+              <span style="font-size: 0.72rem; color: var(--parent-text-muted); display: flex; align-items: center; gap: 4px;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+              </span>
+              <span style="font-size: 0.78rem; font-weight: 800; padding: 2px 8px; border-radius: 8px; background: ${extracurricular.status === 'HADIR' ? '#d4f1e3' : '#edf2ef'}; color: ${extracurricular.status === 'HADIR' ? '#115c3c' : '#557065'};">
+                ${({ HADIR: "✔ Hadir", IZIN: "Izin", ALPA: "Tidak hadir", TIDAK_ADA: "Tidak ada jadwal", BELUM_HADIR: "Belum presensi" })[extracurricular.status]}
+              </span>
+            </div>
+
+            <div class="ekskul-time">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <span>${esc(extracurricular.schedule ?? (extracurricular.time_attended !== "—" ? `Presensi ${extracurricular.time_attended}` : "Belum ada jadwal hari ini"))}</span>
+            </div>
+          </div>
+
+          <div class="card-banner warm">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg>
+            <span>Terus kembangkan bakat dan minatmu!</span>
+          </div>
+        </div>
       </div>
 
-      <div class="refresh-row"><span>Data sekolah · ${esc(new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: data.timezone }).format(new Date(data.as_of ?? Date.now())))}</span><button id="refresh-dashboard" class="btn-secondary">Perbarui data</button></div>
-      <dialog id="timeline-drawer" class="modal-overlay" aria-labelledby="drawer-title">
-        <div class="drawer-card">
-          <div class="drawer-head">
-            <h3 id="drawer-title">Aktivitas Hari Ini (${esc(profile.first_name)})</h3>
-            <button class="drawer-close" id="close-drawer-btn" aria-label="Tutup aktivitas">&times;</button>
-          </div>
-          <div class="timeline-content">
-            ${data.events.length ? renderTimelineEvents(data.events, data.timezone) : `
-              <div class="empty compact" style="padding: 24px 0;">
-                <span>○</span>
-                <h3>Belum ada aktivitas hari ini</h3>
-                <p>Aktivitas terverifikasi dari gerbang, sampah, dan perpustakaan akan otomatis muncul di sini.</p>
-              </div>
-            `}
-          </div>
+      <!-- Motivation Banner -->
+      <section class="motivation-card">
+        <div class="star-circle">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
         </div>
-      </dialog>
-    `;
+        <div class="motivation-text">
+          <h3>Terus semangat, ${esc(profile.first_name)}!</h3>
+          <p>Kami selalu mendukung langkah terbaikmu.</p>
+        </div>
+      </section>
+    </div>
 
-    root.innerHTML = parentLayout(contentHTML, "home");
-    bindGlobalEvents();
+    <div class="refresh-row"><span>Data sekolah · ${esc(new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: data.timezone }).format(new Date(data.as_of ?? Date.now())))}</span><button id="refresh-dashboard" class="btn-secondary">Perbarui data</button></div>
+    <dialog id="timeline-drawer" class="modal-overlay" aria-labelledby="drawer-title">
+      <div class="drawer-card">
+        <div class="drawer-head">
+          <h3 id="drawer-title">Aktivitas Hari Ini (${esc(profile.first_name)})</h3>
+          <button class="drawer-close" id="close-drawer-btn" aria-label="Tutup aktivitas">&times;</button>
+        </div>
+        <div class="timeline-content">
+          ${data.events.length ? renderTimelineEvents(data.events, data.timezone) : `
+            <div class="empty compact" style="padding: 24px 0;">
+              <span>○</span>
+              <h3>Belum ada aktivitas hari ini</h3>
+              <p>Aktivitas terverifikasi dari gerbang, sampah, dan perpustakaan akan otomatis muncul di sini.</p>
+            </div>
+          `}
+        </div>
+      </div>
+    </dialog>
+  `;
 
-    const handlePhotoClick = () => {
-      if (profile.photo_url) {
-        openPhotoPreviewModal(selected.student_id, profile.full_name, profile.photo_url);
-      } else {
-        openPhotoCropperModal(selected.student_id, profile.full_name);
-      }
-    };
+  root.innerHTML = parentLayout(contentHTML, "home");
+  bindGlobalEvents();
 
-    document.getElementById("btn-open-photo-modal")?.addEventListener("click", () => openPhotoCropperModal(selected.student_id, profile.full_name));
-    document.querySelector(".student-profile-card")?.addEventListener("click", handlePhotoClick);
+  const handlePhotoClick = () => {
+    if (profile.photo_url) {
+      openPhotoPreviewModal(selected.student_id, profile.full_name, profile.photo_url);
+    } else {
+      openPhotoCropperModal(selected.student_id, profile.full_name);
+    }
+  };
 
-    const drawer = document.querySelector<HTMLDialogElement>("#timeline-drawer")!;
-    const openDrawer = (prefix = "") => {
-      const events = data.events.filter(event => event.type.startsWith(prefix));
-      const labels: Record<string, string> = { "attendance.": "Kehadiran", "waste.": "Bank Sampah", "library.": "Perpustakaan", "extracurricular.": "Ekstrakurikuler" };
-      document.getElementById("drawer-title")!.textContent = `${labels[prefix] ?? "Aktivitas"} hari ini`;
-      drawer.querySelector(".timeline-content")!.innerHTML = events.length ? renderTimelineEvents(events, data.timezone) : '<p class="empty">Belum ada aktivitas tercatat hari ini.</p>';
-      drawer.showModal();
-    };
-    document.getElementById("btn-notifications")?.addEventListener("click", () => openDrawer());
-    const attCard = document.getElementById("card-attendance");
-    if (attCard) {
-      attCard.tabIndex = 0;
-      attCard.setAttribute("role", "button");
-      attCard.setAttribute("aria-label", "Pengajuan Izin / Sakit Kehadiran Hari Ini");
-      attCard.addEventListener("click", () => {
+  document.getElementById("btn-open-photo-modal")?.addEventListener("click", () => openPhotoCropperModal(selected.student_id, profile.full_name));
+  document.querySelector(".student-profile-card")?.addEventListener("click", handlePhotoClick);
+
+  const drawer = document.querySelector<HTMLDialogElement>("#timeline-drawer")!;
+  const openDrawer = (prefix = "") => {
+    const events = data.events.filter(event => event.type.startsWith(prefix));
+    const labels: Record<string, string> = { "attendance.": "Kehadiran", "waste.": "Bank Sampah", "library.": "Perpustakaan", "extracurricular.": "Ekstrakurikuler" };
+    document.getElementById("drawer-title")!.textContent = `${labels[prefix] ?? "Aktivitas"} hari ini`;
+    drawer.querySelector(".timeline-content")!.innerHTML = events.length ? renderTimelineEvents(events, data.timezone) : '<p class="empty">Belum ada aktivitas tercatat hari ini.</p>';
+    drawer.showModal();
+  };
+
+  const attCard = document.getElementById("card-attendance");
+  if (attCard) {
+    attCard.tabIndex = 0;
+    attCard.setAttribute("role", "button");
+    attCard.setAttribute("aria-label", "Pengajuan Izin / Sakit Kehadiran Hari Ini");
+    attCard.addEventListener("click", () => {
+      openAbsencePermitModal(selected.student_id, profile.full_name, profile.school_name, profile.class_name, data.attendance);
+    });
+    attCard.addEventListener("keydown", event => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
         openAbsencePermitModal(selected.student_id, profile.full_name, profile.school_name, profile.class_name, data.attendance);
-      });
-      attCard.addEventListener("keydown", event => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          openAbsencePermitModal(selected.student_id, profile.full_name, profile.school_name, profile.class_name, data.attendance);
-        }
-      });
+      }
+    });
+  }
+
+  for (const [id, prefix] of [["waste", "waste."], ["library", "library."], ["ekskul", "extracurricular."]]) {
+    const card = document.getElementById(`card-${id}`);
+    if (!card) continue;
+    card.tabIndex = 0;
+    card.setAttribute("role", "button");
+    card.setAttribute("aria-haspopup", "dialog");
+    card.setAttribute("aria-label", `Lihat detail ${card.querySelector(".card-title")!.textContent}`);
+    card.addEventListener("click", () => openDrawer(prefix));
+    card.addEventListener("keydown", event => {
+      if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openDrawer(prefix); }
+    });
+  }
+
+  document.getElementById("close-drawer-btn")?.addEventListener("click", () => drawer.close());
+  drawer.addEventListener("click", event => { if (event.target === drawer) drawer.close(); });
+  document.getElementById("refresh-dashboard")?.addEventListener("click", () => void fetchDashboardData(selected.student_id));
+  
+  document.querySelector<HTMLImageElement>(".student-avatar")?.addEventListener("error", event => {
+    (event.target as HTMLImageElement).parentElement!.innerHTML = `<div class="avatar-fallback">${esc(initials)}</div>`;
+  });
+
+  document.querySelector<HTMLSelectElement>('#child-picker')?.addEventListener('change', event => {
+    selectedChildId = (event.target as HTMLSelectElement).value;
+    setStoredCache(CACHE_KEYS.SELECTED_CHILD, selectedChildId);
+    void dashboard(selectedChildId);
+  });
+}
+
+// Background Asynchronous Parallel Fetcher (SWR Pattern)
+async function fetchDashboardData(targetChildId?: string): Promise<boolean> {
+  if (isRefreshingData) return true;
+  isRefreshingData = true;
+  showSyncBar(true);
+
+  try {
+    const fetchProfilePromise = !cachedParentName
+      ? request<{ full_name: string | null }>("/parent/profile").catch(() => null)
+      : Promise.resolve(null);
+
+    const fetchChildrenPromise = request<Child[]>("/parent/children");
+
+    const [profRes, childrenRes] = await Promise.all([fetchProfilePromise, fetchChildrenPromise]);
+
+    if (profRes?.full_name && profRes.full_name !== "Orang Tua") {
+      cachedParentName = profRes.full_name;
+      setStoredCache(CACHE_KEYS.PROFILE_NAME, cachedParentName);
     }
 
-    for (const [id, prefix] of [["waste", "waste."], ["library", "library."], ["ekskul", "extracurricular."]]) {
-      const card = document.getElementById(`card-${id}`);
-      if (!card) continue;
-      card.tabIndex = 0;
-      card.setAttribute("role", "button");
-      card.setAttribute("aria-haspopup", "dialog");
-      card.setAttribute("aria-label", `Lihat detail ${card.querySelector(".card-title")!.textContent}`);
-      card.addEventListener("click", () => openDrawer(prefix));
-      card.addEventListener("keydown", event => {
-        if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openDrawer(prefix); }
-      });
+    if (!Array.isArray(childrenRes) || !childrenRes.length) {
+      dashboardVisible = false;
+      if (activeTab === "home") {
+        root.innerHTML = parentLayout(`
+          <div class="parent-content">
+            <section class="student-profile-card" style="flex-direction: column; text-align: center; padding: 32px 20px;">
+              <div class="avatar-fallback" style="margin: 0 auto 12px; width: 64px; height: 64px; font-size: 1.5rem;">♡</div>
+              <h2 style="font-size: 1.3rem;">Hubungkan Anak Anda</h2>
+              <p style="font-size: 0.88rem; color: var(--parent-text-muted); margin: 6px 0 18px;">
+                Masukkan NISN dan Tanggal Lahir untuk memverifikasi data siswa dan memantau aktivitas sekolah.
+              </p>
+              <button id="link-child-btn" style="width: 100%; max-width: 240px;">Hubungkan Anak</button>
+            </section>
+          </div>
+        `, "home");
+        bindGlobalEvents();
+        document.getElementById("link-child-btn")?.addEventListener("click", linkView);
+      }
+      return false;
     }
-    document.getElementById("close-drawer-btn")?.addEventListener("click", () => drawer.close());
-    drawer.addEventListener("click", event => { if (event.target === drawer) drawer.close(); });
-    document.getElementById("refresh-dashboard")?.addEventListener("click", () => void dashboard());
-    document.querySelector<HTMLImageElement>(".student-avatar")?.addEventListener("error", event => {
-      (event.target as HTMLImageElement).parentElement!.innerHTML = `<div class="avatar-fallback">${esc(initials)}</div>`;
-    });
 
-    document.querySelector<HTMLSelectElement>('#child-picker')?.addEventListener('change', event => {
-      selectedChildId = (event.target as HTMLSelectElement).value;
-      void dashboard();
-    });
+    cachedChildren = childrenRes;
+    setStoredCache(CACHE_KEYS.CHILDREN, cachedChildren);
+
+    const desiredChildId = targetChildId || selectedChildId;
+    const selected = childrenRes.find(c => c.student_id === desiredChildId) ?? childrenRes[0]!;
+    selectedChildId = selected.student_id;
+    setStoredCache(CACHE_KEYS.SELECTED_CHILD, selectedChildId);
+
+    const data = await request<ParentTodayData>(`/parent/children/${selected.student_id}/today`);
+    setStoredCache(CACHE_KEYS.TODAY(selected.student_id), data);
+
+    if (activeTab === "home") {
+      renderDashboardUI(cachedChildren, selected, data);
+    }
 
     return true;
-  } catch (error) {
-    if (revision === viewRevision) loginView(error instanceof Error ? error.message : "Belum dapat memuat aktivitas.", true);
+  } catch (err: any) {
+    if (activeTab === "home" && !dashboardVisible) {
+      loginView(err instanceof Error ? err.message : "Belum dapat memuat aktivitas.", true);
+    }
     return false;
+  } finally {
+    isRefreshingData = false;
+    showSyncBar(false);
   }
+}
+
+// 0ms Perception Speed Entrypoint for Dashboard
+async function dashboard(forceChildId?: string): Promise<boolean> {
+  activeTab = "home";
+  const revision = ++viewRevision;
+
+  if (!cachedChildren) cachedChildren = getStoredCache<Child[]>(CACHE_KEYS.CHILDREN);
+  if (!selectedChildId) selectedChildId = getStoredCache<string>(CACHE_KEYS.SELECTED_CHILD) || "";
+  
+  if (forceChildId) selectedChildId = forceChildId;
+
+  const targetChild = cachedChildren?.length
+    ? (cachedChildren.find(c => c.student_id === selectedChildId) ?? cachedChildren[0]!)
+    : null;
+
+  if (targetChild) {
+    selectedChildId = targetChild.student_id;
+    const cachedToday = getStoredCache<ParentTodayData>(CACHE_KEYS.TODAY(targetChild.student_id));
+    if (cachedToday) {
+      // 🚀 INSTANT RENDER (0ms delay)!
+      renderDashboardUI(cachedChildren!, targetChild, cachedToday);
+      // Trigger background data sync silently
+      void fetchDashboardData(selectedChildId);
+      return true;
+    }
+  }
+
+  // If no cached data exists, render sleek skeleton loading UI
+  root.innerHTML = parentLayout(`
+    <div class="parent-content">
+      <section class="student-profile-card" style="padding: 24px 20px;">
+        <div class="avatar-fallback" style="background:#cbd5e1; color:#64748b; font-size: 1.2rem;">⏳</div>
+        <div class="student-details" style="width: 100%;">
+          <div style="height: 18px; background: #cbd5e1; border-radius: 6px; width: 55%; margin-bottom: 8px;"></div>
+          <div style="height: 12px; background: #e2e8f0; border-radius: 4px; width: 75%; margin-bottom: 6px;"></div>
+          <div style="height: 12px; background: #e2e8f0; border-radius: 4px; width: 45%;"></div>
+        </div>
+      </section>
+      <div class="parent-grid">
+        <div class="grid-card" style="height: 160px; background: #f1f5f9;"></div>
+        <div class="grid-card" style="height: 160px; background: #f1f5f9;"></div>
+        <div class="grid-card" style="height: 160px; background: #f1f5f9;"></div>
+        <div class="grid-card" style="height: 160px; background: #f1f5f9;"></div>
+      </div>
+    </div>
+  `, "home");
+  bindGlobalEvents();
+
+  return await fetchDashboardData(selectedChildId);
 }
 
 function renderAttendancePill(status: string): string {
@@ -997,7 +1114,6 @@ function renderTimelineEvents(events: ParentTodayData["events"], timezone: strin
   `;
 }
 
-// Fallback calculations for seamless backward compatibility
 function calculateAttendanceFallback(events: ParentTodayData["events"], timezone: string) {
   const checkIn = events.filter(e => e.type === "attendance.check_in").sort((a, b) => a.occurred_at.localeCompare(b.occurred_at))[0];
   const checkOut = events.find(e => e.type === "attendance.check_out");
@@ -1039,18 +1155,20 @@ function bindGlobalEvents() {
   document.getElementById("nav-home")?.addEventListener("click", () => void dashboard());
   document.getElementById("nav-add")?.addEventListener("click", () => void linkView());
   document.getElementById("nav-profile")?.addEventListener("click", () => void profileView());
-  document.getElementById("btn-menu-drawer")?.addEventListener("click", () => void profileView());
-  if (!dashboardVisible) document.getElementById("btn-notifications")?.setAttribute("hidden", "");
 }
 
 async function linkView() {
   viewRevision++;
   dashboardVisible = false;
+  activeTab = "add";
 
   if (!cachedParentName) {
     try {
       const prof = await request<{ full_name: string | null }>("/parent/profile");
-      if (prof?.full_name && prof.full_name !== "Orang Tua") cachedParentName = prof.full_name;
+      if (prof?.full_name && prof.full_name !== "Orang Tua") {
+        cachedParentName = prof.full_name;
+        setStoredCache(CACHE_KEYS.PROFILE_NAME, cachedParentName);
+      }
     } catch {}
   }
 
@@ -1131,8 +1249,11 @@ async function linkView() {
           full_name: nameToSave
         })
       });
-      if (nameToSave && nameToSave !== "Orang Tua") cachedParentName = nameToSave;
-      await dashboard();
+      if (nameToSave && nameToSave !== "Orang Tua") {
+        cachedParentName = nameToSave;
+        setStoredCache(CACHE_KEYS.PROFILE_NAME, cachedParentName);
+      }
+      await fetchDashboardData();
       offerInstall();
     } catch (err: any) {
       errorEl.style.color = "#991b1b";
@@ -1148,11 +1269,15 @@ async function linkView() {
 async function profileView() {
   viewRevision++;
   dashboardVisible = false;
+  activeTab = "profile";
 
   if (!cachedParentName) {
     try {
       const prof = await request<{ full_name: string | null }>("/parent/profile");
-      if (prof?.full_name && prof.full_name !== "Orang Tua") cachedParentName = prof.full_name;
+      if (prof?.full_name && prof.full_name !== "Orang Tua") {
+        cachedParentName = prof.full_name;
+        setStoredCache(CACHE_KEYS.PROFILE_NAME, cachedParentName);
+      }
     } catch {}
   }
 
@@ -1192,6 +1317,22 @@ async function profileView() {
 }
 
 async function start() {
+  const isConnected = portal.connected;
+
+  if (isConnected) {
+    // 🚀 Fast Startup Path: Render cached dashboard instantly if available
+    const hasCachedData = Boolean(cachedChildren?.length && selectedChildId && getStoredCache(CACHE_KEYS.TODAY(selectedChildId)));
+    if (hasCachedData) {
+      void dashboard(); // Render instantly (0ms)
+      portal.start().then(ok => {
+        if (ok) void fetchDashboardData(selectedChildId);
+        else loginView("Akses kadaluarsa. Pindai QR kembali.", true);
+      }).catch(() => {});
+      return;
+    }
+  }
+
+  // Fallback to initial loading gate
   loginView("Membuka akses sekolah…");
   try {
     if (!await portal.start()) {
