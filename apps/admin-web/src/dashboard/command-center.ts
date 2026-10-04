@@ -535,12 +535,16 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
 
       const activeClasses = rows.filter(r => r.value > 0);
       const displayClasses = activeClasses.length > 0 ? activeClasses : rows;
+      const topClasses = displayClasses.slice(0, 5);
 
-      const radius = 48;
+      const cx = 170;
+      const cy = 88;
+      const radius = 38;
       const circumference = 2 * Math.PI * radius;
+
       let accumulatedPercent = 0;
 
-      const donutSegments = displayClasses.map((row, idx) => {
+      const donutSegments = topClasses.map((row, idx) => {
         const color = colors[idx % colors.length]!;
         const percent = row.value / totalVisits;
         const strokeDasharray = `${percent * circumference} ${circumference}`;
@@ -549,7 +553,7 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
 
         return `
           <circle class="cc-library-donut-segment"
-            cx="65" cy="65" r="${radius}"
+            cx="${cx}" cy="${cy}" r="${radius}"
             stroke="${color.main}"
             stroke-dasharray="${strokeDasharray}"
             stroke-dashoffset="${strokeDashoffset}"
@@ -557,15 +561,38 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
         `;
       }).join("");
 
-      const legendItems = displayClasses.slice(0, 4).map((row, idx) => {
+      let accumulatedAngle = -Math.PI / 2;
+      const calloutMarkup = topClasses.map((row, idx) => {
         const color = colors[idx % colors.length]!;
         const percent = Math.round((row.value / totalVisits) * 100);
+        const sliceAngle = (row.value / totalVisits) * 2 * Math.PI;
+        const midAngle = accumulatedAngle + sliceAngle / 2;
+        accumulatedAngle += sliceAngle;
+
+        const r1 = radius + 6;
+        const x1 = cx + r1 * Math.cos(midAngle);
+        const y1 = cy + r1 * Math.sin(midAngle);
+
+        const r2 = radius + 22;
+        const x2 = cx + r2 * Math.cos(midAngle);
+        const y2 = cy + r2 * Math.sin(midAngle);
+
+        const isRight = Math.cos(midAngle) >= 0;
+        const leaderLength = 16;
+        const x3 = x2 + (isRight ? leaderLength : -leaderLength);
+        const y3 = y2;
+
+        const textX = x3 + (isRight ? 5 : -5);
+        const textAnchor = isRight ? "start" : "end";
+
         return `
-          <div class="cc-library-legend-item">
-            <span class="cc-library-legend-dot" style="background: ${color.main}; box-shadow: 0 0 6px ${color.glow}"></span>
-            <span class="cc-library-legend-name">${esc(row.name)}</span>
-            <strong class="cc-library-legend-val">${number(row.value)} <small>(${percent}%)</small></strong>
-          </div>
+          <circle cx="${x1.toFixed(1)}" cy="${y1.toFixed(1)}" r="2.5" fill="${color.main}" />
+          <polyline points="${x1.toFixed(1)},${y1.toFixed(1)} ${x2.toFixed(1)},${y2.toFixed(1)} ${x3.toFixed(1)},${y3.toFixed(1)}"
+            fill="none" stroke="${color.main}" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85" />
+          <g transform="translate(${textX.toFixed(1)}, ${y3.toFixed(1)})">
+            <text text-anchor="${textAnchor}" y="-3" font-size="10" font-weight="700" fill="#f8fafc">${esc(row.name)}</text>
+            <text text-anchor="${textAnchor}" y="9" font-size="8.5" font-weight="600" fill="${color.main}">${number(row.value)} kali <tspan fill="#94a3b8">(${percent}%)</tspan></text>
+          </g>
         `;
       }).join("");
 
@@ -588,17 +615,15 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
         <div class="cc-library-view">
           <div class="cc-library-donut-container">
             <div class="cc-library-svg-wrapper">
-              <svg class="cc-library-donut-svg" viewBox="0 0 130 130">
-                <circle cx="65" cy="65" r="${radius}" fill="none" stroke="rgba(255, 255, 255, 0.06)" stroke-width="11" />
-                <g transform="rotate(-90 65 65)">
+              <svg class="cc-library-donut-svg" viewBox="0 0 340 175" preserveAspectRatio="xMidYMid meet">
+                <circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="rgba(255, 255, 255, 0.06)" stroke-width="12" />
+                <g transform="rotate(-90 ${cx} ${cy})">
                   ${donutSegments}
                 </g>
-                <text x="65" y="61" text-anchor="middle" font-size="19" font-weight="800" fill="#f8fafc">${number(totalVisits)}</text>
-                <text x="65" y="75" text-anchor="middle" font-size="7.5" font-weight="700" fill="#94a3b8" letter-spacing="0.08em">TOTAL KUNJUNGAN</text>
+                <text x="${cx}" y="${cy - 3}" text-anchor="middle" font-size="19" font-weight="800" fill="#f8fafc">${number(totalVisits)}</text>
+                <text x="${cx}" y="${cy + 11}" text-anchor="middle" font-size="7.5" font-weight="700" fill="#94a3b8" letter-spacing="0.08em">TOTAL KUNJUNGAN</text>
+                ${calloutMarkup}
               </svg>
-            </div>
-            <div class="cc-library-legend">
-              ${legendItems}
             </div>
           </div>
 
