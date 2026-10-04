@@ -438,7 +438,7 @@ async function dashboard(): Promise<boolean> {
         <div class="child-picker-container">
           <label class="sr-only" for="child-picker">Pilih anak</label>
           <select id="child-picker" class="child-picker-select">
-            ${children.map(c => `<option value="${esc(c.student_id)}" ${c.student_id === selectedChildId ? 'selected' : ''}>Anak: ${esc(c.full_name)}</option>`).join("")}
+            ${children.map(c => `<option value="${esc(c.student_id)}" ${c.student_id === selectedChildId ? 'selected' : ''}>Anak: ${esc(c.full_name)} (${esc(c.school_name)})</option>`).join("")}
           </select>
         </div>
       ` : ""}
@@ -786,10 +786,10 @@ function linkView() {
   root.innerHTML = parentLayout(`
     <div class="parent-content">
       <form class="link-card" id="link-form" style="background: white; border-radius: 22px; padding: 24px; border: 1px solid #e1efe8;">
-        <small style="color: var(--parent-green-accent); font-weight: 800; letter-spacing: 0.1em;">TAUTAN AMAN</small>
+        <small style="color: var(--parent-green-accent); font-weight: 800; letter-spacing: 0.1em;">TAUTAN AMAN LINTAS SEKOLAH</small>
         <h2 style="margin: 8px 0 6px; font-size: 1.3rem;">Hubungkan Anak</h2>
         <p style="font-size: 0.88rem; color: var(--parent-text-muted); margin-bottom: 20px;">
-          Gunakan NISN dan Tanggal Lahir anak Anda untuk memverifikasi data resmi sekolah.
+          Gunakan NISN dan Tanggal Lahir anak Anda (SD, SMP, atau SMA) untuk memverifikasi dan menghubungkan data resmi sekolah.
         </p>
         <div id="error" class="error-msg" style="margin-bottom: 12px;"></div>
 
