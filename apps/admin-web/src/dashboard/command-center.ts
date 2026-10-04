@@ -55,7 +55,12 @@ function getDemoData() {
     library: [
       { class_id: "c4", name: "X MIPA 2", value: 38, rank: 1 },
       { class_id: "c5", name: "XII IPA 3", value: 29, rank: 2 },
-      { class_id: "c6", name: "XI MIPA 1", value: 24, rank: 3 }
+      { class_id: "c6", name: "XI MIPA 1", value: 24, rank: 3 },
+      { class_id: "c7", name: "X IPS 1", value: 18, rank: 4 },
+      { class_id: "c8", name: "XII IPS 2", value: 12, rank: 5 },
+      { class_id: "c9", name: "XI-C", value: 3, rank: 6 },
+      { class_id: "c10", name: "XI-B", value: 2, rank: 7 },
+      { class_id: "c11", name: "X-A", value: 0, rank: 8 }
     ]
   };
 
@@ -313,13 +318,13 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
         <div class="cc-card-heading">
           <div>
             <span class="cc-eyebrow">KELAS GEMAR MEMBACA</span>
-            <h3>Juara Perpustakaan</h3>
+            <h3>Kunjungan Perpustakaan</h3>
           </div>
           <span class="cc-medallion">▤</span>
         </div>
-        <p class="cc-description">3 kelas dengan kunjungan terbanyak hari ini</p>
+        <p class="cc-description">Distribusi & rekapitulasi kunjungan seluruh kelas</p>
         <div data-cc="library-ranking" class="cc-ranking-content">
-          ${empty("Memuat klasemen perpustakaan…")}
+          ${empty("Memuat rekapitulasi perpustakaan…")}
         </div>
         <p class="cc-ranking-rule">Jumlah kunjungan tercatat pada terminal</p>
       </section>
@@ -514,8 +519,104 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
       `;
     };
 
+    const renderLibraryChart = (rows: ClassRank[], totalVisitsMetric: number) => {
+      if (!rows || !rows.length) return empty("Belum ada data kunjungan perpustakaan.");
+
+      const totalVisits = rows.reduce((acc, curr) => acc + curr.value, 0) || totalVisitsMetric || 1;
+
+      const colors = [
+        { main: "#06b6d4", glow: "rgba(6, 182, 212, 0.4)" },
+        { main: "#10b981", glow: "rgba(16, 185, 129, 0.4)" },
+        { main: "#f59e0b", glow: "rgba(245, 158, 11, 0.4)" },
+        { main: "#8b5cf6", glow: "rgba(139, 92, 246, 0.4)" },
+        { main: "#ec4899", glow: "rgba(236, 72, 153, 0.4)" },
+        { main: "#3b82f6", glow: "rgba(59, 130, 246, 0.4)" }
+      ];
+
+      const activeClasses = rows.filter(r => r.value > 0);
+      const displayClasses = activeClasses.length > 0 ? activeClasses : rows;
+
+      const radius = 48;
+      const circumference = 2 * Math.PI * radius;
+      let accumulatedPercent = 0;
+
+      const donutSegments = displayClasses.map((row, idx) => {
+        const color = colors[idx % colors.length]!;
+        const percent = row.value / totalVisits;
+        const strokeDasharray = `${percent * circumference} ${circumference}`;
+        const strokeDashoffset = -accumulatedPercent * circumference;
+        accumulatedPercent += percent;
+
+        return `
+          <circle class="cc-library-donut-segment"
+            cx="65" cy="65" r="${radius}"
+            stroke="${color.main}"
+            stroke-dasharray="${strokeDasharray}"
+            stroke-dashoffset="${strokeDashoffset}"
+          />
+        `;
+      }).join("");
+
+      const legendItems = displayClasses.slice(0, 4).map((row, idx) => {
+        const color = colors[idx % colors.length]!;
+        const percent = Math.round((row.value / totalVisits) * 100);
+        return `
+          <div class="cc-library-legend-item">
+            <span class="cc-library-legend-dot" style="background: ${color.main}; box-shadow: 0 0 6px ${color.glow}"></span>
+            <span class="cc-library-legend-name">${esc(row.name)}</span>
+            <strong class="cc-library-legend-val">${number(row.value)} <small>(${percent}%)</small></strong>
+          </div>
+        `;
+      }).join("");
+
+      const lowest3 = [...rows].sort((a, b) => a.value - b.value).slice(0, 3);
+
+      const lowestPills = lowest3.map(row => {
+        const formattedName = row.name.toLowerCase().startsWith("kelas") ? row.name : `Kelas ${row.name}`;
+        return `
+          <div class="cc-lowest-pill">
+            <span class="cc-lowest-dot"></span>
+            <div class="cc-lowest-info">
+              <strong>${esc(formattedName)}</strong>
+              <span>${number(row.value)} kali</span>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      return `
+        <div class="cc-library-view">
+          <div class="cc-library-donut-container">
+            <div class="cc-library-svg-wrapper">
+              <svg class="cc-library-donut-svg" viewBox="0 0 130 130">
+                <circle cx="65" cy="65" r="${radius}" fill="none" stroke="rgba(255, 255, 255, 0.06)" stroke-width="11" />
+                <g transform="rotate(-90 65 65)">
+                  ${donutSegments}
+                </g>
+                <text x="65" y="61" text-anchor="middle" font-size="19" font-weight="800" fill="#f8fafc">${number(totalVisits)}</text>
+                <text x="65" y="75" text-anchor="middle" font-size="7.5" font-weight="700" fill="#94a3b8" letter-spacing="0.08em">TOTAL KUNJUNGAN</text>
+              </svg>
+            </div>
+            <div class="cc-library-legend">
+              ${legendItems}
+            </div>
+          </div>
+
+          <div class="cc-lowest-section">
+            <div class="cc-lowest-header">
+              <span class="cc-eyebrow-lowest">KUNJUNGAN TERENDAH</span>
+            </div>
+            <div class="cc-lowest-pills">
+              ${lowestPills}
+            </div>
+          </div>
+        </div>
+      `;
+    };
+
     el("waste-ranking").innerHTML = podium(r.waste, "kg");
-    el("library-ranking").innerHTML = podium(r.library, "kunjungan");
+    const totalLibraryVisits = snapshot?.metrics?.library?.visits ?? 0;
+    el("library-ranking").innerHTML = renderLibraryChart(r.library, totalLibraryVisits);
   }
 
   function paintSupport() {
