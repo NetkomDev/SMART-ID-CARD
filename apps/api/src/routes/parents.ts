@@ -7,9 +7,30 @@ import { requireAuth } from "../middleware/auth.js";
 import { requirePermission, requireTenant } from "../middleware/tenant.js";
 import { validate } from "../middleware/validate.js";
 import { idParamsSchema } from "../schemas/common.js";
-import { claimParentLinkSchema, createParentTokenSchema } from "../schemas/parent.js";
+import { claimParentLinkSchema, claimParentPermitSchema, createParentTokenSchema } from "../schemas/parent.js";
 
 const router = Router();
+
+router.post("/permits", requireAuth, validate({ body: claimParentPermitSchema }), asyncHandler(async (req, res) => {
+  const { student_id, permit_date, reason, notes, attachment_url } = req.body as {
+    student_id: string;
+    permit_date: string;
+    reason: string;
+    notes?: string;
+    attachment_url?: string;
+  };
+
+  const { data, error } = await req.auth!.client.rpc("submit_student_absence_permit", {
+    p_student_id: student_id,
+    p_permit_date: permit_date,
+    p_reason: reason,
+    p_notes: notes ?? "",
+    p_attachment_url: attachment_url ?? null
+  });
+
+  if (error) throw fromDatabaseError(error);
+  sendData(res, data, 201);
+}));
 
 router.post("/link", requireAuth, validate({ body: claimParentLinkSchema }), asyncHandler(async (req, res) => {
   let { nisn, dob, full_name } = req.body as { nisn: string; dob: string; full_name?: string };

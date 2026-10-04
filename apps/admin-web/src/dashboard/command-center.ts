@@ -677,8 +677,11 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
     const iconLib = "M3 5h7l2 2 2-2h7v14h-7l-2 2-2-2H3V5zM12 7v14";
     const iconEks = "m12 3 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z";
 
+    const sickCount = (m.attendance as any).sick ?? 0;
+    const sickSub = sickCount > 0 ? ` · 🏥 ${sickCount} sakit` : "";
+
     el("kpis").innerHTML = `
-      ${renderDonutGauge(attPct, "attGrad", "#10b981", "#34d399", iconAttendance, `${attPct}%`, "Siswa Kehadiran", `${number(m.attendance.students)} dari ${totalStudents} siswa tap gerbang`)}
+      ${renderDonutGauge(attPct, "attGrad", "#10b981", "#34d399", iconAttendance, `${attPct}%`, "Siswa Kehadiran", `${number(m.attendance.students)} dari ${totalStudents} siswa tap gerbang${sickSub}`)}
       ${renderDonutGauge(wastePct, "wasteGrad", "#06b6d4", "#38bdf8", iconWaste, `${m.waste.total_kg}kg`, "Bank Sampah", `${number(m.waste.transactions)} setoran terverifikasi`)}
       ${renderDonutGauge(libPct, "libGrad", "#f59e0b", "#fbbf24", iconLib, `${m.library.visits}`, "Kunjungan Pustaka", `${m.library.students} pengunjung unik`)}
       ${renderDonutGauge(eksPct, "eksGrad", "#8b5cf6", "#a855f7", iconEks, `${m.extracurricular.present}`, "Presensi Ekskul", `${m.extracurricular.recorded} total partisipasi`)}

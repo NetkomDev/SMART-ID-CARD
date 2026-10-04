@@ -325,6 +325,190 @@ function openPhotoPreviewModal(studentId: string, studentName: string, photoUrl:
   });
 }
 
+function openAbsencePermitModal(
+  studentId: string,
+  studentName: string,
+  schoolName: string,
+  className: string,
+  currentAttendance?: any
+) {
+  const modal = document.createElement("div");
+  modal.className = "absence-permit-overlay";
+  modal.style.cssText = "position:fixed;inset:0;background:rgba(15,23,42,0.85);backdrop-filter:blur(6px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;";
+
+  const todayStr = new Date().toISOString().split("T")[0]!;
+  let attachedBase64 = "";
+
+  modal.innerHTML = `
+    <div style="background:white;border-radius:24px;width:100%;max-width:440px;max-height:92vh;overflow-y:auto;padding:24px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);font-family:sans-serif;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div>
+          <small style="color:#2563eb;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;">FORMULIR KETIDAKHADIRAN</small>
+          <h3 style="margin:2px 0 0;font-size:1.15rem;font-weight:700;color:#0f172a;">Pengajuan Izin / Sakit</h3>
+        </div>
+        <button id="close-permit-x" style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:#64748b;padding:2px 8px;">&times;</button>
+      </div>
+
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:10px 14px;margin-bottom:16px;font-size:0.83rem;color:#475569;">
+        <strong>Siswa:</strong> ${esc(studentName)} <br>
+        <strong>Kelas & Sekolah:</strong> ${esc(className)} · ${esc(schoolName)}
+      </div>
+
+      <form id="permit-form">
+        <div id="permit-error" style="display:none;margin-bottom:14px;padding:10px 14px;border-radius:10px;font-size:0.85rem;"></div>
+
+        <label style="display:block;margin-bottom:14px;font-weight:600;font-size:0.88rem;color:#1e293b;">
+          Tanggal Izin
+          <input type="date" name="permit_date" value="${todayStr}" required style="width:100%;margin-top:6px;padding:10px;border-radius:10px;border:1px solid #cbd5e1;font-size:0.9rem;" />
+        </label>
+
+        <label style="display:block;margin-bottom:14px;font-weight:600;font-size:0.88rem;color:#1e293b;">
+          Alasan Ketidakhadiran
+          <select name="reason" id="permit-reason-select" required style="width:100%;margin-top:6px;padding:10px;border-radius:10px;border:1px solid #cbd5e1;font-size:0.9rem;background:white;">
+            <option value="SAKIT">Sakit</option>
+            <option value="IZIN">Izin (Keperluan Keluarga / Acara)</option>
+            <option value="ALASAN_LAIN">Alasan Lainnya</option>
+          </select>
+        </label>
+
+        <label style="display:block;margin-bottom:16px;font-weight:600;font-size:0.88rem;color:#1e293b;">
+          Penjelasan Singkat
+          <textarea name="notes" required rows="3" style="width:100%;margin-top:6px;padding:10px;border-radius:10px;border:1px solid #cbd5e1;font-size:0.88rem;font-family:sans-serif;" placeholder="Contoh: Demam tinggi sejak semalam / Acara keluarga di luar kota"></textarea>
+        </label>
+
+        <div id="doctor-note-section" style="margin-bottom:18px;">
+          <div id="doctor-note-warning" style="background:#fff7ed;border:1.5px solid #fdba74;border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:0.82rem;color:#9a3412;">
+            <strong>📌 Lampiran Surat Dokter:</strong>
+            <p style="margin:4px 0 0;line-height:1.4;">Wajib melampirkan foto Surat Keterangan Dokter apabila izin sakit memasuki hari ke-2 (berturut-turut) atau lebih.</p>
+          </div>
+
+          <label style="display:block;font-weight:600;font-size:0.85rem;color:#1e293b;margin-bottom:8px;">
+            Foto Surat Keterangan Dokter <span id="doctor-note-req-badge" style="color:#2563eb;font-size:0.78rem;">(Opsional Hari Ke-1)</span>
+          </label>
+
+          <input type="file" id="permit-camera-input" accept="image/*" capture="environment" style="display:none;" />
+          <input type="file" id="permit-gallery-input" accept="image/*" style="display:none;" />
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+            <button type="button" id="btn-permit-camera" style="padding:10px;border-radius:10px;background:#2563eb;color:white;font-weight:600;font-size:0.82rem;border:none;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:4px;">
+              📷 Kamera HP
+            </button>
+            <button type="button" id="btn-permit-gallery" style="padding:10px;border-radius:10px;background:#0284c7;color:white;font-weight:600;font-size:0.82rem;border:none;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:4px;">
+              🖼️ Galeri Foto
+            </button>
+          </div>
+
+          <div id="permit-preview-container" style="display:none;align-items:center;gap:10px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:12px;padding:10px;">
+            <img id="permit-preview-img" style="width:60px;height:80px;object-fit:cover;border-radius:8px;border:1px solid #cbd5e1;" />
+            <div style="flex:1;">
+              <span style="font-size:0.8rem;font-weight:700;color:#16a34a;display:block;">✔ Surat Dokter Terlampir</span>
+              <button type="button" id="btn-remove-attachment" style="background:none;border:none;color:#dc2626;font-size:0.75rem;cursor:pointer;padding:0;margin-top:2px;">Hapus Lampiran</button>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;">
+          <button type="button" id="btn-cancel-permit" class="btn-secondary" style="flex:1;padding:12px;border-radius:12px;font-weight:600;">Batal</button>
+          <button type="submit" id="btn-submit-permit" style="flex:2;padding:12px;border-radius:12px;background:#16a34a;color:white;font-weight:700;border:none;cursor:pointer;">Kirim Pengajuan</button>
+        </div>
+      </form>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  const close = () => modal.remove();
+  modal.querySelector("#close-permit-x")?.addEventListener("click", close);
+  modal.querySelector("#btn-cancel-permit")?.addEventListener("click", close);
+
+  const reasonSelect = modal.querySelector("#permit-reason-select") as HTMLSelectElement;
+  const doctorSection = modal.querySelector("#doctor-note-section") as HTMLDivElement;
+  const cameraInput = modal.querySelector("#permit-camera-input") as HTMLInputElement;
+  const galleryInput = modal.querySelector("#permit-gallery-input") as HTMLInputElement;
+  const cameraBtn = modal.querySelector("#btn-permit-camera") as HTMLButtonElement;
+  const galleryBtn = modal.querySelector("#btn-permit-gallery") as HTMLButtonElement;
+  const previewContainer = modal.querySelector("#permit-preview-container") as HTMLDivElement;
+  const previewImg = modal.querySelector("#permit-preview-img") as HTMLImageElement;
+  const removeBtn = modal.querySelector("#btn-remove-attachment") as HTMLButtonElement;
+
+  reasonSelect.onchange = () => {
+    doctorSection.style.display = reasonSelect.value === "SAKIT" ? "block" : "none";
+  };
+
+  cameraBtn.onclick = () => cameraInput.click();
+  galleryBtn.onclick = () => galleryInput.click();
+
+  const handleImageFile = (file?: File) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      attachedBase64 = e.target?.result as string;
+      previewImg.src = attachedBase64;
+      previewContainer.style.display = "flex";
+    };
+    reader.readAsDataURL(file);
+  };
+
+  cameraInput.onchange = () => handleImageFile(cameraInput.files?.[0]);
+  galleryInput.onchange = () => handleImageFile(galleryInput.files?.[0]);
+
+  removeBtn.onclick = () => {
+    attachedBase64 = "";
+    previewContainer.style.display = "none";
+    cameraInput.value = "";
+    galleryInput.value = "";
+  };
+
+  const form = modal.querySelector("#permit-form") as HTMLFormElement;
+  const errorDiv = modal.querySelector("#permit-error") as HTMLDivElement;
+  const submitBtn = modal.querySelector("#btn-submit-permit") as HTMLButtonElement;
+
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    errorDiv.style.display = "none";
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Mengirim pengajuan…";
+
+    const d = new FormData(form);
+    const reason = String(d.get("reason") ?? "SAKIT");
+    const permitDate = String(d.get("permit_date") ?? todayStr);
+    const notes = String(d.get("notes") ?? "").trim();
+
+    try {
+      await request("/parent/permits", {
+        method: "POST",
+        body: JSON.stringify({
+          student_id: studentId,
+          permit_date: permitDate,
+          reason,
+          notes,
+          attachment_url: attachedBase64
+        })
+      });
+
+      errorDiv.style.display = "block";
+      errorDiv.style.background = "#dcfce7";
+      errorDiv.style.border = "1px solid #86efac";
+      errorDiv.style.color = "#15803d";
+      errorDiv.style.fontWeight = "700";
+      errorDiv.textContent = "✅ Pengajuan izin berhasil dikirim ke wali kelas & sekolah!";
+
+      setTimeout(() => {
+        close();
+        void dashboard();
+      }, 1200);
+    } catch (err: any) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Kirim Pengajuan";
+      errorDiv.style.display = "block";
+      errorDiv.style.background = "#fef2f2";
+      errorDiv.style.border = "1px solid #fca5a5";
+      errorDiv.style.color = "#991b1b";
+      errorDiv.textContent = "⚠️ " + (err?.message || "Gagal mengirim pengajuan izin.");
+    }
+  };
+}
+
 function loginView(message = "Pindai QR dari admin sekolah untuk membuka aktivitas anak Anda.", isError = false) {
   viewRevision++;
   dashboardVisible = false;
@@ -722,8 +906,25 @@ async function dashboard(): Promise<boolean> {
       drawer.showModal();
     };
     document.getElementById("btn-notifications")?.addEventListener("click", () => openDrawer());
-    for (const [id, prefix] of [["attendance", "attendance."], ["waste", "waste."], ["library", "library."], ["ekskul", "extracurricular."]]) {
-      const card = document.getElementById(`card-${id}`)!;
+    const attCard = document.getElementById("card-attendance");
+    if (attCard) {
+      attCard.tabIndex = 0;
+      attCard.setAttribute("role", "button");
+      attCard.setAttribute("aria-label", "Pengajuan Izin / Sakit Kehadiran Hari Ini");
+      attCard.addEventListener("click", () => {
+        openAbsencePermitModal(selected.student_id, profile.full_name, profile.school_name, profile.class_name, data.attendance);
+      });
+      attCard.addEventListener("keydown", event => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openAbsencePermitModal(selected.student_id, profile.full_name, profile.school_name, profile.class_name, data.attendance);
+        }
+      });
+    }
+
+    for (const [id, prefix] of [["waste", "waste."], ["library", "library."], ["ekskul", "extracurricular."]]) {
+      const card = document.getElementById(`card-${id}`);
+      if (!card) continue;
       card.tabIndex = 0;
       card.setAttribute("role", "button");
       card.setAttribute("aria-haspopup", "dialog");
@@ -760,8 +961,13 @@ function renderAttendancePill(status: string): string {
       return `<div class="status-pill orange">⚠ Terlambat</div>`;
     case "HADIR":
       return `<div class="status-pill green">✔ Hadir</div>`;
+    case "SAKIT":
+      return `<div class="status-pill orange" style="background:#ffedd5;color:#c2410c;border:1px solid #fdba74;">🏥 Sakit</div>`;
+    case "IZIN":
+    case "ALASAN_LAIN":
+      return `<div class="status-pill blue" style="background:#e0f2fe;color:#0369a1;border:1px solid #7dd3fc;">📩 Izin</div>`;
     default:
-      return `<div class="status-pill gray">○ Belum Hadir</div>`;
+      return `<div class="status-pill gray">○ Belum Hadir (Klik untuk Izin)</div>`;
   }
 }
 
