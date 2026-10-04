@@ -507,7 +507,7 @@
   display: flex;
   justify-content: center;
   gap: 8px;
-  height: 100px;
+  height: 125px;
   margin-top: auto;
   margin-bottom: 8px;
   align-items: flex-end;
@@ -586,33 +586,37 @@
 }
 
 .cc-library-donut-container {
+  flex: 1;
   display: flex;
   justify-content: center;
   align-items: center;
   background: rgba(10, 16, 26, 0.4);
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 12px;
-  padding: 4px 6px;
+  padding: 8px 10px;
   width: 100%;
+  min-height: 190px;
 }
 
 .cc-library-svg-wrapper {
   width: 100%;
-  max-width: 340px;
-  height: auto;
+  max-width: 350px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
   position: relative;
 }
 
 .cc-library-donut-svg {
   width: 100%;
   height: auto;
-  max-height: 175px;
+  max-height: 190px;
   overflow: visible;
 }
 
 .cc-library-donut-segment {
   fill: none;
-  stroke-width: 12;
+  stroke-width: 13;
   transition: stroke-dasharray 0.8s ease, stroke-dashoffset 0.8s ease;
 }
 
