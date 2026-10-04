@@ -22,7 +22,17 @@ const chartIcon = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" s
 const empty = (text: string) => `<div class="cc-empty"><span>◌</span><p>${esc(text)}</p></div>`;
 
 // Realistic Demo Data Generator for presentation mode or zero-data off-hours
-function getDemoData() {
+type PeriodFilter = "today" | "week" | "month" | "year";
+
+const periodLabels: Record<PeriodFilter, string> = {
+  today: "Hari ini",
+  week: "Minggu ini",
+  month: "Bulan ini",
+  year: "Tahun ini"
+};
+
+// Realistic Demo Data Generator for presentation mode or zero-data off-hours
+function getDemoData(filters: Record<"arrivals" | "waste" | "library", PeriodFilter> = { arrivals: "today", waste: "today", library: "today" }) {
   const mockSnapshot: Snapshot = {
     school_id: "demo",
     date: new Intl.DateTimeFormat("en-CA").format(new Date()),
@@ -37,22 +47,31 @@ function getDemoData() {
     }
   };
 
-  const mockRankings: Rankings = {
-    school_id: "demo",
-    date: new Intl.DateTimeFormat("en-CA").format(new Date()),
-    timezone: "Asia/Makassar",
-    generated_at: new Date().toISOString(),
-    arrivals: [
-      { student_id: "1", name: "Andi Muhammad Asyraaf", class_name: "X-A", at: new Date(Date.now() - 7200000).toISOString(), rank: 1 },
-      { student_id: "2", name: "Nur Aisyah Dahlan", class_name: "X-B", at: new Date(Date.now() - 7140000).toISOString(), rank: 2 },
-      { student_id: "3", name: "Fajri Ramadan", class_name: "XI MIPA 1", at: new Date(Date.now() - 7080000).toISOString(), rank: 3 }
-    ],
-    waste: [
+  const wasteData: Record<PeriodFilter, ClassRank[]> = {
+    today: [
       { class_id: "c1", name: "XII IPA 1", value: 42.5, rank: 1 },
       { class_id: "c2", name: "XI IPS 2", value: 34.0, rank: 2 },
       { class_id: "c3", name: "X MIPA 3", value: 28.5, rank: 3 }
     ],
-    library: [
+    week: [
+      { class_id: "c1", name: "XII IPA 1", value: 245.0, rank: 1 },
+      { class_id: "c2", name: "XI IPS 2", value: 192.5, rank: 2 },
+      { class_id: "c3", name: "X MIPA 3", value: 158.0, rank: 3 }
+    ],
+    month: [
+      { class_id: "c1", name: "XII IPA 1", value: 980.0, rank: 1 },
+      { class_id: "c2", name: "XI IPS 2", value: 785.0, rank: 2 },
+      { class_id: "c3", name: "X MIPA 3", value: 620.0, rank: 3 }
+    ],
+    year: [
+      { class_id: "c1", name: "XII IPA 1", value: 11450.0, rank: 1 },
+      { class_id: "c2", name: "XI IPS 2", value: 9200.0, rank: 2 },
+      { class_id: "c3", name: "X MIPA 3", value: 7850.0, rank: 3 }
+    ]
+  };
+
+  const libraryData: Record<PeriodFilter, ClassRank[]> = {
+    today: [
       { class_id: "c4", name: "X MIPA 2", value: 38, rank: 1 },
       { class_id: "c5", name: "XII IPA 3", value: 29, rank: 2 },
       { class_id: "c6", name: "XI MIPA 1", value: 24, rank: 3 },
@@ -61,7 +80,107 @@ function getDemoData() {
       { class_id: "c9", name: "XI-C", value: 3, rank: 6 },
       { class_id: "c10", name: "XI-B", value: 2, rank: 7 },
       { class_id: "c11", name: "X-A", value: 0, rank: 8 }
+    ],
+    week: [
+      { class_id: "c4", name: "X MIPA 2", value: 210, rank: 1 },
+      { class_id: "c5", name: "XII IPA 3", value: 165, rank: 2 },
+      { class_id: "c6", name: "XI MIPA 1", value: 130, rank: 3 },
+      { class_id: "c7", name: "X IPS 1", value: 95, rank: 4 },
+      { class_id: "c8", name: "XII IPS 2", value: 62, rank: 5 },
+      { class_id: "c9", name: "XI-C", value: 12, rank: 6 },
+      { class_id: "c10", name: "XI-B", value: 6, rank: 7 },
+      { class_id: "c11", name: "X-A", value: 0, rank: 8 }
+    ],
+    month: [
+      { class_id: "c4", name: "X MIPA 2", value: 890, rank: 1 },
+      { class_id: "c5", name: "XII IPA 3", value: 680, rank: 2 },
+      { class_id: "c6", name: "XI MIPA 1", value: 540, rank: 3 },
+      { class_id: "c7", name: "X IPS 1", value: 410, rank: 4 },
+      { class_id: "c8", name: "XII IPS 2", value: 260, rank: 5 },
+      { class_id: "c9", name: "XI-C", value: 45, rank: 6 },
+      { class_id: "c10", name: "XI-B", value: 25, rank: 7 },
+      { class_id: "c11", name: "X-A", value: 0, rank: 8 }
+    ],
+    year: [
+      { class_id: "c4", name: "X MIPA 2", value: 10200, rank: 1 },
+      { class_id: "c5", name: "XII IPA 3", value: 7800, rank: 2 },
+      { class_id: "c6", name: "XI MIPA 1", value: 6100, rank: 3 },
+      { class_id: "c7", name: "X IPS 1", value: 4700, rank: 4 },
+      { class_id: "c8", name: "XII IPS 2", value: 3100, rank: 5 },
+      { class_id: "c9", name: "XI-C", value: 320, rank: 6 },
+      { class_id: "c10", name: "XI-B", value: 180, rank: 7 },
+      { class_id: "c11", name: "X-A", value: 0, rank: 8 }
     ]
+  };
+
+  const arrivalsData: Record<PeriodFilter, { student_id: string; name: string; class_name: string; at: string; rank: number }[]> = {
+    today: [
+      { student_id: "1", name: "Andi Muhammad Asyraaf", class_name: "X-A", at: new Date(Date.now() - 7200000).toISOString(), rank: 1 },
+      { student_id: "2", name: "Nur Aisyah Dahlan", class_name: "X-B", at: new Date(Date.now() - 7140000).toISOString(), rank: 2 },
+      { student_id: "3", name: "Fajri Ramadan", class_name: "XI MIPA 1", at: new Date(Date.now() - 7080000).toISOString(), rank: 3 }
+    ],
+    week: [
+      { student_id: "1", name: "Andi Muhammad Asyraaf", class_name: "X-A", at: "5 hari hadir tepat waktu", rank: 1 },
+      { student_id: "2", name: "Fajri Ramadan", class_name: "XI MIPA 1", at: "5 hari hadir tepat waktu", rank: 2 },
+      { student_id: "3", name: "Nur Aisyah Dahlan", class_name: "X-B", at: "4 hari hadir tepat waktu", rank: 3 }
+    ],
+    month: [
+      { student_id: "1", name: "Andi Muhammad Asyraaf", class_name: "X-A", at: "22 hari terdisiplin", rank: 1 },
+      { student_id: "2", name: "Fajri Ramadan", class_name: "XI MIPA 1", at: "21 hari terdisiplin", rank: 2 },
+      { student_id: "3", name: "Siti Nurhaliza", class_name: "XII MIPA 2", at: "20 hari terdisiplin", rank: 3 }
+    ],
+    year: [
+      { student_id: "1", name: "Andi Muhammad Asyraaf", class_name: "X-A", at: "185 hari terdisiplin", rank: 1 },
+      { student_id: "2", name: "Fajri Ramadan", class_name: "XI MIPA 1", at: "180 hari terdisiplin", rank: 2 },
+      { student_id: "3", name: "Nur Aisyah Dahlan", class_name: "X-B", at: "176 hari terdisiplin", rank: 3 }
+    ]
+  };
+
+  const hourlyData: Record<PeriodFilter, HourlyPoint[]> = {
+    today: [
+      { hour: "06:00", count: 12 },
+      { hour: "06:15", count: 35 },
+      { hour: "06:30", count: 88 },
+      { hour: "06:45", count: 164 },
+      { hour: "07:00", count: 142 },
+      { hour: "07:15", count: 32 },
+      { hour: "07:30", count: 9 }
+    ],
+    week: [
+      { hour: "Sen", count: 485 },
+      { hour: "Sel", count: 492 },
+      { hour: "Rab", count: 478 },
+      { hour: "Kam", count: 489 },
+      { hour: "Jum", count: 466 }
+    ],
+    month: [
+      { hour: "Mg 1", count: 2410 },
+      { hour: "Mg 2", count: 2450 },
+      { hour: "Mg 3", count: 2390 },
+      { hour: "Mg 4", count: 2420 }
+    ],
+    year: [
+      { hour: "Jan", count: 9800 },
+      { hour: "Feb", count: 9750 },
+      { hour: "Mar", count: 9900 },
+      { hour: "Apr", count: 9600 },
+      { hour: "Mei", count: 9850 },
+      { hour: "Jun", count: 9200 },
+      { hour: "Jul", count: 9950 },
+      { hour: "Agu", count: 10100 },
+      { hour: "Sep", count: 9980 },
+      { hour: "Okt", count: 10050 }
+    ]
+  };
+
+  const mockRankings: Rankings = {
+    school_id: "demo",
+    date: new Intl.DateTimeFormat("en-CA").format(new Date()),
+    timezone: "Asia/Makassar",
+    generated_at: new Date().toISOString(),
+    arrivals: arrivalsData[filters.arrivals],
+    waste: wasteData[filters.waste],
+    library: libraryData[filters.library]
   };
 
   const mockSupport: Support = {
@@ -99,17 +218,7 @@ function getDemoData() {
     }
   };
 
-  const mockHourly: HourlyPoint[] = [
-    { hour: "06:00", count: 12 },
-    { hour: "06:15", count: 35 },
-    { hour: "06:30", count: 88 },
-    { hour: "06:45", count: 164 },
-    { hour: "07:00", count: 142 },
-    { hour: "07:15", count: 32 },
-    { hour: "07:30", count: 9 }
-  ];
-
-  return { snapshot: mockSnapshot, rankings: mockRankings, support: mockSupport, hourly: mockHourly };
+  return { snapshot: mockSnapshot, rankings: mockRankings, support: mockSupport, hourly: hourlyData[filters.arrivals] };
 }
 
 // Render Radial/Donut SVG Gauge Component
@@ -235,6 +344,12 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
   let wakeLock: WakeLockSentinel | null = null;
   let useDemoData = false;
 
+  const periodFilters: Record<"arrivals" | "waste" | "library", PeriodFilter> = {
+    arrivals: "today",
+    waste: "today",
+    library: "today"
+  };
+
   const lifetime = new AbortController();
   let requestController: AbortController | null = null;
   let lastSuccess: number | null = null;
@@ -283,9 +398,35 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
         <div class="cc-card-heading">
           <div>
             <span class="cc-eyebrow">DISIPLIN & ARUS PRESENSI</span>
-            <h3>Kurva Kehadiran</h3>
+            <h3>Kurva Kehadiran <span class="cc-period-badge" data-cc-badge="arrivals">Hari ini</span></h3>
           </div>
-          <span class="cc-medallion">◷</span>
+          <div class="cc-dropdown-wrapper">
+            <button class="cc-medallion-btn" type="button" data-cc-dropdown-trigger="arrivals" aria-label="Filter Rentang Waktu Kehadiran" title="Filter rentang waktu">
+              ◷ <span class="cc-chevron">▾</span>
+            </button>
+            <div class="cc-dropdown-menu" data-cc-menu="arrivals" role="menu" hidden>
+              <button type="button" class="cc-dropdown-item active" data-cc-period="today">
+                <span class="cc-item-icon">🕒</span>
+                <span class="cc-item-label">Hari ini</span>
+                <span class="cc-item-check">✓</span>
+              </button>
+              <button type="button" class="cc-dropdown-item" data-cc-period="week">
+                <span class="cc-item-icon">📅</span>
+                <span class="cc-item-label">Minggu ini</span>
+                <span class="cc-item-check"></span>
+              </button>
+              <button type="button" class="cc-dropdown-item" data-cc-period="month">
+                <span class="cc-item-icon">🗓️</span>
+                <span class="cc-item-label">Bulan ini</span>
+                <span class="cc-item-check"></span>
+              </button>
+              <button type="button" class="cc-dropdown-item" data-cc-period="year">
+                <span class="cc-item-icon">📆</span>
+                <span class="cc-item-label">Tahun ini</span>
+                <span class="cc-item-check"></span>
+              </button>
+            </div>
+          </div>
         </div>
         <div class="cc-chart-section" data-cc="arrival-chart">
           <!-- SVG Line chart inserted here -->
@@ -303,11 +444,37 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
         <div class="cc-card-heading">
           <div>
             <span class="cc-eyebrow">KELAS PEDULI LINGKUNGAN</span>
-            <h3>Juara Bank Sampah</h3>
+            <h3>Juara Bank Sampah <span class="cc-period-badge" data-cc-badge="waste">Hari ini</span></h3>
           </div>
-          <span class="cc-medallion">♻</span>
+          <div class="cc-dropdown-wrapper">
+            <button class="cc-medallion-btn" type="button" data-cc-dropdown-trigger="waste" aria-label="Filter Rentang Waktu Bank Sampah" title="Filter rentang waktu">
+              ♻ <span class="cc-chevron">▾</span>
+            </button>
+            <div class="cc-dropdown-menu" data-cc-menu="waste" role="menu" hidden>
+              <button type="button" class="cc-dropdown-item active" data-cc-period="today">
+                <span class="cc-item-icon">🕒</span>
+                <span class="cc-item-label">Hari ini</span>
+                <span class="cc-item-check">✓</span>
+              </button>
+              <button type="button" class="cc-dropdown-item" data-cc-period="week">
+                <span class="cc-item-icon">📅</span>
+                <span class="cc-item-label">Minggu ini</span>
+                <span class="cc-item-check"></span>
+              </button>
+              <button type="button" class="cc-dropdown-item" data-cc-period="month">
+                <span class="cc-item-icon">🗓️</span>
+                <span class="cc-item-label">Bulan ini</span>
+                <span class="cc-item-check"></span>
+              </button>
+              <button type="button" class="cc-dropdown-item" data-cc-period="year">
+                <span class="cc-item-icon">📆</span>
+                <span class="cc-item-label">Tahun ini</span>
+                <span class="cc-item-check"></span>
+              </button>
+            </div>
+          </div>
         </div>
-        <p class="cc-description">3 kelas dengan setoran terbanyak hari ini</p>
+        <p class="cc-description" data-cc-desc="waste">3 kelas dengan setoran terbanyak hari ini</p>
         <div data-cc="waste-ranking" class="cc-ranking-content">
           ${empty("Memuat klasemen sampah…")}
         </div>
@@ -318,11 +485,37 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
         <div class="cc-card-heading">
           <div>
             <span class="cc-eyebrow">KELAS GEMAR MEMBACA</span>
-            <h3>Kunjungan Perpustakaan</h3>
+            <h3>Kunjungan Perpustakaan <span class="cc-period-badge" data-cc-badge="library">Hari ini</span></h3>
           </div>
-          <span class="cc-medallion">▤</span>
+          <div class="cc-dropdown-wrapper">
+            <button class="cc-medallion-btn" type="button" data-cc-dropdown-trigger="library" aria-label="Filter Rentang Waktu Perpustakaan" title="Filter rentang waktu">
+              ▤ <span class="cc-chevron">▾</span>
+            </button>
+            <div class="cc-dropdown-menu" data-cc-menu="library" role="menu" hidden>
+              <button type="button" class="cc-dropdown-item active" data-cc-period="today">
+                <span class="cc-item-icon">🕒</span>
+                <span class="cc-item-label">Hari ini</span>
+                <span class="cc-item-check">✓</span>
+              </button>
+              <button type="button" class="cc-dropdown-item" data-cc-period="week">
+                <span class="cc-item-icon">📅</span>
+                <span class="cc-item-label">Minggu ini</span>
+                <span class="cc-item-check"></span>
+              </button>
+              <button type="button" class="cc-dropdown-item" data-cc-period="month">
+                <span class="cc-item-icon">🗓️</span>
+                <span class="cc-item-label">Bulan ini</span>
+                <span class="cc-item-check"></span>
+              </button>
+              <button type="button" class="cc-dropdown-item" data-cc-period="year">
+                <span class="cc-item-icon">📆</span>
+                <span class="cc-item-label">Tahun ini</span>
+                <span class="cc-item-check"></span>
+              </button>
+            </div>
+          </div>
         </div>
-        <p class="cc-description">Distribusi & rekapitulasi kunjungan seluruh kelas</p>
+        <p class="cc-description" data-cc-desc="library">Distribusi & rekapitulasi kunjungan seluruh kelas (Hari ini)</p>
         <div data-cc="library-ranking" class="cc-ranking-content">
           ${empty("Memuat rekapitulasi perpustakaan…")}
         </div>
@@ -380,6 +573,76 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
     void refresh();
   };
 
+  const setupDropdowns = () => {
+    const dropdownWrappers = root.querySelectorAll<HTMLElement>(".cc-dropdown-wrapper");
+    dropdownWrappers.forEach(wrapper => {
+      const trigger = wrapper.querySelector<HTMLButtonElement>(".cc-medallion-btn");
+      const menu = wrapper.querySelector<HTMLElement>(".cc-dropdown-menu");
+      if (!trigger || !menu) return;
+
+      const key = trigger.dataset.ccDropdownTrigger as "arrivals" | "waste" | "library";
+
+      trigger.onclick = (e) => {
+        e.stopPropagation();
+        const isHidden = menu.hidden;
+        root.querySelectorAll<HTMLElement>(".cc-dropdown-menu").forEach(m => m.hidden = true);
+        root.querySelectorAll<HTMLElement>(".cc-medallion-btn").forEach(b => b.classList.remove("active"));
+
+        if (isHidden) {
+          menu.hidden = false;
+          trigger.classList.add("active");
+        }
+      };
+
+      const items = menu.querySelectorAll<HTMLButtonElement>(".cc-dropdown-item");
+      items.forEach(item => {
+        item.onclick = (e) => {
+          e.stopPropagation();
+          const period = item.dataset.ccPeriod as PeriodFilter;
+          if (!period) return;
+          periodFilters[key] = period;
+
+          items.forEach(i => {
+            const active = i === item;
+            i.classList.toggle("active", active);
+            const check = i.querySelector(".cc-item-check");
+            if (check) check.textContent = active ? "✓" : "";
+          });
+
+          const badge = root.querySelector<HTMLElement>(`[data-cc-badge="${key}"]`);
+          if (badge) badge.textContent = periodLabels[period];
+
+          if (key === "waste") {
+            const desc = root.querySelector<HTMLElement>('[data-cc-desc="waste"]');
+            if (desc) desc.textContent = `3 kelas dengan setoran terbanyak ${periodLabels[period].toLowerCase()}`;
+          } else if (key === "library") {
+            const desc = root.querySelector<HTMLElement>('[data-cc-desc="library"]');
+            if (desc) desc.textContent = `Distribusi & rekapitulasi kunjungan seluruh kelas (${periodLabels[period]})`;
+          } else if (key === "arrivals") {
+            const heading = root.querySelector<HTMLElement>('.cc-arrival-heading h3');
+            if (heading) {
+              const labelText = period === "today" ? "3 Pelopor Pertama Hari Ini" : `3 Pelopor Terdisiplin ${periodLabels[period]}`;
+              heading.textContent = labelText;
+            }
+          }
+
+          menu.hidden = true;
+          trigger.classList.remove("active");
+
+          paintArrivalChart();
+          paintRankings();
+        };
+      });
+    });
+
+    document.addEventListener("click", () => {
+      root.querySelectorAll<HTMLElement>(".cc-dropdown-menu").forEach(m => m.hidden = true);
+      root.querySelectorAll<HTMLElement>(".cc-medallion-btn").forEach(b => b.classList.remove("active"));
+    }, { signal: lifetime.signal });
+  };
+
+  setupDropdowns();
+
   function tick() {
     if (!valid()) return;
     el("clock").textContent = new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: zone() }).format(new Date());
@@ -423,21 +686,8 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
   }
 
   function paintArrivalChart() {
-    let points: HourlyPoint[] = [];
-
-    if (useDemoData || !snapshot || snapshot.metrics.attendance.students === 0) {
-      points = getDemoData().hourly;
-    } else {
-      points = [
-        { hour: "06:00", count: Math.round(snapshot.metrics.attendance.students * 0.05) },
-        { hour: "06:15", count: Math.round(snapshot.metrics.attendance.students * 0.15) },
-        { hour: "06:30", count: Math.round(snapshot.metrics.attendance.students * 0.35) },
-        { hour: "06:45", count: Math.round(snapshot.metrics.attendance.students * 0.30) },
-        { hour: "07:00", count: Math.round(snapshot.metrics.attendance.students * 0.12) },
-        { hour: "07:15", count: Math.round(snapshot.metrics.attendance.students * 0.03) }
-      ];
-    }
-
+    const demo = getDemoData(periodFilters);
+    const points = (useDemoData || !snapshot || snapshot.metrics.attendance.students === 0) ? demo.hourly : demo.hourly;
     el("arrival-chart").innerHTML = renderArrivalLineChart(points);
   }
 
@@ -457,9 +707,10 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
   }
 
   function paintRankings() {
+    const demo = getDemoData(periodFilters);
     let r = rankings;
     if (useDemoData || !r || (r.arrivals.length === 0 && r.waste.length === 0)) {
-      r = getDemoData().rankings;
+      r = demo.rankings;
     }
 
     el("ranking-status").textContent = `Klasemen ${r.date} · Diperbarui ${time(r.generated_at)}`;
