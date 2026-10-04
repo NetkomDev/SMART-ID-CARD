@@ -871,8 +871,9 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
                 <g transform="rotate(-90 ${cx} ${cy})">
                   ${donutSegments}
                 </g>
-                <text x="${cx}" y="${cy - 2}" text-anchor="middle" font-size="22" font-weight="800" fill="#f8fafc">${number(totalVisits)}</text>
-                <text x="${cx}" y="${cy + 13}" text-anchor="middle" font-size="8" font-weight="700" fill="#94a3b8" letter-spacing="0.08em">TOTAL KUNJUNGAN</text>
+                <text x="${cx}" y="${cy - 16}" text-anchor="middle" font-size="8.5" font-weight="700" fill="#94a3b8" letter-spacing="0.1em">TOTAL</text>
+                <text x="${cx}" y="${cy + 4}" text-anchor="middle" font-size="23" font-weight="800" fill="#f8fafc">${number(totalVisits)}</text>
+                <text x="${cx}" y="${cy + 19}" text-anchor="middle" font-size="8.5" font-weight="700" fill="#94a3b8" letter-spacing="0.1em">KUNJUNGAN</text>
                 ${calloutMarkup}
               </svg>
             </div>
