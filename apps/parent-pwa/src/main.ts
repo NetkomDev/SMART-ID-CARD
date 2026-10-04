@@ -61,12 +61,12 @@ const root = document.querySelector<HTMLDivElement>("#app")!;
 const esc = (v: unknown) => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 const request = <T>(path: string, init: RequestInit = {}) => portal.request<T>(path, init);
 
-// High-Performance Local Cache Keys
+// High-Performance Local Cache Layer
 const CACHE_KEYS = {
-  CHILDREN: "aksis_parent_children_v4",
-  PROFILE_NAME: "aksis_parent_name_v4",
-  SELECTED_CHILD: "aksis_parent_selected_child_v4",
-  TODAY: (studentId: string) => `aksis_parent_today_${studentId}_v4`
+  CHILDREN: "aksis_parent_children_v3",
+  PROFILE_NAME: "aksis_parent_name_v3",
+  SELECTED_CHILD: "aksis_parent_selected_child_v3",
+  TODAY: (studentId: string) => `aksis_parent_today_${studentId}_v3`
 };
 
 function getStoredCache<T>(key: string): T | null {
@@ -92,7 +92,7 @@ let cachedChildren: Child[] | null = getStoredCache<Child[]>(CACHE_KEYS.CHILDREN
 let viewRevision = 0;
 let dashboardVisible = false;
 let isRefreshingData = false;
-let activeTab: "home" | "activity" | "add" | "profile" = "home";
+let activeTab: "home" | "add" | "profile" = "home";
 
 const number = (value: number | null) => value == null ? "—" : value.toLocaleString("id-ID", { maximumFractionDigits: 2 });
 
@@ -553,11 +553,7 @@ function loginView(message = "Pindai QR dari admin sekolah untuk membuka aktivit
       <header>
         <div class="brand">
           <img src="${import.meta.env.BASE_URL}logo.png" alt="AKSIS Logo">
-          <div class="brand-text">
-            <div class="brand-title">AKSIS</div>
-            <div class="brand-subtitle">Kontrol Orang Tua</div>
-            <div class="brand-tagline">EKOSISTEM DIGITAL SEKOLAH</div>
-          </div>
+          <b>AKSIS · Keluarga</b>
         </div>
       </header>
       <section class="portal-gate">
@@ -606,31 +602,20 @@ function loginView(message = "Pindai QR dari admin sekolah untuk membuka aktivit
   });
 }
 
-// Shell Layout with 4 Bottom Nav Items matching reference design
-function parentLayout(contentHTML: string, tabName: "home" | "activity" | "add" | "profile" = "home"): string {
+function parentLayout(contentHTML: string, tabName: "home" | "add" | "profile" = "home"): string {
   activeTab = tabName;
   return `
     <div class="parent-shell">
       <div id="sync-bar" class="sync-progress-bar"></div>
-      
       <header class="aksis-pwa-header parent-header">
         <div class="brand">
           <img src="${import.meta.env.BASE_URL}logo.png" alt="AKSIS Logo">
           <div class="brand-text">
             <div class="brand-title">AKSIS</div>
             <div class="brand-subtitle">Kontrol Orang Tua</div>
-            <div class="brand-tagline">EKOSISTEM DIGITAL SEKOLAH</div>
           </div>
         </div>
-        <div class="header-right">
-          <button id="notif-bell-btn" class="notif-bell-btn" title="Aktivitas Siswa" aria-label="Notifikasi Aktivitas">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-            </svg>
-            <span class="notif-badge-dot"></span>
-          </button>
-        </div>
+        <div class="header-right"></div>
       </header>
 
       <main>
@@ -638,20 +623,16 @@ function parentLayout(contentHTML: string, tabName: "home" | "activity" | "add" 
       </main>
 
       <nav class="parent-nav" aria-label="Navigasi portal">
-        <button id="nav-home" class="nav-item-btn ${tabName === 'home' ? 'active' : ''}">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <button id="nav-home" class="${tabName === 'home' ? 'active' : ''}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
           <span>Beranda</span>
         </button>
-        <button id="nav-activity" class="nav-item-btn ${tabName === 'activity' ? 'active' : ''}">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-          <span>Aktivitas</span>
-        </button>
-        <button id="nav-add" class="nav-item-btn ${tabName === 'add' ? 'active' : ''}">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        <button id="nav-add" class="${tabName === 'add' ? 'active' : ''}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
           <span>Tambah anak</span>
         </button>
-        <button id="nav-profile" class="nav-item-btn ${tabName === 'profile' ? 'active' : ''}">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <button id="nav-profile" class="${tabName === 'profile' ? 'active' : ''}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           <span>Akses saya</span>
         </button>
       </nav>
@@ -659,52 +640,7 @@ function parentLayout(contentHTML: string, tabName: "home" | "activity" | "add" 
   `;
 }
 
-function renderAttendanceStatusBox(status: string, checkInTime: string) {
-  if (status === "HADIR" || status === "PULANG" || status === "TERLAMBAT") {
-    return `
-      <div class="attendance-status-box">
-        <div class="att-icon-check">✔</div>
-        <div class="att-status-text">
-          <h4>Sudah Hadir</h4>
-          <p>Masuk ${esc(checkInTime !== "—" ? `${checkInTime} WIB` : "Hari ini")}</p>
-        </div>
-      </div>
-    `;
-  }
-  if (status === "SAKIT") {
-    return `
-      <div class="attendance-status-box sakit">
-        <div class="att-icon-check" style="background:#ea580c;">🏥</div>
-        <div class="att-status-text">
-          <h4 style="color:#9a3412;">Izin Sakit</h4>
-          <p style="color:#c2410c;">Tercatat sakit hari ini</p>
-        </div>
-      </div>
-    `;
-  }
-  if (status === "IZIN" || status === "ALASAN_LAIN") {
-    return `
-      <div class="attendance-status-box izin">
-        <div class="att-icon-check" style="background:#2563eb;">📩</div>
-        <div class="att-status-text">
-          <h4 style="color:#1e40af;">Pengajuan Izin</h4>
-          <p style="color:#1d4ed8;">Izin dikonfirmasi wali kelas</p>
-        </div>
-      </div>
-    `;
-  }
-  return `
-    <div class="attendance-status-box belum">
-      <div class="att-icon-check" style="background:#94a3b8;">○</div>
-      <div class="att-status-text">
-        <h4>Belum Hadir</h4>
-        <p>Klik card ini untuk pengajuan izin</p>
-      </div>
-    </div>
-  `;
-}
-
-// 0ms Perception Speed Dashboard UI Renderer (Exact Redesign Match)
+// Synchronous 0ms Dashboard UI Renderer
 function renderDashboardUI(children: Child[], selected: Child, data: ParentTodayData) {
   dashboardVisible = true;
   selectedChildId = selected.student_id;
@@ -721,9 +657,6 @@ function renderDashboardUI(children: Child[], selected: Child, data: ParentToday
   const waste = data.waste ?? calculateWasteFallback(data.events);
   const library = data.library ?? calculateLibraryFallback(data.events);
   const extracurricular = data.extracurricular ?? calculateEkskulFallback(data.events, data.timezone);
-
-  const hour = new Date().getHours();
-  const timeGreeting = hour < 11 ? "Selamat pagi" : (hour < 15 ? "Selamat siang" : (hour < 18 ? "Selamat sore" : "Selamat malam"));
 
   const formattedDate = new Intl.DateTimeFormat("id-ID", {
     weekday: "long",
@@ -747,25 +680,24 @@ function renderDashboardUI(children: Child[], selected: Child, data: ParentToday
 
     <div class="parent-content">
       ${!profile.photo_url ? `
-        <div class="photo-warning-banner" style="background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%); border: 1.5px solid #fdba74; border-radius: 18px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; box-shadow: 0 4px 12px rgba(234,88,12,0.08);">
-          <div style="background: #ea580c; color: white; width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;">📷</div>
+        <div class="photo-warning-banner" style="background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%); border: 1.5px solid #fdba74; border-radius: 16px; padding: 16px 18px; margin-bottom: 18px; display: flex; align-items: center; gap: 14px; box-shadow: 0 4px 12px rgba(234,88,12,0.08);">
+          <div style="background: #ea580c; color: white; width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">📷</div>
           <div style="flex: 1;">
-            <h4 style="margin: 0 0 3px; font-size: 0.9rem; font-weight: 700; color: #9a3412;">Aksi Diperlukan: Unggah Foto Siswa</h4>
-            <p style="margin: 0; font-size: 0.78rem; color: #c2410c;">Foto resmi sekolah diperlukan untuk pencetakan ID Card PVC ${esc(profile.first_name)}.</p>
+            <h4 style="margin: 0 0 4px; font-size: 0.95rem; font-weight: 700; color: #9a3412;">Aksi Diperlukan: Unggah Foto Siswa</h4>
+            <p style="margin: 0; font-size: 0.82rem; color: #c2410c;">Foto resmi sekolah diperlukan untuk pencetakan ID Card PVC ${esc(profile.first_name)}.</p>
           </div>
-          <button type="button" id="btn-open-photo-modal" style="background: #ea580c; border: none; padding: 8px 14px; border-radius: 10px; color: white; font-weight: 700; font-size: 0.8rem; cursor: pointer; white-space: nowrap;">Unggah</button>
+          <button type="button" id="btn-open-photo-modal" style="background: #ea580c; border: none; padding: 8px 16px; border-radius: 10px; color: white; font-weight: 700; font-size: 0.85rem; cursor: pointer; white-space: nowrap;">Unggah Foto</button>
         </div>
       ` : ""}
 
-      <!-- Student Profile Card (Matching Design) -->
-      <section class="student-profile-card" title="Klik untuk melihat / mengganti foto siswa">
+      <!-- Student Profile Card -->
+      <section class="student-profile-card" style="cursor:pointer;" title="${profile.photo_url ? 'Klik untuk melihat foto full / mengganti foto' : 'Klik untuk mengunggah foto siswa'}">
         <div class="student-avatar-wrap">
           ${profile.photo_url ? `
             <img src="${esc(profile.photo_url)}" class="student-avatar" alt="${esc(profile.full_name)}" />
           ` : `
             <div class="avatar-fallback">${esc(initials)}</div>
           `}
-          <span class="online-status-dot"></span>
         </div>
         <div class="student-details">
           <h2>${esc(profile.full_name)}</h2>
@@ -782,64 +714,39 @@ function renderDashboardUI(children: Child[], selected: Child, data: ParentToday
             <span>${esc(formattedDate)}</span>
           </div>
         </div>
-        <div class="profile-arrow-btn">&rsaquo;</div>
       </section>
 
-      <!-- Greeting / Motivation Banner (Matching Design) -->
-      <section class="greeting-banner">
-        <div class="greeting-text-wrap">
-          <div class="greeting-title-row">
-            <span class="sun-icon">☀️</span>
-            <h3 class="greeting-title">${esc(timeGreeting)}, Ayah/Bunda</h3>
-          </div>
-          <p class="greeting-subtitle">Mari dukung aktivitas positif Ananda hari ini.</p>
-        </div>
-        <img src="${import.meta.env.BASE_URL}parent-banner.png" alt="Orang Tua" class="greeting-illustration" />
-      </section>
-
-      <!-- 2x2 Grid (Matching Design) -->
+      <!-- 2x2 Grid -->
       <div class="parent-grid">
         <!-- Card 1: Attendance -->
         <div class="grid-card card-attendance" id="card-attendance">
           <div>
             <div class="card-top">
               <div class="card-top-header">
-                <div class="icon-badge-circle green">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <div class="icon-badge green">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                 </div>
                 <span class="card-title">Kehadiran Hari Ini</span>
               </div>
-              <div class="card-arrow-circle">&rsaquo;</div>
+              <span class="card-arrow">&rsaquo;</span>
             </div>
 
-            ${renderAttendanceStatusBox(attendance.status, attendance.check_in)}
-
-            <div class="att-progress-line">
-              <div class="att-progress-fill" style="width: ${attendance.check_out !== "—" ? '100%' : (attendance.check_in !== "—" ? '50%' : '0%')};"></div>
-              <span class="att-progress-dot start"></span>
-              <span class="att-progress-dot end ${attendance.check_out !== "—" ? 'active' : ''}"></span>
-            </div>
+            ${renderAttendancePill(attendance.status)}
           </div>
 
           <div class="time-cols">
             <div class="time-box">
               <label>Jam Datang</label>
               <span>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                 ${esc(attendance.check_in)}
-              </span>
-              <span class="mini-badge-pill ${attendance.check_in !== "—" ? 'green' : 'gray'}">
-                ${attendance.status === 'TERLAMBAT' ? 'Terlambat' : (attendance.check_in !== "—" ? 'Hadir' : 'Belum')}
               </span>
             </div>
             <div class="time-box" style="text-align: right; align-items: flex-end;">
               <label>Jam Pulang</label>
               <span>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                 ${esc(attendance.check_out)}
-              </span>
-              <span class="mini-badge-pill ${attendance.check_out !== "—" ? 'green' : 'gray'}">
-                ${attendance.check_out !== "—" ? 'Pulang' : 'Menunggu'}
               </span>
             </div>
           </div>
@@ -850,38 +757,34 @@ function renderDashboardUI(children: Child[], selected: Child, data: ParentToday
           <div>
             <div class="card-top">
               <div class="card-top-header">
-                <div class="icon-badge-circle green" style="background:#16a34a;">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>
+                <div class="icon-badge green">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>
                 </div>
                 <span class="card-title">Poin Sampah</span>
               </div>
-              <div class="card-arrow-circle">&rsaquo;</div>
+              <span class="card-arrow">&rsaquo;</span>
             </div>
 
-            <div class="waste-body-row">
-              <div class="gauge-svg-wrap">
-                <svg width="90" height="90" viewBox="0 0 100 100">
-                  <circle cx="50" cy="50" r="42" fill="none" stroke="#e2e8f0" stroke-width="12" />
-                  <circle cx="50" cy="50" r="42" fill="none" stroke="#22c55e" stroke-width="12" 
-                    stroke-dasharray="264" stroke-dashoffset="${waste.total_points ? Math.max(0, 264 - (waste.total_points / 200) * 264) : 80}" 
-                    stroke-linecap="round" transform="rotate(-90 50 50)" />
-                </svg>
-                <div class="gauge-center-text">
-                  <span style="font-size: 0.7rem; color: #16a34a;">🍃</span>
-                  <span class="gauge-val">${number(waste.total_points ?? 120)}</span>
-                  <span class="gauge-lbl">poin</span>
+            <div class="waste-body">
+              <div class="donut-gauge" aria-label="Total poin tercatat">
+                <div class="donut-center">
+                  <span class="donut-val">${number(waste.total_points)}</span>
+                  <span class="donut-lbl">poin</span>
                 </div>
               </div>
-              <div class="waste-right-details">
-                <span class="setoran-lbl">🛍️ Setoran hari ini</span>
-                <span class="setoran-val">${number(waste.today_kg ?? 2.5)} kg</span>
-                <span class="plus-poin-pill">↑ +20 poin</span>
+              <div class="waste-info">
+                <span class="sub">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/></svg>
+                  Setoran hari ini
+                </span>
+                <span class="val">${number(waste.today_kg)} kg</span>
               </div>
             </div>
           </div>
 
-          <div class="tip-banner-green">
-            <span>🌱 Terus jaga lingkungan sekolah tetap bersih!</span>
+          <div class="card-banner teal">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            <span>${waste.unscored ? "Sebagian setoran belum memiliki nilai poin." : "Terus jaga lingkungan sekolah tetap bersih!"}</span>
           </div>
         </div>
 
@@ -890,31 +793,27 @@ function renderDashboardUI(children: Child[], selected: Child, data: ParentToday
           <div>
             <div class="card-top">
               <div class="card-top-header">
-                <div class="icon-badge-circle blue">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                <div class="icon-badge blue">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
                 </div>
                 <span class="card-title">Kunjungan Perpustakaan</span>
               </div>
-              <div class="card-arrow-circle">&rsaquo;</div>
+              <span class="card-arrow">&rsaquo;</span>
             </div>
 
-            <div class="lib-stat-primary">
-              <div>
-                <span class="lib-big-num">${library.today_visits ?? 1}</span>
-                <span class="lib-unit">kunjungan hari ini</span>
-              </div>
-              <div style="font-size: 2.2rem;">📘</div>
+            <div class="stat-primary">
+              <span class="big-num">${library.today_visits}</span>
+              <span class="unit">kunjungan hari ini</span>
             </div>
-
-            <div class="lib-sub-stat">
-              <span>Total bulan ini <strong>${number(library.month_visits ?? 8)} kunjungan</strong></span>
-              <span style="font-size: 1.1rem; color: #2563eb;">📊</span>
+            <div class="stat-sub">
+              Total bulan ini <b>${number(library.month_visits)} kunjungan</b>
             </div>
           </div>
 
-          <button type="button" id="btn-lib-history" class="btn-pill-blue">
-            📄 Lihat riwayat &rsaquo;
-          </button>
+          <div class="card-banner blue">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+            <span>Membaca membuka lebih banyak peluang!</span>
+          </div>
         </div>
 
         <!-- Card 4: Extracurricular -->
@@ -922,27 +821,68 @@ function renderDashboardUI(children: Child[], selected: Child, data: ParentToday
           <div>
             <div class="card-top">
               <div class="card-top-header">
-                <div class="icon-badge-circle orange">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M4.93 4.93l14.14 14.14"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                <div class="icon-badge orange">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M4.93 4.93l14.14 14.14"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
                 </div>
                 <span class="card-title">Ekstrakurikuler</span>
               </div>
-              <div class="card-arrow-circle">&rsaquo;</div>
+              <span class="card-arrow">&rsaquo;</span>
             </div>
 
-            <div class="ekskul-empty-card">
-              <div style="font-size: 1.5rem; color: #f97316;">📅</div>
-              <h4>${esc(extracurricular.name !== "Belum ada data kegiatan" ? extracurricular.name : "Tidak ada kegiatan hari ini")}</h4>
+            <div class="ekskul-title">${esc(extracurricular.name)}</div>${(extracurricular.activities_count ?? 0) > 1 ? `<p class="activity-count">${extracurricular.activities_count} kegiatan hari ini · lihat detail</p>` : ""}
+
+            <div style="display: flex; align-items: center; gap: 8px; margin: 4px 0 6px;">
+              <span style="font-size: 0.72rem; color: var(--parent-text-muted); display: flex; align-items: center; gap: 4px;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+              </span>
+              <span style="font-size: 0.78rem; font-weight: 800; padding: 2px 8px; border-radius: 8px; background: ${extracurricular.status === 'HADIR' ? '#d4f1e3' : '#edf2ef'}; color: ${extracurricular.status === 'HADIR' ? '#115c3c' : '#557065'};">
+                ${({ HADIR: "✔ Hadir", IZIN: "Izin", ALPA: "Tidak hadir", TIDAK_ADA: "Tidak ada jadwal", BELUM_HADIR: "Belum presensi" })[extracurricular.status]}
+              </span>
+            </div>
+
+            <div class="ekskul-time">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <span>${esc(extracurricular.schedule ?? (extracurricular.time_attended !== "—" ? `Presensi ${extracurricular.time_attended}` : "Belum ada jadwal hari ini"))}</span>
             </div>
           </div>
 
-          <div class="ekskul-footer-row">
-            <span style="display: flex; align-items: center; gap: 4px;">👤 Jadwal terdekat</span>
-            <span class="mini-badge-pill gray">${esc(extracurricular.schedule ?? "Belum ada jadwal")}</span>
+          <div class="card-banner warm">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg>
+            <span>Terus kembangkan bakat dan minatmu!</span>
           </div>
         </div>
       </div>
+
+      <!-- Motivation Banner -->
+      <section class="motivation-card">
+        <div class="star-circle">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        </div>
+        <div class="motivation-text">
+          <h3>Terus semangat, ${esc(profile.first_name)}!</h3>
+          <p>Kami selalu mendukung langkah terbaikmu.</p>
+        </div>
+      </section>
     </div>
+
+    <div class="refresh-row"><span>Data sekolah · ${esc(new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: data.timezone }).format(new Date(data.as_of ?? Date.now())))}</span><button id="refresh-dashboard" class="btn-secondary">Perbarui data</button></div>
+    <dialog id="timeline-drawer" class="modal-overlay" aria-labelledby="drawer-title">
+      <div class="drawer-card">
+        <div class="drawer-head">
+          <h3 id="drawer-title">Aktivitas Hari Ini (${esc(profile.first_name)})</h3>
+          <button class="drawer-close" id="close-drawer-btn" aria-label="Tutup aktivitas">&times;</button>
+        </div>
+        <div class="timeline-content">
+          ${data.events.length ? renderTimelineEvents(data.events, data.timezone) : `
+            <div class="empty compact" style="padding: 24px 0;">
+              <span>○</span>
+              <h3>Belum ada aktivitas hari ini</h3>
+              <p>Aktivitas terverifikasi dari gerbang, sampah, dan perpustakaan akan otomatis muncul di sini.</p>
+            </div>
+          `}
+        </div>
+      </div>
+    </dialog>
   `;
 
   root.innerHTML = parentLayout(contentHTML, "home");
@@ -958,6 +898,15 @@ function renderDashboardUI(children: Child[], selected: Child, data: ParentToday
 
   document.getElementById("btn-open-photo-modal")?.addEventListener("click", () => openPhotoCropperModal(selected.student_id, profile.full_name));
   document.querySelector(".student-profile-card")?.addEventListener("click", handlePhotoClick);
+
+  const drawer = document.querySelector<HTMLDialogElement>("#timeline-drawer")!;
+  const openDrawer = (prefix = "") => {
+    const events = data.events.filter(event => event.type.startsWith(prefix));
+    const labels: Record<string, string> = { "attendance.": "Kehadiran", "waste.": "Bank Sampah", "library.": "Perpustakaan", "extracurricular.": "Ekstrakurikuler" };
+    document.getElementById("drawer-title")!.textContent = `${labels[prefix] ?? "Aktivitas"} hari ini`;
+    drawer.querySelector(".timeline-content")!.innerHTML = events.length ? renderTimelineEvents(events, data.timezone) : '<p class="empty">Belum ada aktivitas tercatat hari ini.</p>';
+    drawer.showModal();
+  };
 
   const attCard = document.getElementById("card-attendance");
   if (attCard) {
@@ -975,20 +924,23 @@ function renderDashboardUI(children: Child[], selected: Child, data: ParentToday
     });
   }
 
-  document.getElementById("btn-lib-history")?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    void activityView("LIBRARY");
-  });
-
-  for (const [id, filterCat] of [["waste", "WASTE"], ["library", "LIBRARY"], ["ekskul", "EKSKUL"]]) {
+  for (const [id, prefix] of [["waste", "waste."], ["library", "library."], ["ekskul", "extracurricular."]]) {
     const card = document.getElementById(`card-${id}`);
     if (!card) continue;
     card.tabIndex = 0;
     card.setAttribute("role", "button");
+    card.setAttribute("aria-haspopup", "dialog");
     card.setAttribute("aria-label", `Lihat detail ${card.querySelector(".card-title")!.textContent}`);
-    card.addEventListener("click", () => void activityView(filterCat));
+    card.addEventListener("click", () => openDrawer(prefix));
+    card.addEventListener("keydown", event => {
+      if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openDrawer(prefix); }
+    });
   }
 
+  document.getElementById("close-drawer-btn")?.addEventListener("click", () => drawer.close());
+  drawer.addEventListener("click", event => { if (event.target === drawer) drawer.close(); });
+  document.getElementById("refresh-dashboard")?.addEventListener("click", () => void fetchDashboardData(selected.student_id));
+  
   document.querySelector<HTMLImageElement>(".student-avatar")?.addEventListener("error", event => {
     (event.target as HTMLImageElement).parentElement!.innerHTML = `<div class="avatar-fallback">${esc(initials)}</div>`;
   });
@@ -997,129 +949,6 @@ function renderDashboardUI(children: Child[], selected: Child, data: ParentToday
     selectedChildId = (event.target as HTMLSelectElement).value;
     setStoredCache(CACHE_KEYS.SELECTED_CHILD, selectedChildId);
     void dashboard(selectedChildId);
-  });
-}
-
-// Full Timeline Page (Halaman Aktivitas Siswa)
-async function activityView(filterCategory: string = "ALL") {
-  viewRevision++;
-  dashboardVisible = false;
-  activeTab = "activity";
-
-  if (!cachedChildren) cachedChildren = getStoredCache<Child[]>(CACHE_KEYS.CHILDREN);
-  if (!selectedChildId) selectedChildId = getStoredCache<string>(CACHE_KEYS.SELECTED_CHILD) || "";
-
-  const todayData = selectedChildId ? getStoredCache<ParentTodayData>(CACHE_KEYS.TODAY(selectedChildId)) : null;
-
-  const events = todayData?.events ?? [];
-  const timezone = todayData?.timezone ?? "Asia/Makassar";
-
-  const renderFeed = (filter: string) => {
-    let filteredEvents = events;
-    if (filter === "ATTENDANCE") filteredEvents = events.filter(e => e.type.startsWith("attendance."));
-    else if (filter === "WASTE") filteredEvents = events.filter(e => e.type.startsWith("waste."));
-    else if (filter === "LIBRARY") filteredEvents = events.filter(e => e.type.startsWith("library."));
-    else if (filter === "EKSKUL") filteredEvents = events.filter(e => e.type.startsWith("extracurricular."));
-
-    if (!filteredEvents.length) {
-      return `
-        <div style="background: white; border-radius: 20px; padding: 36px 20px; text-align: center; border: 1px solid #e2e8f0; margin-top: 10px;">
-          <div style="font-size: 2.5rem; margin-bottom: 8px;">📋</div>
-          <h3 style="margin: 0 0 6px; font-size: 1.1rem; font-weight: 700; color: #0f172a;">Belum ada aktivitas tercatat</h3>
-          <p style="margin: 0; font-size: 0.85rem; color: #64748b;">Aktivitas terverifikasi dari gerbang, sampah, dan perpustakaan sekolah akan muncul di sini.</p>
-        </div>
-      `;
-    }
-
-    return filteredEvents.map(ev => {
-      let title = "Aktivitas Sekolah", desc = ev.extra_info || "", icon = "✓", badgeBg = "#22c55e", tagLabel = "Terverifikasi";
-      if (ev.type === "attendance.check_in") {
-        title = "Tiba di Sekolah";
-        desc = ev.is_late ? "Tercatat presensi terlambat di gerbang sekolah" : "Tiba tepat waktu di gerbang sekolah";
-        icon = "🏢"; badgeBg = ev.is_late ? "#f97316" : "#22c55e"; tagLabel = ev.is_late ? "Terlambat" : "Tepat Waktu";
-      } else if (ev.type === "attendance.check_out") {
-        title = "Pulang dari Sekolah";
-        desc = "Tercatat keluar melalui gerbang sekolah";
-        icon = "🏠"; badgeBg = "#0284c7"; tagLabel = "Pulang";
-      } else if (ev.type === "waste.transaction") {
-        title = "Setoran Bank Sampah";
-        icon = "♻️"; badgeBg = "#16a34a"; tagLabel = "Bank Sampah";
-      } else if (ev.type === "library.visit") {
-        title = "Kunjungan Perpustakaan";
-        icon = "📚"; badgeBg = "#2563eb"; tagLabel = "Perpustakaan";
-      } else if (ev.type === "extracurricular.attendance") {
-        title = "Presensi Ekstrakurikuler";
-        icon = "🏅"; badgeBg = "#f97316"; tagLabel = "Ekstrakurikuler";
-      }
-
-      const timeStr = new Intl.DateTimeFormat("id-ID", {
-        hour: "2-digit",
-        minute: "2-digit",
-        timeZone: timezone
-      }).format(new Date(ev.occurred_at));
-
-      return `
-        <article class="activity-card-item">
-          <div class="activity-icon-badge" style="background: ${badgeBg};">
-            ${icon}
-          </div>
-          <div class="activity-details">
-            <div class="activity-meta">
-              <span class="activity-time">⏰ ${timeStr} WIB</span>
-              <span class="mini-badge-pill green" style="background: ${badgeBg}15; color: ${badgeBg}; font-size: 0.7rem;">${tagLabel}</span>
-            </div>
-            <h4 class="activity-title">${esc(title)}</h4>
-            <p class="activity-desc">${esc(desc)}</p>
-          </div>
-        </article>
-      `;
-    }).join("");
-  };
-
-  root.innerHTML = parentLayout(`
-    <div class="activity-feed-container">
-      <div style="display: flex; align-items: center; justify-content: space-between;">
-        <div>
-          <small style="color: #22c55e; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;">RIWAYAT HARI INI</small>
-          <h2 style="margin: 2px 0 0; font-size: 1.35rem; font-weight: 800; color: #0f172a;">Aktivitas Siswa</h2>
-        </div>
-      </div>
-
-      ${cachedChildren && cachedChildren.length > 1 ? `
-        <div class="child-picker-container" style="padding: 0;">
-          <select id="activity-child-picker" class="child-picker-select">
-            ${cachedChildren.map(c => `<option value="${esc(c.student_id)}" ${c.student_id === selectedChildId ? 'selected' : ''}>Anak: ${esc(c.full_name)} (${esc(c.school_name)})</option>`).join("")}
-          </select>
-        </div>
-      ` : ""}
-
-      <div class="activity-filter-bar">
-        <button class="filter-chip ${filterCategory === 'ALL' ? 'active' : ''}" data-filter="ALL">Semua</button>
-        <button class="filter-chip ${filterCategory === 'ATTENDANCE' ? 'active' : ''}" data-filter="ATTENDANCE">Kehadiran</button>
-        <button class="filter-chip ${filterCategory === 'WASTE' ? 'active' : ''}" data-filter="WASTE">Bank Sampah</button>
-        <button class="filter-chip ${filterCategory === 'LIBRARY' ? 'active' : ''}" data-filter="LIBRARY">Perpustakaan</button>
-        <button class="filter-chip ${filterCategory === 'EKSKUL' ? 'active' : ''}" data-filter="EKSKUL">Ekstrakurikuler</button>
-      </div>
-
-      <div id="activity-feed-list" style="display: flex; flex-direction: column; gap: 12px;">
-        ${renderFeed(filterCategory)}
-      </div>
-    </div>
-  `, "activity");
-
-  bindGlobalEvents();
-
-  document.querySelectorAll(".filter-chip").forEach(btn => {
-    btn.addEventListener("click", (e) => {
-      const targetFilter = (e.currentTarget as HTMLElement).getAttribute("data-filter") || "ALL";
-      void activityView(targetFilter);
-    });
-  });
-
-  document.querySelector<HTMLSelectElement>("#activity-child-picker")?.addEventListener("change", event => {
-    selectedChildId = (event.target as HTMLSelectElement).value;
-    setStoredCache(CACHE_KEYS.SELECTED_CHILD, selectedChildId);
-    void activityView(filterCategory);
   });
 }
 
@@ -1177,8 +1006,6 @@ async function fetchDashboardData(targetChildId?: string): Promise<boolean> {
 
     if (activeTab === "home") {
       renderDashboardUI(cachedChildren, selected, data);
-    } else if (activeTab === "activity") {
-      void activityView();
     }
 
     return true;
@@ -1193,7 +1020,7 @@ async function fetchDashboardData(targetChildId?: string): Promise<boolean> {
   }
 }
 
-// Entrypoint for Dashboard
+// 0ms Perception Speed Entrypoint for Dashboard
 async function dashboard(forceChildId?: string): Promise<boolean> {
   activeTab = "home";
   const revision = ++viewRevision;
@@ -1213,19 +1040,21 @@ async function dashboard(forceChildId?: string): Promise<boolean> {
     if (cachedToday) {
       // 🚀 INSTANT RENDER (0ms delay)!
       renderDashboardUI(cachedChildren!, targetChild, cachedToday);
+      // Trigger background data sync silently
       void fetchDashboardData(selectedChildId);
       return true;
     }
   }
 
-  // Loading Skeleton
+  // If no cached data exists, render sleek skeleton loading UI
   root.innerHTML = parentLayout(`
     <div class="parent-content">
-      <section class="student-profile-card" style="padding: 20px;">
+      <section class="student-profile-card" style="padding: 24px 20px;">
         <div class="avatar-fallback" style="background:#cbd5e1; color:#64748b; font-size: 1.2rem;">⏳</div>
         <div class="student-details" style="width: 100%;">
           <div style="height: 18px; background: #cbd5e1; border-radius: 6px; width: 55%; margin-bottom: 8px;"></div>
           <div style="height: 12px; background: #e2e8f0; border-radius: 4px; width: 75%; margin-bottom: 6px;"></div>
+          <div style="height: 12px; background: #e2e8f0; border-radius: 4px; width: 45%;"></div>
         </div>
       </section>
       <div class="parent-grid">
@@ -1239,6 +1068,50 @@ async function dashboard(forceChildId?: string): Promise<boolean> {
   bindGlobalEvents();
 
   return await fetchDashboardData(selectedChildId);
+}
+
+function renderAttendancePill(status: string): string {
+  switch (status) {
+    case "PULANG":
+      return `<div class="status-pill green">✔ Sudah Pulang</div>`;
+    case "TERLAMBAT":
+      return `<div class="status-pill orange">⚠ Terlambat</div>`;
+    case "HADIR":
+      return `<div class="status-pill green">✔ Hadir</div>`;
+    case "SAKIT":
+      return `<div class="status-pill orange" style="background:#ffedd5;color:#c2410c;border:1px solid #fdba74;">🏥 Sakit</div>`;
+    case "IZIN":
+    case "ALASAN_LAIN":
+      return `<div class="status-pill blue" style="background:#e0f2fe;color:#0369a1;border:1px solid #7dd3fc;">📩 Izin</div>`;
+    default:
+      return `<div class="status-pill gray">○ Belum Hadir (Klik untuk Izin)</div>`;
+  }
+}
+
+function renderTimelineEvents(events: ParentTodayData["events"], timezone: string): string {
+  return `
+    <div class="timeline">
+      ${events.map(ev => {
+        let title = "Aktivitas", desc = ev.extra_info || "", icon = "✓", color = "#146c43";
+        if (ev.type === "attendance.check_in") { title = "Tiba di sekolah"; desc = ev.is_late ? "Tercatat terlambat" : "Terverifikasi gerbang sekolah"; icon = "🏢"; }
+        else if (ev.type === "attendance.check_out") { title = "Pulang dari sekolah"; desc = "Terverifikasi gerbang sekolah"; icon = "🏠"; }
+        else if (ev.type === "waste.transaction") { title = "Bank Sampah"; icon = "♻"; color = "#214b38"; }
+        else if (ev.type === "library.visit") { title = "Perpustakaan"; icon = "📚"; color = "#0f5132"; }
+        else if (ev.type === "extracurricular.attendance") { title = "Ekstrakurikuler"; icon = "🏅"; color = "#243b67"; }
+        return `
+          <article style="display: grid; grid-template-columns: 50px 12px 1fr 25px; gap: 12px; padding: 14px 0; border-bottom: 1px solid #edf1f4;">
+            <time style="font-size: 0.8rem; font-weight: 700; color: #5b796d;">${new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: timezone || "Asia/Makassar" }).format(new Date(ev.occurred_at))}</time>
+            <i style="width: 8px; height: 8px; border-radius: 50%; background: ${color}; margin-top: 6px;"></i>
+            <div>
+              <strong style="color: ${color}; font-size: 0.92rem;">${title}</strong>
+              <p style="font-size: 0.82rem; margin: 2px 0 0; color: #5b796d;">${esc(desc)}</p>
+            </div>
+            <b style="color: ${color}">${icon}</b>
+          </article>
+        `;
+      }).join("")}
+    </div>
+  `;
 }
 
 function calculateAttendanceFallback(events: ParentTodayData["events"], timezone: string) {
@@ -1280,10 +1153,8 @@ function calculateEkskulFallback(events: ParentTodayData["events"], timezone: st
 
 function bindGlobalEvents() {
   document.getElementById("nav-home")?.addEventListener("click", () => void dashboard());
-  document.getElementById("nav-activity")?.addEventListener("click", () => void activityView());
   document.getElementById("nav-add")?.addEventListener("click", () => void linkView());
   document.getElementById("nav-profile")?.addEventListener("click", () => void profileView());
-  document.getElementById("notif-bell-btn")?.addEventListener("click", () => void activityView());
 }
 
 async function linkView() {
@@ -1306,9 +1177,9 @@ async function linkView() {
   root.innerHTML = parentLayout(`
     <div class="parent-content">
       <form class="link-card" id="link-form" style="background: white; border-radius: 22px; padding: 24px; border: 1px solid #e1efe8;">
-        <small style="color: var(--parent-green-text); font-weight: 800; letter-spacing: 0.1em;">TAUTAN AMAN LINTAS SEKOLAH</small>
+        <small style="color: var(--parent-green-accent); font-weight: 800; letter-spacing: 0.1em;">TAUTAN AMAN LINTAS SEKOLAH</small>
         <h2 style="margin: 8px 0 6px; font-size: 1.3rem;">Hubungkan Anak</h2>
-        <p style="font-size: 0.88rem; color: #64748b; margin-bottom: 20px;">
+        <p style="font-size: 0.88rem; color: var(--parent-text-muted); margin-bottom: 20px;">
           ${needParentNameInput
             ? "Gunakan Nama Anda, NISN, dan Tanggal Lahir anak (SD, SMP, atau SMA) untuk memverifikasi data sekolah."
             : "Gunakan NISN dan Tanggal Lahir anak (SD, SMP, atau SMA) untuk menghubungkan anak berikutnya."}
@@ -1413,25 +1284,25 @@ async function profileView() {
   root.innerHTML = parentLayout(`
     <div class="parent-content">
       <section class="profile-card" style="background: white; border-radius: 22px; padding: 24px; border: 1px solid #e1efe8;">
-        <small style="color: var(--parent-green-text); font-weight: 800; letter-spacing: 0.1em;">AKSES SAYA</small>
+        <small style="color: var(--parent-green-accent); font-weight: 800; letter-spacing: 0.1em;">AKSES SAYA</small>
         <h2 style="margin: 8px 0 16px; font-size: 1.3rem;">Informasi Portal Orang Tua</h2>
         <dl style="display: grid; gap: 14px; margin: 0 0 20px;">
           ${cachedParentName && cachedParentName !== "Orang Tua" ? `
             <div>
-              <dt style="font-size: 0.8rem; color: #64748b;">Nama Orang Tua / Wali</dt>
+              <dt style="font-size: 0.8rem; color: var(--parent-text-muted);">Nama Orang Tua / Wali</dt>
               <dd style="margin: 2px 0 0; font-weight: 800; font-size: 1rem;">${esc(cachedParentName)}</dd>
             </div>
           ` : ""}
           <div>
-            <dt style="font-size: 0.8rem; color: #64748b;">Sekolah Terhubung</dt>
+            <dt style="font-size: 0.8rem; color: var(--parent-text-muted);">Sekolah Terhubung</dt>
             <dd style="margin: 2px 0 0; font-weight: 800; font-size: 1rem;">${esc(portal.context?.school_name)}</dd>
           </div>
           <div>
-            <dt style="font-size: 0.8rem; color: #64748b;">Status Akses</dt>
+            <dt style="font-size: 0.8rem; color: var(--parent-text-muted);">Status Akses</dt>
             <dd style="margin: 2px 0 0; font-weight: 800; font-size: 1rem; color: #1c7352;">Terverifikasi QR Admin Sekolah</dd>
           </div>
         </dl>
-        <p style="font-size: 0.85rem; color: #64748b; line-height: 1.5; margin-bottom: 24px;">
+        <p style="font-size: 0.85rem; color: var(--parent-text-muted); line-height: 1.5; margin-bottom: 24px;">
           Akses ini terenkripsi dan terhubung langsung ke server sekolah. Hubungi admin sekolah apabila terdapat kendala data anak.
         </p>
         <div class="persistent-access-note">
@@ -1449,9 +1320,10 @@ async function start() {
   const isConnected = portal.connected;
 
   if (isConnected) {
+    // 🚀 Fast Startup Path: Render cached dashboard instantly if available
     const hasCachedData = Boolean(cachedChildren?.length && selectedChildId && getStoredCache(CACHE_KEYS.TODAY(selectedChildId)));
     if (hasCachedData) {
-      void dashboard();
+      void dashboard(); // Render instantly (0ms)
       portal.start().then(ok => {
         if (ok) void fetchDashboardData(selectedChildId);
         else loginView("Akses kadaluarsa. Pindai QR kembali.", true);
@@ -1460,6 +1332,7 @@ async function start() {
     }
   }
 
+  // Fallback to initial loading gate
   loginView("Membuka akses sekolah…");
   try {
     if (!await portal.start()) {
