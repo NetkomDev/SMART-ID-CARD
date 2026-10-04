@@ -62,6 +62,7 @@ const request = <T>(path: string, init: RequestInit = {}) => portal.request<T>(p
 
 let loginScanner: any = null;
 let selectedChildId = "";
+let cachedParentName = "";
 let viewRevision = 0;
 let dashboardVisible = false;
 const number = (value: number | null) => value == null ? "—" : value.toLocaleString("id-ID", { maximumFractionDigits: 2 });
@@ -378,6 +379,12 @@ function parentLayout(contentHTML: string, activeTab: "home" | "add" | "profile"
 async function dashboard(): Promise<boolean> {
   const revision = ++viewRevision;
   try {
+    if (!cachedParentName) {
+      try {
+        const prof = await request<{ full_name: string | null }>("/parent/profile");
+        if (prof?.full_name && prof.full_name !== "Orang Tua") cachedParentName = prof.full_name;
+      } catch {}
+    }
     const children = await request<Child[]>("/parent/children");
     if (revision !== viewRevision) return false;
     if (!children.length) {
@@ -774,29 +781,51 @@ function calculateEkskulFallback(events: ParentTodayData["events"], timezone: st
 
 function bindGlobalEvents() {
   document.getElementById("nav-home")?.addEventListener("click", () => void dashboard());
-  document.getElementById("nav-add")?.addEventListener("click", linkView);
-  document.getElementById("nav-profile")?.addEventListener("click", profileView);
-  document.getElementById("btn-menu-drawer")?.addEventListener("click", profileView);
+  document.getElementById("nav-add")?.addEventListener("click", () => void linkView());
+  document.getElementById("nav-profile")?.addEventListener("click", () => void profileView());
+  document.getElementById("btn-menu-drawer")?.addEventListener("click", () => void profileView());
   if (!dashboardVisible) document.getElementById("btn-notifications")?.setAttribute("hidden", "");
 }
 
-function linkView() {
+async function linkView() {
   viewRevision++;
   dashboardVisible = false;
+
+  if (!cachedParentName) {
+    try {
+      const prof = await request<{ full_name: string | null }>("/parent/profile");
+      if (prof?.full_name && prof.full_name !== "Orang Tua") cachedParentName = prof.full_name;
+    } catch {}
+  }
+
+  const needParentNameInput = !cachedParentName || cachedParentName === "Orang Tua";
+
   root.innerHTML = parentLayout(`
     <div class="parent-content">
       <form class="link-card" id="link-form" style="background: white; border-radius: 22px; padding: 24px; border: 1px solid #e1efe8;">
         <small style="color: var(--parent-green-accent); font-weight: 800; letter-spacing: 0.1em;">TAUTAN AMAN LINTAS SEKOLAH</small>
         <h2 style="margin: 8px 0 6px; font-size: 1.3rem;">Hubungkan Anak</h2>
         <p style="font-size: 0.88rem; color: var(--parent-text-muted); margin-bottom: 20px;">
-          Gunakan NISN dan Tanggal Lahir anak Anda (SD, SMP, atau SMA) untuk memverifikasi dan menghubungkan data resmi sekolah.
+          ${needParentNameInput
+            ? "Gunakan Nama Anda, NISN, dan Tanggal Lahir anak (SD, SMP, atau SMA) untuk memverifikasi data sekolah."
+            : "Gunakan NISN dan Tanggal Lahir anak (SD, SMP, atau SMA) untuk menghubungkan anak berikutnya."}
         </p>
         <div id="error" class="error-msg" style="margin-bottom: 12px;"></div>
 
-        <label style="display: block; margin-bottom: 14px;">
-          Nama Orang Tua / Wali
-          <input name="name" required maxlength="200" style="margin-top: 6px;" placeholder="Nama lengkap Anda" />
-        </label>
+        ${needParentNameInput ? `
+          <label style="display: block; margin-bottom: 14px;">
+            Nama Orang Tua / Wali
+            <input name="name" required maxlength="200" style="margin-top: 6px;" placeholder="Nama lengkap Anda" />
+          </label>
+        ` : `
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 12px 16px; margin-bottom: 18px; display: flex; align-items: center; justify-content: space-between;">
+            <div>
+              <span style="font-size: 0.75rem; color: #64748b; font-weight: 600; display: block; margin-bottom: 2px;">Orang Tua / Wali:</span>
+              <strong style="font-size: 0.95rem; color: #0f172a;">${esc(cachedParentName)}</strong>
+            </div>
+            <span style="font-size: 0.78rem; background: #dcfce7; color: #15803d; padding: 3px 10px; border-radius: 20px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">✓ Terverifikasi</span>
+          </div>
+        `}
 
         <label style="display: block; margin-bottom: 14px;">
           NISN Siswa
@@ -834,15 +863,19 @@ function linkView() {
     const submit = form.querySelector<HTMLButtonElement>("button:not([type])")!;
     submit.disabled = true;
 
+    const inputName = d.get("name") ? String(d.get("name")).trim() : "";
+    const nameToSave = inputName || cachedParentName || "";
+
     try {
       await request("/parent/link", {
         method: "POST",
         body: JSON.stringify({
           nisn: String(d.get("nisn") ?? "").trim(),
           dob: String(d.get("dob") ?? "").trim(),
-          full_name: String(d.get("name") ?? "").trim()
+          full_name: nameToSave
         })
       });
+      if (nameToSave && nameToSave !== "Orang Tua") cachedParentName = nameToSave;
       await dashboard();
       offerInstall();
     } catch (err: any) {
@@ -856,15 +889,29 @@ function linkView() {
   };
 }
 
-function profileView() {
+async function profileView() {
   viewRevision++;
   dashboardVisible = false;
+
+  if (!cachedParentName) {
+    try {
+      const prof = await request<{ full_name: string | null }>("/parent/profile");
+      if (prof?.full_name && prof.full_name !== "Orang Tua") cachedParentName = prof.full_name;
+    } catch {}
+  }
+
   root.innerHTML = parentLayout(`
     <div class="parent-content">
       <section class="profile-card" style="background: white; border-radius: 22px; padding: 24px; border: 1px solid #e1efe8;">
         <small style="color: var(--parent-green-accent); font-weight: 800; letter-spacing: 0.1em;">AKSES SAYA</small>
         <h2 style="margin: 8px 0 16px; font-size: 1.3rem;">Informasi Portal Orang Tua</h2>
         <dl style="display: grid; gap: 14px; margin: 0 0 20px;">
+          ${cachedParentName && cachedParentName !== "Orang Tua" ? `
+            <div>
+              <dt style="font-size: 0.8rem; color: var(--parent-text-muted);">Nama Orang Tua / Wali</dt>
+              <dd style="margin: 2px 0 0; font-weight: 800; font-size: 1rem;">${esc(cachedParentName)}</dd>
+            </div>
+          ` : ""}
           <div>
             <dt style="font-size: 0.8rem; color: var(--parent-text-muted);">Sekolah Terhubung</dt>
             <dd style="margin: 2px 0 0; font-weight: 800; font-size: 1rem;">${esc(portal.context?.school_name)}</dd>

@@ -3,7 +3,7 @@ import { z } from "zod";
 export const claimParentLinkSchema = z.object({
   nisn: z.string().trim().min(1).max(50),
   dob: z.string().trim().min(1).max(50),
-  full_name: z.string().trim().min(1).max(200)
+  full_name: z.string().trim().max(200).optional().default("")
 }).strict();
 
 export const createParentTokenSchema = z.object({

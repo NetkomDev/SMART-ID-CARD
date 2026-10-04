@@ -12,7 +12,7 @@ import { claimParentLinkSchema, createParentTokenSchema } from "../schemas/paren
 const router = Router();
 
 router.post("/link", requireAuth, validate({ body: claimParentLinkSchema }), asyncHandler(async (req, res) => {
-  let { nisn, dob, full_name } = req.body as { nisn: string; dob: string; full_name: string };
+  let { nisn, dob, full_name } = req.body as { nisn: string; dob: string; full_name?: string };
   
   let formattedDob = dob.trim();
   if (/^\d{1,2}[\/-]\d{1,2}[\/-]\d{4}$/.test(formattedDob)) {
@@ -23,11 +23,21 @@ router.post("/link", requireAuth, validate({ body: claimParentLinkSchema }), asy
   const { data, error } = await req.auth!.client.rpc("link_student_to_parent_portal", {
     p_nisn: nisn.trim(),
     p_dob: formattedDob,
-    p_parent_name: full_name.trim()
+    p_parent_name: (full_name ?? "").trim()
   });
 
   if (error) throw fromDatabaseError(error);
   sendData(res, { link_id: data?.student_id || data?.id }, 201);
+}));
+
+router.get("/profile", requireAuth, asyncHandler(async (req, res) => {
+  const { data, error } = await req.auth!.client
+    .from("parent_profiles")
+    .select("full_name")
+    .eq("user_id", req.auth!.user.id)
+    .maybeSingle();
+  if (error) throw fromDatabaseError(error);
+  sendData(res, data ?? { full_name: null });
 }));
 
 router.get("/children", requireAuth, asyncHandler(async (req, res) => {
