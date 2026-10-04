@@ -283,6 +283,48 @@ function openPhotoCropperModal(studentId: string, studentName: string) {
   };
 }
 
+function openPhotoPreviewModal(studentId: string, studentName: string, photoUrl: string) {
+  const modal = document.createElement("div");
+  modal.className = "photo-preview-overlay";
+  modal.style.cssText = "position:fixed;inset:0;background:rgba(15,23,42,0.9);backdrop-filter:blur(8px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;";
+
+  modal.innerHTML = `
+    <div style="background:linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);border-radius:28px;width:100%;max-width:380px;padding:24px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.4);display:flex;flex-direction:column;align-items:center;text-align:center;font-family:sans-serif;border:1px solid rgba(255,255,255,0.2);">
+      <div style="display:flex;align-items:center;justify-space-between;width:100%;margin-bottom:16px;">
+        <span style="font-size:0.75rem;font-weight:800;color:#2563eb;letter-spacing:0.08em;text-transform:uppercase;">Foto Kartu PVC Siswa</span>
+        <button id="close-preview-x" style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:#64748b;padding:2px 6px;">&times;</button>
+      </div>
+
+      <div style="position:relative;width:240px;height:320px;border-radius:20px;overflow:hidden;box-shadow:0 12px 30px rgba(0,0,0,0.18);margin-bottom:16px;border:3px solid white;background:#e2e8f0;">
+        <img src="${esc(photoUrl)}" alt="${esc(studentName)}" style="width:100%;height:100%;object-fit:cover;" />
+      </div>
+
+      <h3 style="margin:0 0 4px;font-size:1.15rem;font-weight:700;color:#0f172a;">${esc(studentName)}</h3>
+      <p style="margin:0 0 20px;font-size:0.82rem;color:#64748b;">Foto resmi yang digunakan untuk pencetakan ID Card PVC</p>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;">
+        <button type="button" id="btn-change-photo" style="padding:13px;border-radius:14px;background:#2563eb;color:white;font-weight:700;font-size:0.92rem;border:none;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 4px 12px rgba(37,99,235,0.25);">
+          ✏️ Ganti
+        </button>
+        <button type="button" id="btn-back-preview" style="padding:13px;border-radius:14px;background:#f1f5f9;color:#334155;font-weight:700;font-size:0.92rem;border:1px solid #cbd5e1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;">
+          ↩ Kembali
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  const close = () => modal.remove();
+  modal.querySelector("#close-preview-x")?.addEventListener("click", close);
+  modal.querySelector("#btn-back-preview")?.addEventListener("click", close);
+
+  modal.querySelector("#btn-change-photo")?.addEventListener("click", () => {
+    close();
+    openPhotoCropperModal(studentId, studentName);
+  });
+}
+
 function loginView(message = "Pindai QR dari admin sekolah untuk membuka aktivitas anak Anda.", isError = false) {
   viewRevision++;
   dashboardVisible = false;
@@ -463,7 +505,7 @@ async function dashboard(): Promise<boolean> {
         ` : ""}
 
         <!-- Student Profile Card -->
-        <section class="student-profile-card" style="cursor:pointer;" title="Klik untuk mengubah foto siswa">
+        <section class="student-profile-card" style="cursor:pointer;" title="${profile.photo_url ? 'Klik untuk melihat foto full / mengganti foto' : 'Klik untuk mengunggah foto siswa'}">
           <div class="student-avatar-wrap">
             ${profile.photo_url ? `
               <img src="${esc(profile.photo_url)}" class="student-avatar" alt="${esc(profile.full_name)}" />
@@ -660,8 +702,16 @@ async function dashboard(): Promise<boolean> {
     root.innerHTML = parentLayout(contentHTML, "home");
     bindGlobalEvents();
 
+    const handlePhotoClick = () => {
+      if (profile.photo_url) {
+        openPhotoPreviewModal(selected.student_id, profile.full_name, profile.photo_url);
+      } else {
+        openPhotoCropperModal(selected.student_id, profile.full_name);
+      }
+    };
+
     document.getElementById("btn-open-photo-modal")?.addEventListener("click", () => openPhotoCropperModal(selected.student_id, profile.full_name));
-    document.querySelector(".student-profile-card")?.addEventListener("click", () => openPhotoCropperModal(selected.student_id, profile.full_name));
+    document.querySelector(".student-profile-card")?.addEventListener("click", handlePhotoClick);
 
     const drawer = document.querySelector<HTMLDialogElement>("#timeline-drawer")!;
     const openDrawer = (prefix = "") => {
