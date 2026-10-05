@@ -82,39 +82,82 @@ router.post('/schools/:id/reset-admin-password', validate({ params: id, body: z.
   const schoolId = req.params.id;
   const newPassword = req.body?.password || "password123";
 
-  const { data: memberships, error: memErr } = await client
+  // Get school details for response metadata
+  const { data: school } = await client
+    .from('schools')
+    .select('id, name, code')
+    .eq('id', schoolId)
+    .maybeSingle();
+
+  // Find admin users for the school
+  const { data: adminMemberships } = await client
     .from('school_users')
-    .select('user_id, users(full_name)')
+    .select('user_id, users(full_name), school_user_roles!inner(roles!inner(code))')
     .eq('school_id', schoolId)
+    .eq('school_user_roles.roles.code', 'SCHOOL_ADMIN')
     .is('deleted_at', null);
 
-  if (memErr) throw fromDatabaseError(memErr);
-  if (!memberships || memberships.length === 0) {
+  let targetUsers: Array<{ user_id: string; full_name?: string | null }> = (adminMemberships || []).map(m => ({
+    user_id: m.user_id,
+    full_name: (m.users as any)?.full_name
+  }));
+
+  // Fallback if no specific SCHOOL_ADMIN role mapping exists
+  if (targetUsers.length === 0) {
+    const { data: fallbackUsers } = await client
+      .from('school_users')
+      .select('user_id, users(full_name)')
+      .eq('school_id', schoolId)
+      .is('deleted_at', null);
+    targetUsers = (fallbackUsers || []).map(m => ({
+      user_id: m.user_id,
+      full_name: (m.users as any)?.full_name
+    }));
+  }
+
+  if (targetUsers.length === 0) {
     throw new ApiError(404, 'RESOURCE_NOT_FOUND', 'Tidak ada admin/pengguna yang terdaftar di sekolah ini.');
   }
 
-  const resetUsers: string[] = [];
-  for (const m of memberships) {
-    const { error: authErr } = await client.auth.admin.updateUserById(m.user_id, {
-      password: newPassword
-    });
-    if (!authErr) {
-      const uName = (m.users as any)?.full_name || (m.users as any)?.email || m.user_id;
-      resetUsers.push(uName);
-    } else {
-      console.error(`[ResetPassword] Failed for user ${m.user_id}:`, authErr);
-    }
-  }
+  // Update password & retrieve auth email concurrently in parallel via Promise.all
+  const resetResults = await Promise.all(
+    targetUsers.map(async (m) => {
+      const [updateRes, userRes] = await Promise.all([
+        client.auth.admin.updateUserById(m.user_id, { password: newPassword }),
+        client.auth.admin.getUserById(m.user_id)
+      ]);
 
-  if (resetUsers.length === 0) {
+      if (!updateRes.error) {
+        const email = userRes.data?.user?.email || '';
+        const name = m.full_name || email || m.user_id;
+        return { user_id: m.user_id, name, email };
+      } else {
+        console.error(`[ResetPassword] Failed for user ${m.user_id}:`, updateRes.error);
+        return null;
+      }
+    })
+  );
+
+  const validResults = resetResults.filter((r): r is { user_id: string; name: string; email: string } => r !== null);
+
+  if (validResults.length === 0) {
     throw new ApiError(500, 'DATABASE_ERROR', 'Gagal me-reset password di Supabase Auth.');
   }
 
+  const resetUsers = validResults.map(r => r.name);
+  const adminEmails = Array.from(new Set(validResults.map(r => r.email).filter(Boolean)));
+  const schoolCode = school?.code?.toLowerCase() || 'sekolah';
+  const primaryEmail = adminEmails.join(', ') || `admin@${schoolCode}.aksis.co.id`;
+  const schoolName = school?.name || resetUsers.join(', ');
+
   sendData(res, {
     success: true,
+    school_name: schoolName,
+    admin_email: primaryEmail,
+    admin_emails: adminEmails.length > 0 ? adminEmails : [primaryEmail],
     reset_users: resetUsers,
     new_password: newPassword,
-    message: `Password admin untuk ${resetUsers.join(', ')} berhasil di-reset menjadi "${newPassword}".`
+    message: `Password admin untuk ${schoolName} berhasil di-reset menjadi "${newPassword}".`
   });
 }));
 router.post('/iam/:id/reset-password', validate({ params: id, body: z.object({ password: z.string().min(8).max(128).default("password123") }).optional() }), asyncHandler(async (req, res) => {

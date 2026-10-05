@@ -24,6 +24,83 @@ const reasonField='<label>Alasan / hasil pemeriksaan<textarea name="reason" minl
 function options(values:string[],current?:string){return values.map(v=>`<option ${v===current?'selected':''}>${esc(v)}</option>`).join('');}
 function schoolOptions(schools:School[]){return schools.map(s=>`<option value="${s.id}">${esc(s.name)} (${esc(s.code)})</option>`).join('');}
 async function showSecret(title:string,secret:string){const el=document.createElement('dialog');el.className='sa-dialog';const h=document.createElement('h2');h.textContent=title;const p=document.createElement('p');p.textContent='Simpan di tempat aman sebelum menutup. Nilai ini hanya ditampilkan satu kali.';const pre=document.createElement('pre');pre.textContent=secret;const close=document.createElement('button');close.className='button primary';close.textContent='Sudah disimpan';close.onclick=()=>el.close();el.append(h,p,pre,close);document.body.append(el);el.onclose=()=>el.remove();el.showModal();}
+
+interface CredentialItem { label: string; value: string; copyable?: boolean; }
+async function showCredentialsModal(title: string, subtitle: string, items: CredentialItem[]) {
+  return new Promise<void>((resolve) => {
+    const el = document.createElement('dialog');
+    el.className = 'sa-dialog sa-credentials-dialog';
+
+    const copyIconSvg = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
+    const checkIconSvg = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+
+    const itemsHtml = items.map((item, idx) => `
+      <div class="sa-cred-field">
+        <label>${esc(item.label)}</label>
+        <div class="sa-cred-input-wrap">
+          <input type="text" readonly value="${esc(item.value)}" id="cred-val-${idx}" class="sa-cred-input" />
+          ${item.copyable !== false ? `
+            <button type="button" class="sa-cred-copy-btn" data-target="cred-val-${idx}" title="Salin ${esc(item.label)}">
+              <span class="copy-icon">${copyIconSvg}</span>
+              <span class="copy-label">Salin</span>
+            </button>
+          ` : ''}
+        </div>
+      </div>
+    `).join('');
+
+    el.innerHTML = `
+      <div style="padding: 4px 0;">
+        <h2 style="margin-top:0; margin-bottom:6px; font-size:1.25rem; color:#0f172a; font-weight:700;">${esc(title)}</h2>
+        <p style="margin-top:0; margin-bottom:18px; font-size:0.875rem; color:#64748b; line-height: 1.4;">${esc(subtitle)}</p>
+        <div class="sa-cred-list" style="margin-bottom: 22px;">${itemsHtml}</div>
+        <div style="display:flex; justify-content:flex-end;">
+          <button type="button" data-close class="button primary" style="padding: 9px 22px; font-weight: 600; border-radius: 8px;">Sudah Disimpan</button>
+        </div>
+      </div>
+    `;
+
+    document.body.append(el);
+
+    el.querySelectorAll<HTMLButtonElement>('.sa-cred-copy-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const inputId = btn.getAttribute('data-target');
+        const input = el.querySelector(`#${inputId}`) as HTMLInputElement | null;
+        if (input && input.value) {
+          try {
+            await navigator.clipboard.writeText(input.value);
+            const iconSpan = btn.querySelector('.copy-icon');
+            const labelSpan = btn.querySelector('.copy-label');
+            if (iconSpan && labelSpan) {
+              iconSpan.innerHTML = checkIconSvg;
+              labelSpan.textContent = 'Tersalin!';
+              btn.style.borderColor = '#10b981';
+              btn.style.color = '#047857';
+              btn.style.background = '#ecfdf5';
+              setTimeout(() => {
+                iconSpan.innerHTML = copyIconSvg;
+                labelSpan.textContent = 'Salin';
+                btn.style.borderColor = '#cbd5e1';
+                btn.style.color = '#334155';
+                btn.style.background = '#ffffff';
+              }, 2000);
+            }
+            toastSuccess(`${itemLabel(input.value)} berhasil disalin!`);
+          } catch (err) {
+            console.error('Copy error:', err);
+          }
+        }
+      });
+    });
+
+    function itemLabel(val: string) { return val.length > 30 ? val.slice(0, 30) + '...' : val; }
+
+    el.addEventListener('close', () => { el.remove(); resolve(); }, { once: true });
+    el.querySelector('[data-close]')?.addEventListener('click', () => el.close());
+    el.showModal();
+  });
+}
+
 async function provisionRequest(path:string,fields:Record<string,unknown>){
  const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify({path,fields}))))).map(b=>b.toString(16).padStart(2,'0')).join('');
  const storageKey=`aksis.provision.${hash}`;
@@ -65,8 +142,8 @@ export async function mountPlatformPage(path:string,schools:School[],shell:Shell
     const create=document.createElement('button');create.className='button primary';create.innerHTML='<span>🏢</span> Daftarkan Sekolah Baru';
     wrap.appendChild(create);
     root.insertBefore(wrap,content);
-    create.onclick=()=>void busy(create,root,async()=>{const fd=await dialog('Daftarkan sekolah','<label>Kode sekolah<input name="code" pattern="[A-Z0-9][A-Z0-9_-]{1,49}" placeholder="Sistem ID (mis: SMAN1WTP)" required></label><label>Nama sekolah<input name="name" maxlength="200" placeholder="Contoh: SMA Negeri 1 Watampone" required></label><label>Zona waktu<select name="timezone">'+options(['Asia/Makassar','Asia/Jakarta','Asia/Jayapura'])+'</select></label>');if(!fd)return;const{data}=await provisionRequest('/platform/schools',Object.fromEntries(fd));await showSecret('Administrator sekolah',`${data.admin_email}\n${data.admin_password}`);navigate('/platform-schools');});
-    await table('/platform/schools',['Sekolah','Zona waktu','Status','Aksi'],r=>`<tr><td><strong>${esc(r.name)}</strong><small>${esc(r.code)}</small></td><td><span class="date-chip">${esc(r.timezone)}</span></td><td>${badge(r.status)}</td><td><div class="sa-actions">${btn('✏️ Ubah','edit',r.id)}${btn('👤 + Admin','admin',r.id)}${btn('🔑 Reset Pass','reset-pass',r.id)}</div></td></tr>`,async(action,id,r)=>{if(action==='edit'){const fd=await dialog('Ubah sekolah',`<label>Nama<input name="name" value="${esc(r.name)}" required></label><label>Zona waktu<select name="timezone">${options(['Asia/Makassar','Asia/Jakarta','Asia/Jayapura'],r.timezone)}</select></label><label>Status<select name="status">${options(['ACTIVE','SUSPENDED','INACTIVE'],r.status)}</select></label><p>Sekolah nonaktif tidak dapat memakai station atau akses operasional biasa.</p>`);if(!fd)return;await api(`/platform/schools/${r.id}`,{method:'PATCH',body:JSON.stringify(Object.fromEntries(fd))});}else if(action==='reset-pass'){const fd=await dialog('Reset Password Admin Sekolah',`<p style="margin-bottom:1rem;color:#334155">Reset password seluruh admin sekolah untuk <strong>${esc(r.name)}</strong> (${esc(r.code)}).</p><label>Password Baru<input name="password" value="password123" minlength="8" maxlength="128" required><small style="color:#64748b">Password default: password123</small></label>`,'Reset Password');if(!fd)return;const newPass=String(fd.get('password')||'password123');const res=await api<{message:string,new_password:string}>(`/platform/schools/${r.id}/reset-admin-password`,{method:'POST',body:JSON.stringify({password:newPass})});await showSecret(`Password Admin Sekolah Berhasil Di-reset`,`Sekolah: ${r.name}\nPassword Baru: ${res.data.new_password}`);toastSuccess(`Password admin ${r.name} berhasil di-reset ke "${res.data.new_password}".`);}else{const fd=await dialog('Tambah administrator',`<p>${esc(r.name)}</p><label>Nama<input name="full_name" required maxlength="200"></label><label>Email<input name="email" type="email" required></label><label>Password awal<div style="display:flex;gap:4px"><input name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required style="flex:1;min-width:0"><button type="button" class="button secondary" style="flex:none;width:48px;padding:0;display:flex;justify-content:center;align-items:center;color:#64748b" onclick="const i=this.previousElementSibling;if(i.type==='password'){i.type='text';this.querySelector('.eye-off').style.display='block';this.querySelector('.eye-on').style.display='none'}else{i.type='password';this.querySelector('.eye-off').style.display='none';this.querySelector('.eye-on').style.display='block'}" title="Lihat/sembunyikan password"><svg class="eye-on" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg><svg class="eye-off" style="display:none" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg></button></div></label>`);if(!fd)return;await provisionRequest(`/platform/schools/${r.id}/admin`,Object.fromEntries(fd));}});return;
+    create.onclick=()=>void busy(create,root,async()=>{const fd=await dialog('Daftarkan sekolah','<label>Kode sekolah<input name="code" pattern="[A-Z0-9][A-Z0-9_-]{1,49}" placeholder="Sistem ID (mis: SMAN1WTP)" required></label><label>Nama sekolah<input name="name" maxlength="200" placeholder="Contoh: SMA Negeri 1 Watampone" required></label><label>Zona waktu<select name="timezone">'+options(['Asia/Makassar','Asia/Jakarta','Asia/Jayapura'])+'</select></label>');if(!fd)return;const{data}=await provisionRequest('/platform/schools',Object.fromEntries(fd));await showCredentialsModal('Pendaftaran Sekolah Berhasil', 'Catat kredensial admin sekolah berikut.', [{ label: 'Email Admin Sekolah', value: data.admin_email, copyable: true }, { label: 'Password Admin Awal', value: data.admin_password, copyable: true }]);navigate('/platform-schools');});
+    await table('/platform/schools',['Sekolah','Zona waktu','Status','Aksi'],r=>`<tr><td><strong>${esc(r.name)}</strong><small>${esc(r.code)}</small></td><td><span class="date-chip">${esc(r.timezone)}</span></td><td>${badge(r.status)}</td><td><div class="sa-actions">${btn('✏️ Ubah','edit',r.id)}${btn('👤 + Admin','admin',r.id)}${btn('🔑 Reset Pass','reset-pass',r.id)}</div></td></tr>`,async(action,id,r)=>{if(action==='edit'){const fd=await dialog('Ubah sekolah',`<label>Nama<input name="name" value="${esc(r.name)}" required></label><label>Zona waktu<select name="timezone">${options(['Asia/Makassar','Asia/Jakarta','Asia/Jayapura'],r.timezone)}</select></label><label>Status<select name="status">${options(['ACTIVE','SUSPENDED','INACTIVE'],r.status)}</select></label><p>Sekolah nonaktif tidak dapat memakai station atau akses operasional biasa.</p>`);if(!fd)return;await api(`/platform/schools/${r.id}`,{method:'PATCH',body:JSON.stringify(Object.fromEntries(fd))});}else if(action==='reset-pass'){const fd=await dialog('Reset Password Admin Sekolah',`<p style="margin-bottom:1rem;color:#334155">Reset password seluruh admin sekolah untuk <strong>${esc(r.name)}</strong> (${esc(r.code)}).</p><label>Password Baru<input name="password" value="password123" minlength="8" maxlength="128" required><small style="color:#64748b">Password default: password123</small></label>`,'Reset Password');if(!fd)return;const newPass=String(fd.get('password')||'password123');const res=await api<{message:string,new_password:string,admin_email?:string,admin_emails?:string[],school_name?:string}>(`/platform/schools/${r.id}/reset-admin-password`,{method:'POST',body:JSON.stringify({password:newPass})});const adminEmailVal=res.data.admin_email||`admin@${r.code.toLowerCase()}.aksis.co.id`;const schoolNameVal=res.data.school_name||r.name;await showCredentialsModal('Password Admin Sekolah Berhasil Di-reset','Simpan email dan password baru ini di tempat aman.',[{label:'Sekolah',value:schoolNameVal,copyable:false},{label:'Email Admin Sekolah',value:adminEmailVal,copyable:true},{label:'Password Baru',value:res.data.new_password||newPass,copyable:true}]);toastSuccess(`Password admin ${r.name} berhasil di-reset.`);}else{const fd=await dialog('Tambah administrator',`<p>${esc(r.name)}</p><label>Nama<input name="full_name" required maxlength="200"></label><label>Email<input name="email" type="email" required></label><label>Password awal<div style="display:flex;gap:4px"><input name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required style="flex:1;min-width:0"><button type="button" class="button secondary" style="flex:none;width:48px;padding:0;display:flex;justify-content:center;align-items:center;color:#64748b" onclick="const i=this.previousElementSibling;if(i.type==='password'){i.type='text';this.querySelector('.eye-off').style.display='block';this.querySelector('.eye-on').style.display='none'}else{i.type='password';this.querySelector('.eye-off').style.display='none';this.querySelector('.eye-on').style.display='block'}" title="Lihat/sembunyikan password"><svg class="eye-on" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg><svg class="eye-off" style="display:none" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg></button></div></label>`);if(!fd)return;const{data}=await provisionRequest(`/platform/schools/${r.id}/admin`,Object.fromEntries(fd));await showCredentialsModal('Administrator Berhasil Ditambahkan',`Admin baru untuk ${r.name}`,[{label:'Email Admin',value:data.admin_email,copyable:true},{label:'Password Admin',value:data.admin_password,copyable:true}]);}});return;
   }
   if(path==='/platform-iam'){
   await table('/platform/iam',['Pengguna','Sekolah','Terakhir Login','Role & permission','Status','Aksi'],r=>`<tr><td><div class="cell-scroll"><strong>${esc(r.full_name)}</strong><small style="font-family:monospace;font-size:0.75rem">${esc(r.user_id)}</small></div></td><td><div class="cell-scroll"><strong>${esc(r.school_name)}</strong></div></td><td><div class="cell-scroll">${r.last_sign_in_at?`<span class="date-chip" style="padding:0.2rem 0.5rem;font-size:0.75rem">${esc(time(r.last_sign_in_at))}</span>`:'<span style="color:#94a3b8;font-size:0.75rem;font-style:italic">Belum pernah</span>'}</div></td><td><div class="cell-scroll">${(r.roles??[]).map((role:any)=>`<strong>${esc(role.code)}</strong><small>${(role.permissions??[]).join(', ')}</small>`).join('')}</div></td><td><button type="button" class="status-toggle-btn ${r.status==='ACTIVE'?'active':'inactive'}" data-action="toggle-status" data-id="${r.id}" title="${r.status==='ACTIVE'?'Klik untuk menonaktifkan (NON ACTIVE)':'Klik untuk mengaktifkan (ACTIVE)'}">${r.status==='ACTIVE'?'ACTIVE ✓':'NON ACTIVE'}</button></td><td><div class="sa-actions">${btn('🗑️ Hapus','delete',r.id)}</div></td></tr>`,async(action,id,r)=>{
