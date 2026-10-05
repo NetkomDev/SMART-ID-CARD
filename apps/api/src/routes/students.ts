@@ -6,7 +6,7 @@ import { asyncHandler } from "../middleware/async-handler.js";
 import { requirePermission } from "../middleware/tenant.js";
 import { validate } from "../middleware/validate.js";
 import { idParamsSchema } from "../schemas/common.js";
-import { createStudentSchema, updateStudentSchema } from "../schemas/student.js";
+import { batchStudentImportSchema, createStudentSchema, updateStudentSchema } from "../schemas/student.js";
 
 const router = Router();
 const selection = "id, school_id, nisn, student_number, full_name, gender, date_of_birth, pob, address, photo_url, is_active, created_at, updated_at, student_class_history(class_id, is_current, classes(id, name, code))";
@@ -298,6 +298,137 @@ router.post("/check-existing", requirePermission("student.read"), validate({ bod
 
   if (error) throw fromDatabaseError(error);
   sendData(res, { existing: data ?? [] });
+}));
+
+router.post("/batch", requirePermission("student.create"), validate({ body: batchStudentImportSchema }), asyncHandler(async (req, res) => {
+  const { students, overwrite } = req.body as { students: any[]; overwrite: boolean };
+  const schoolId = req.tenant!.schoolId;
+
+  if (students.length === 0) {
+    sendData(res, { success: true, inserted: 0, updated: 0, skipped: 0, total: 0 });
+    return;
+  }
+
+  const classIdCache = new Map<string, string | null>();
+  const getClassId = async (cId?: string | null, cName?: string | null) => {
+    const key = `${cId || ''}:${cName || ''}`;
+    if (classIdCache.has(key)) return classIdCache.get(key)!;
+    const resId = await resolveClassId(req.auth!.client, schoolId, cId, cName);
+    classIdCache.set(key, resId);
+    return resId;
+  };
+
+  const cleanedList = students.map((s, idx) => {
+    const cleanNisn = (typeof s.nisn === "string" && s.nisn.trim().length > 0) ? s.nisn.trim() : null;
+    const cleanStudentNumber = (typeof s.student_number === "string" && s.student_number.trim().length > 0)
+      ? s.student_number.trim()
+      : (cleanNisn || `STD-${Date.now()}-${idx}-${Math.floor(Math.random() * 1000)}`);
+    return {
+      ...s,
+      nisn: cleanNisn,
+      student_number: cleanStudentNumber
+    };
+  });
+
+  const nisns = cleanedList.map(s => s.nisn).filter(Boolean) as string[];
+  const numbers = cleanedList.map(s => s.student_number).filter(Boolean) as string[];
+
+  const filters: string[] = [];
+  if (nisns.length > 0) filters.push(`nisn.in.(${nisns.map(n => `"${n.replace(/"/g, '""')}"`).join(",")})`);
+  if (numbers.length > 0) filters.push(`student_number.in.(${numbers.map(n => `"${n.replace(/"/g, '""')}"`).join(",")})`);
+
+  let existingStudentsMap = new Map<string, any>();
+  if (filters.length > 0) {
+    const { data: existingData, error: checkErr } = await req.auth!.client
+      .from("students")
+      .select("id, nisn, student_number")
+      .eq("school_id", schoolId)
+      .is("deleted_at", null)
+      .or(filters.join(","));
+
+    if (checkErr) throw fromDatabaseError(checkErr);
+    (existingData || []).forEach((e: any) => {
+      if (e.nisn) existingStudentsMap.set(`nisn:${String(e.nisn).trim().toLowerCase()}`, e);
+      if (e.student_number) existingStudentsMap.set(`num:${String(e.student_number).trim().toLowerCase()}`, e);
+    });
+  }
+
+  const toInsert: any[] = [];
+  const toUpdate: Array<{ existingId: string; data: any; classId?: string | null }> = [];
+  let skipped = 0;
+
+  for (const item of cleanedList) {
+    const keyNisn = item.nisn ? `nisn:${item.nisn.toLowerCase()}` : null;
+    const keyNum = item.student_number ? `num:${item.student_number.toLowerCase()}` : null;
+    const existing = (keyNisn && existingStudentsMap.get(keyNisn)) || (keyNum && existingStudentsMap.get(keyNum));
+
+    const targetClassId = await getClassId(item.class_id, item.class_name);
+    const { class_id, class_name, ...dbData } = item;
+
+    if (existing) {
+      if (overwrite) {
+        toUpdate.push({ existingId: existing.id, data: dbData, classId: targetClassId });
+      } else {
+        skipped++;
+        if (targetClassId) {
+          await assignStudentClass(req.auth!.client, schoolId, existing.id, targetClassId);
+        }
+      }
+    } else {
+      toInsert.push({ ...dbData, school_id: schoolId, targetClassId });
+    }
+  }
+
+  let insertedCount = 0;
+  let updatedCount = 0;
+
+  if (toInsert.length > 0) {
+    const insertPayload = toInsert.map(({ targetClassId, ...rest }) => rest);
+    const { data: insertedData, error: insertErr } = await req.auth!.client
+      .from("students")
+      .insert(insertPayload)
+      .select("id, nisn, student_number");
+
+    if (insertErr) throw fromDatabaseError(insertErr);
+
+    insertedCount = insertedData?.length ?? toInsert.length;
+
+    if (insertedData) {
+      const assignPromises = insertedData.map(async (insertedItem: any, idx: number) => {
+        const targetClassId = toInsert[idx]?.targetClassId;
+        if (targetClassId) {
+          await assignStudentClass(req.auth!.client, schoolId, insertedItem.id, targetClassId);
+        }
+      });
+      await Promise.all(assignPromises);
+    }
+  }
+
+  if (toUpdate.length > 0) {
+    const updatePromises = toUpdate.map(async (u) => {
+      const { error: updErr } = await req.auth!.client
+        .from("students")
+        .update(u.data)
+        .eq("school_id", schoolId)
+        .eq("id", u.existingId);
+      if (updErr) throw fromDatabaseError(updErr);
+
+      if (u.classId) {
+        await assignStudentClass(req.auth!.client, schoolId, u.existingId, u.classId);
+      }
+    });
+
+    await Promise.all(updatePromises);
+    updatedCount = toUpdate.length;
+  }
+
+  sendData(res, {
+    success: true,
+    inserted: insertedCount,
+    updated: updatedCount,
+    skipped,
+    total: students.length
+  }, 200);
 }));
 
 router.post("/", requirePermission("student.create"), validate({ body: createStudentSchema }), asyncHandler(async (req, res) => {

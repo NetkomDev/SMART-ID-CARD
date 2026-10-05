@@ -60,45 +60,73 @@ export function fromDatabaseError(error: PostgrestError): ApiError {
     fs.appendFileSync(process.cwd() + "/db_error.log", new Date().toISOString() + " DB Error: " + JSON.stringify(error) + "\n");
   } catch (e) {}
 
+  const detailsStr = [error.message, error.details, error.hint].filter(Boolean).join(" | ");
+  const lower = detailsStr.toLowerCase();
+
   if (error.code === "PGRST202" && error.message.includes("is_platform_admin")) {
     return new ApiError(503, "DATABASE_NOT_READY", "Konfigurasi database Super Admin belum siap. Pengelola perlu menerapkan migrasi Super Admin dan memperbarui cache API database.");
   }
 
   if (error.code === "28000") {
-    return new ApiError(401, "DEVICE_AUTH_INVALID", "Device credential is invalid or expired");
+    return new ApiError(401, "DEVICE_AUTH_INVALID", "Kredensial perangkat tidak valid atau telah kadaluwarsa.");
   }
   if (error.code === "P0002") {
-    return new ApiError(404, "RESOURCE_NOT_FOUND", "Referenced resource was not found");
+    return new ApiError(404, "RESOURCE_NOT_FOUND", "Data atau referensi yang dituju tidak ditemukan di database.");
   }
   if (error.code === "AG002") {
-    return new ApiError(403, "DEVICE_NOT_GATE", "Device is not registered for gate attendance");
+    return new ApiError(403, "DEVICE_NOT_GATE", "Perangkat tidak terdaftar untuk absensi gerbang.");
   }
   if (error.code === "AG003") {
-    return new ApiError(403, "ATTENDANCE_DISABLED", "Gate attendance is disabled for this device");
+    return new ApiError(403, "ATTENDANCE_DISABLED", "Absensi gerbang sedang dinonaktifkan untuk perangkat ini.");
   }
   if (error.code === "AG004") {
-    return new ApiError(404, "CARD_NOT_FOUND", "Card was not found for this school");
+    return new ApiError(404, "CARD_NOT_FOUND", "Kartu siswa tidak ditemukan di sekolah ini.");
   }
   if (error.code === "AG005") {
-    return new ApiError(422, "CARD_BLOCKED", "Card is blocked, inactive, or expired");
+    return new ApiError(422, "CARD_BLOCKED", "Kartu terblokir, tidak aktif, atau kadaluwarsa.");
   }
   if (error.code === "AG006") {
-    return new ApiError(422, "STUDENT_INACTIVE", "Student is inactive");
+    return new ApiError(422, "STUDENT_INACTIVE", "Status siswa sedang tidak aktif.");
   }
   if (error.code === "AG007") {
-    return new ApiError(422, "GATE_RULE_VIOLATION", "Attendance event violates gate rules");
+    return new ApiError(422, "GATE_RULE_VIOLATION", "Transaksi absensi melanggar aturan gerbang.");
   }
   if (error.code === "42501") {
-    return new ApiError(403, "FORBIDDEN", error.message || "Database policy denied this operation");
+    return new ApiError(403, "FORBIDDEN", error.message || "Akses ditolak oleh kebijakan keamanan database. Pastikan akun Anda memiliki izin akses yang sesuai.");
   }
   if (error.code === "23505") {
-    return new ApiError(409, "CONFLICT", "Resource already exists");
+    let friendlyMessage = "Gagal menyimpan: Data yang dimasukkan sudah terdaftar di database (duplikat).";
+    if (lower.includes("nisn")) {
+      friendlyMessage = "Gagal menyimpan: NISN ini sudah terdaftar untuk siswa lain di sekolah Anda. Periksa kembali file impor Anda.";
+    } else if (lower.includes("student_number")) {
+      friendlyMessage = "Gagal menyimpan: Nomor Induk Siswa (NIS) ini sudah terdaftar untuk siswa lain.";
+    } else if (lower.includes("code")) {
+      friendlyMessage = "Gagal menyimpan: Kode unik ini sudah terdaftar di database.";
+    }
+    return new ApiError(409, "CONFLICT", friendlyMessage, { postgrest: error });
   }
-  if (error.code === "23503" || error.code === "23514") {
-    return new ApiError(422, "VALIDATION_ERROR", "Resource violates a data constraint");
+  if (error.code === "23503") {
+    let friendlyMessage = "Gagal menyimpan: Data merujuk pada referensi yang tidak ditemukan.";
+    if (lower.includes("class_id") || lower.includes("classes")) {
+      friendlyMessage = "Gagal menyimpan: Kelas tujuan tidak ditemukan di database sekolah.";
+    } else if (lower.includes("academic_year_id") || lower.includes("academic_years")) {
+      friendlyMessage = "Gagal menyimpan: Tahun ajaran aktif tidak ditemukan untuk sekolah ini.";
+    }
+    return new ApiError(422, "VALIDATION_ERROR", friendlyMessage, { postgrest: error });
+  }
+  if (error.code === "23514") {
+    let friendlyMessage = "Gagal menyimpan: Format atau isi data melanggar aturan constraint database.";
+    if (lower.includes("students_nisn_format")) {
+      friendlyMessage = "Gagal menyimpan: Format NISN tidak valid (harus berupa angka 4–20 digit).";
+    } else if (lower.includes("students_birth_not_future")) {
+      friendlyMessage = "Gagal menyimpan: Tanggal lahir siswa tidak boleh di masa depan.";
+    } else if (lower.includes("students_text_not_blank")) {
+      friendlyMessage = "Gagal menyimpan: Nama siswa dan NIS/Nomor Induk wajib diisi (tidak boleh kosong atau spasi).";
+    }
+    return new ApiError(422, "VALIDATION_ERROR", friendlyMessage, { postgrest: error });
   }
   if (error.code === "22023" || error.code === "P0001") {
-    return new ApiError(422, "VALIDATION_ERROR", error.message);
+    return new ApiError(422, "VALIDATION_ERROR", error.message || "Data input tidak valid.");
   }
-  return new ApiError(500, "DATABASE_ERROR", error.message || "Database operation failed");
+  return new ApiError(500, "DATABASE_ERROR", `Kendala database: ${error.message || "Operasi gagal"}${error.details ? ` (${error.details})` : ""}`);
 }

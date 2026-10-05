@@ -1817,27 +1817,20 @@ function studentImportPage(): void {
               btnExecute.textContent = "Menyimpan ke Database...";
 
               try {
-                let inserted = 0;
-                let updated = 0;
-                let skipped = 0;
+                const cleanStudents = parsedData.map(s => {
+                  const { isExisting, ...rest } = s;
+                  return rest;
+                });
 
-                for (const student of parsedData) {
-                  const payload = {
-                    ...student,
-                    overwrite: shouldOverwrite,
-                    skip_if_exists: !shouldOverwrite
-                  };
-                  delete payload.isExisting;
+                const batchRes = await api<{ success: boolean; inserted: number; updated: number; skipped: number; total: number }>("/students/batch", {
+                  method: "POST",
+                  body: JSON.stringify({
+                    students: cleanStudents,
+                    overwrite: shouldOverwrite
+                  })
+                });
 
-                  await api("/students", { method: "POST", body: JSON.stringify(payload) });
-
-                  if (student.isExisting) {
-                    if (shouldOverwrite) updated++;
-                    else skipped++;
-                  } else {
-                    inserted++;
-                  }
-                }
+                const { inserted = 0, updated = 0, skipped = 0 } = batchRes.data ?? {};
 
                 let summaryMsg = `Berhasil meng-import ${parsedData.length} siswa. (${inserted} siswa baru`;
                 if (updated > 0) summaryMsg += `, ${updated} data siswa diperbarui`;
@@ -1847,7 +1840,26 @@ function studentImportPage(): void {
                 toastSuccess(summaryMsg);
                 navigate(`/students${selectedTargetClassId ? `?class_id=${encodeURIComponent(selectedTargetClassId)}` : ""}`);
               } catch (error) {
-                preview.innerHTML = errorState(error);
+                const errMsg = error instanceof ApiClientError ? error.message : "Terjadi kendala saat meng-import data siswa.";
+                preview.innerHTML = `
+                  <div style="margin-top:1.5rem;padding:1.25rem;background:#fef2f2;border:1.5px solid #fca5a5;border-radius:0.75rem;">
+                    <h4 style="margin:0 0 0.5rem;color:#991b1b;display:flex;align-items:center;gap:0.5rem;font-size:1.05rem;">
+                      ❌ Impor Gagal Ditulis ke Database
+                    </h4>
+                    <p style="margin:0 0 1rem;font-size:0.9rem;color:#b91c1c;line-height:1.5;">
+                      ${escapeHtml(errMsg)}
+                    </p>
+                    <p style="font-size:0.82rem;color:#7f1d1d;margin:0 0 1rem;">
+                      💡 Periksa pesan kesalahan di atas, sesuaikan file Excel/CSV Anda atau centang opsi "Timpa / ganti data lama" jika data sudah pernah di-import sebelumnya.
+                    </p>
+                    <button type="button" class="button secondary" id="btn-retry-import" style="font-size:0.85rem;">Coba Lakukan Impor Ulang</button>
+                  </div>
+                `;
+                btnExecute.disabled = false;
+                btnExecute.textContent = `Import (${parsedData.length} Siswa)`;
+                document.getElementById("btn-retry-import")?.addEventListener("click", () => {
+                  btnExecute.click();
+                });
               }
             });
 
