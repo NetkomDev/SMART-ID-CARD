@@ -397,7 +397,8 @@ function front(c: Row, qr: string, customBgUrl?: string) {
   const studentName = s.student_name || 'ANDI MUHAMMAD ASYRAAF';
   const nisn = s.nisn || s.student_number || '0064821736';
   const className = s.class_name || 'X-2';
-  const genderText = (s.gender === 'F' || s.gender === 'P' || String(s.gender || '').toLowerCase().includes('perem')) ? 'Perempuan' : 'Laki-laki';
+  const rawGender = String(s.gender || '').trim().toUpperCase();
+  const genderText = (rawGender === 'FEMALE' || rawGender === 'F' || rawGender === 'P' || rawGender.includes('PEREM') || rawGender.includes('WANITA')) ? 'Perempuan' : 'Laki-laki';
   const formattedDob = formatIndonesianDate(s.date_of_birth, s.pob) || '14 Agustus 2008';
   const addressText = s.address || 'Jl. Pendidikan No. 12 Watampone, Bone';
   const logoHtml = getSchoolLogoHtml(s.school_logo_url);
