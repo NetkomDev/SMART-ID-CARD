@@ -223,12 +223,22 @@ async function production(root:HTMLElement,content:HTMLElement,schools:School[],
       templatesMap[`${t.level}_${t.side}`] = t.template_url;
     });
 
+    const resolveSchoolLevel = (snapshot: any): 'SD' | 'SMP' | 'SMA' => {
+      const schoolName = String(snapshot?.school_name || '').toUpperCase();
+      if (schoolName.includes('SD ') || schoolName.includes('SDN ') || schoolName.includes('SEKOLAH DASAR')) return 'SD';
+      if (schoolName.includes('SMP ') || schoolName.includes('SMPN ') || schoolName.includes('SEKOLAH MENENGAH PERTAMA')) return 'SMP';
+      if (schoolName.includes('SMA ') || schoolName.includes('SMAN ') || schoolName.includes('SMK ') || schoolName.includes('SEKOLAH MENENGAH ATAS')) return 'SMA';
+      const rawLvl = String(snapshot?.school_level || '').toUpperCase();
+      if (rawLvl === 'SD' || rawLvl === 'SMP' || rawLvl === 'SMA') return rawLvl as 'SD' | 'SMP' | 'SMA';
+      return 'SMA';
+    };
+
     const getFrontBg = (c: Row) => {
-      const lvl = c.print_snapshot?.school_level || 'SMA';
+      const lvl = resolveSchoolLevel(c.print_snapshot);
       return templatesMap[`${lvl}_front`] || c.print_snapshot?.card_template_front_url;
     };
     const getBackBg = (c: Row) => {
-      const lvl = c.print_snapshot?.school_level || 'SMA';
+      const lvl = resolveSchoolLevel(c.print_snapshot);
       return templatesMap[`${lvl}_back`] || c.print_snapshot?.card_template_back_url;
     };
 
@@ -537,7 +547,7 @@ ${platformCss}
 
 
 async function cardTemplatesPage(root: HTMLElement, content: HTMLElement, alive: () => boolean) {
-  let activeLevel: 'SD' | 'SMP' | 'SMA' = 'SMA';
+  let activeLevel: 'SD' | 'SMP' | 'SMA' = 'SD';
   let templatesData: Row[] = [];
 
   function getTemplateUrl(level: string, side: string): string {
@@ -591,17 +601,6 @@ async function cardTemplatesPage(root: HTMLElement, content: HTMLElement, alive:
     content.querySelectorAll<HTMLButtonElement>('[data-level]').forEach(b => {
       b.dataset.active = String(b.dataset.level === activeLevel);
     });
-  }
-
-  async function loadTemplates() {
-    try {
-      const res = await api<Row[]>('/platform/card-templates');
-      if (!alive()) return;
-      templatesData = res.data || [];
-      updateCardPreviews();
-    } catch (e) {
-      if (alive()) feedback(root, e);
-    }
   }
 
   function renderUI() {
@@ -790,9 +789,15 @@ async function cardTemplatesPage(root: HTMLElement, content: HTMLElement, alive:
     });
   }
 
-  // Render UI IMMEDIATELY (0ms)
+  // Load templates first, then render UI
+  try {
+    const res = await api<Row[]>('/platform/card-templates');
+    if (!alive()) return;
+    templatesData = res.data || [];
+  } catch (e) {
+    if (alive()) feedback(root, e);
+  }
+
   renderUI();
   feedback(root, '');
-  // Fetch templates in background and update previews in-place
-  void loadTemplates();
 }
