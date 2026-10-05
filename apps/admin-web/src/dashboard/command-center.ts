@@ -31,8 +31,26 @@ const periodLabels: Record<PeriodFilter, string> = {
   year: "Tahun ini"
 };
 
-// Realistic Demo Data Generator for presentation mode or zero-data off-hours
-function getDemoData(filters: Record<"arrivals" | "waste" | "library", PeriodFilter> = { arrivals: "today", waste: "today", library: "today" }) {
+export function detectSchoolLevel(school?: { name?: string; code?: string; level?: string }): "SD" | "SMP" | "SMA" {
+  if (school?.level === "SD" || school?.level === "SMP" || school?.level === "SMA") {
+    return school.level;
+  }
+  const name = (school?.name || "").toUpperCase();
+  const code = (school?.code || "").toUpperCase();
+  if (name.includes("SD") || name.includes("SEKOLAH DASAR") || code.startsWith("SD")) {
+    return "SD";
+  }
+  if (name.includes("SMP") || name.includes("SEKOLAH MENENGAH PERTAMA") || code.startsWith("SMP")) {
+    return "SMP";
+  }
+  return "SMA";
+}
+
+// Realistic Demo Data Generator for presentation mode or zero-data off-hours (SD, SMP, SMA aware)
+function getDemoData(
+  filters: Record<"arrivals" | "waste" | "library", PeriodFilter> = { arrivals: "today", waste: "today", library: "today" },
+  level: "SD" | "SMP" | "SMA" = "SMA"
+) {
   const mockSnapshot: Snapshot = {
     school_id: "demo",
     date: new Intl.DateTimeFormat("en-CA").format(new Date()),
@@ -47,92 +65,119 @@ function getDemoData(filters: Record<"arrivals" | "waste" | "library", PeriodFil
     }
   };
 
+  const classNames = {
+    SD: {
+      wasteTop1: "Kelas 6A", wasteTop2: "Kelas 5B", wasteTop3: "Kelas 4A",
+      lib1: "Kelas 5A", lib2: "Kelas 6B", lib3: "Kelas 4B", lib4: "Kelas 3A", lib5: "Kelas 2B", lib6: "Kelas 1B", lib7: "Kelas 2A", lib8: "Kelas 1A",
+      arr1: "Kelas 6A", arr2: "Kelas 5B", arr3: "Kelas 4A", arr4: "Kelas 6B",
+      supLate: ["Kelas 2B", "Kelas 4A", "Kelas 6B"],
+      supWaste: ["Kelas 1A", "Kelas 3B", "Kelas 5A"],
+      supLib: ["Kelas 1B", "Kelas 2A", "Kelas 4B"]
+    },
+    SMP: {
+      wasteTop1: "IX A", wasteTop2: "VIII B", wasteTop3: "VII A",
+      lib1: "VII B", lib2: "IX C", lib3: "VIII A", lib4: "VII A", lib5: "IX B", lib6: "VIII C", lib7: "VIII B", lib8: "VII C",
+      arr1: "VII A", arr2: "VII B", arr3: "VIII A", arr4: "IX B",
+      supLate: ["VII B", "VIII A", "IX C"],
+      supWaste: ["VII A", "VIII B", "IX A"],
+      supLib: ["VII C", "VIII C", "IX B"]
+    },
+    SMA: {
+      wasteTop1: "XII IPA 1", wasteTop2: "XI IPS 2", wasteTop3: "X MIPA 3",
+      lib1: "X MIPA 2", lib2: "XII IPA 3", lib3: "XI MIPA 1", lib4: "X IPS 1", lib5: "XII IPS 2", lib6: "XI-C", lib7: "XI-B", lib8: "X-A",
+      arr1: "X-A", arr2: "X-B", arr3: "XI MIPA 1", arr4: "XII MIPA 2",
+      supLate: ["X-B", "XI IPS 1", "XII MIPA 2"],
+      supWaste: ["X-A", "XI IPA 3", "XII IPS 1"],
+      supLib: ["X-C", "XI MIPA 2", "XII IPS 3"]
+    }
+  }[level];
+
   const wasteData: Record<PeriodFilter, ClassRank[]> = {
     today: [
-      { class_id: "c1", name: "XII IPA 1", value: 42.5, rank: 1 },
-      { class_id: "c2", name: "XI IPS 2", value: 34.0, rank: 2 },
-      { class_id: "c3", name: "X MIPA 3", value: 28.5, rank: 3 }
+      { class_id: "c1", name: classNames.wasteTop1, value: 42.5, rank: 1 },
+      { class_id: "c2", name: classNames.wasteTop2, value: 34.0, rank: 2 },
+      { class_id: "c3", name: classNames.wasteTop3, value: 28.5, rank: 3 }
     ],
     week: [
-      { class_id: "c1", name: "XII IPA 1", value: 245.0, rank: 1 },
-      { class_id: "c2", name: "XI IPS 2", value: 192.5, rank: 2 },
-      { class_id: "c3", name: "X MIPA 3", value: 158.0, rank: 3 }
+      { class_id: "c1", name: classNames.wasteTop1, value: 245.0, rank: 1 },
+      { class_id: "c2", name: classNames.wasteTop2, value: 192.5, rank: 2 },
+      { class_id: "c3", name: classNames.wasteTop3, value: 158.0, rank: 3 }
     ],
     month: [
-      { class_id: "c1", name: "XII IPA 1", value: 980.0, rank: 1 },
-      { class_id: "c2", name: "XI IPS 2", value: 785.0, rank: 2 },
-      { class_id: "c3", name: "X MIPA 3", value: 620.0, rank: 3 }
+      { class_id: "c1", name: classNames.wasteTop1, value: 980.0, rank: 1 },
+      { class_id: "c2", name: classNames.wasteTop2, value: 785.0, rank: 2 },
+      { class_id: "c3", name: classNames.wasteTop3, value: 620.0, rank: 3 }
     ],
     year: [
-      { class_id: "c1", name: "XII IPA 1", value: 11450.0, rank: 1 },
-      { class_id: "c2", name: "XI IPS 2", value: 9200.0, rank: 2 },
-      { class_id: "c3", name: "X MIPA 3", value: 7850.0, rank: 3 }
+      { class_id: "c1", name: classNames.wasteTop1, value: 11450.0, rank: 1 },
+      { class_id: "c2", name: classNames.wasteTop2, value: 9200.0, rank: 2 },
+      { class_id: "c3", name: classNames.wasteTop3, value: 7850.0, rank: 3 }
     ]
   };
 
   const libraryData: Record<PeriodFilter, ClassRank[]> = {
     today: [
-      { class_id: "c4", name: "X MIPA 2", value: 38, rank: 1 },
-      { class_id: "c5", name: "XII IPA 3", value: 29, rank: 2 },
-      { class_id: "c6", name: "XI MIPA 1", value: 24, rank: 3 },
-      { class_id: "c7", name: "X IPS 1", value: 18, rank: 4 },
-      { class_id: "c8", name: "XII IPS 2", value: 12, rank: 5 },
-      { class_id: "c9", name: "XI-C", value: 3, rank: 6 },
-      { class_id: "c10", name: "XI-B", value: 2, rank: 7 },
-      { class_id: "c11", name: "X-A", value: 0, rank: 8 }
+      { class_id: "c4", name: classNames.lib1, value: 38, rank: 1 },
+      { class_id: "c5", name: classNames.lib2, value: 29, rank: 2 },
+      { class_id: "c6", name: classNames.lib3, value: 24, rank: 3 },
+      { class_id: "c7", name: classNames.lib4, value: 18, rank: 4 },
+      { class_id: "c8", name: classNames.lib5, value: 12, rank: 5 },
+      { class_id: "c9", name: classNames.lib6, value: 3, rank: 6 },
+      { class_id: "c10", name: classNames.lib7, value: 2, rank: 7 },
+      { class_id: "c11", name: classNames.lib8, value: 0, rank: 8 }
     ],
     week: [
-      { class_id: "c4", name: "X MIPA 2", value: 210, rank: 1 },
-      { class_id: "c5", name: "XII IPA 3", value: 165, rank: 2 },
-      { class_id: "c6", name: "XI MIPA 1", value: 130, rank: 3 },
-      { class_id: "c7", name: "X IPS 1", value: 95, rank: 4 },
-      { class_id: "c8", name: "XII IPS 2", value: 62, rank: 5 },
-      { class_id: "c9", name: "XI-C", value: 12, rank: 6 },
-      { class_id: "c10", name: "XI-B", value: 6, rank: 7 },
-      { class_id: "c11", name: "X-A", value: 0, rank: 8 }
+      { class_id: "c4", name: classNames.lib1, value: 210, rank: 1 },
+      { class_id: "c5", name: classNames.lib2, value: 165, rank: 2 },
+      { class_id: "c6", name: classNames.lib3, value: 130, rank: 3 },
+      { class_id: "c7", name: classNames.lib4, value: 95, rank: 4 },
+      { class_id: "c8", name: classNames.lib5, value: 62, rank: 5 },
+      { class_id: "c9", name: classNames.lib6, value: 12, rank: 6 },
+      { class_id: "c10", name: classNames.lib7, value: 6, rank: 7 },
+      { class_id: "c11", name: classNames.lib8, value: 0, rank: 8 }
     ],
     month: [
-      { class_id: "c4", name: "X MIPA 2", value: 890, rank: 1 },
-      { class_id: "c5", name: "XII IPA 3", value: 680, rank: 2 },
-      { class_id: "c6", name: "XI MIPA 1", value: 540, rank: 3 },
-      { class_id: "c7", name: "X IPS 1", value: 410, rank: 4 },
-      { class_id: "c8", name: "XII IPS 2", value: 260, rank: 5 },
-      { class_id: "c9", name: "XI-C", value: 45, rank: 6 },
-      { class_id: "c10", name: "XI-B", value: 25, rank: 7 },
-      { class_id: "c11", name: "X-A", value: 0, rank: 8 }
+      { class_id: "c4", name: classNames.lib1, value: 890, rank: 1 },
+      { class_id: "c5", name: classNames.lib2, value: 680, rank: 2 },
+      { class_id: "c6", name: classNames.lib3, value: 540, rank: 3 },
+      { class_id: "c7", name: classNames.lib4, value: 410, rank: 4 },
+      { class_id: "c8", name: classNames.lib5, value: 260, rank: 5 },
+      { class_id: "c9", name: classNames.lib6, value: 45, rank: 6 },
+      { class_id: "c10", name: classNames.lib7, value: 25, rank: 7 },
+      { class_id: "c11", name: classNames.lib8, value: 0, rank: 8 }
     ],
     year: [
-      { class_id: "c4", name: "X MIPA 2", value: 10200, rank: 1 },
-      { class_id: "c5", name: "XII IPA 3", value: 7800, rank: 2 },
-      { class_id: "c6", name: "XI MIPA 1", value: 6100, rank: 3 },
-      { class_id: "c7", name: "X IPS 1", value: 4700, rank: 4 },
-      { class_id: "c8", name: "XII IPS 2", value: 3100, rank: 5 },
-      { class_id: "c9", name: "XI-C", value: 320, rank: 6 },
-      { class_id: "c10", name: "XI-B", value: 180, rank: 7 },
-      { class_id: "c11", name: "X-A", value: 0, rank: 8 }
+      { class_id: "c4", name: classNames.lib1, value: 10200, rank: 1 },
+      { class_id: "c5", name: classNames.lib2, value: 7800, rank: 2 },
+      { class_id: "c6", name: classNames.lib3, value: 6100, rank: 3 },
+      { class_id: "c7", name: classNames.lib4, value: 4700, rank: 4 },
+      { class_id: "c8", name: classNames.lib5, value: 3100, rank: 5 },
+      { class_id: "c9", name: classNames.lib6, value: 320, rank: 6 },
+      { class_id: "c10", name: classNames.lib7, value: 180, rank: 7 },
+      { class_id: "c11", name: classNames.lib8, value: 0, rank: 8 }
     ]
   };
 
   const arrivalsData: Record<PeriodFilter, { student_id: string; name: string; class_name: string; at: string; rank: number }[]> = {
     today: [
-      { student_id: "1", name: "Andi Muhammad Asyraaf", class_name: "X-A", at: new Date(Date.now() - 7200000).toISOString(), rank: 1 },
-      { student_id: "2", name: "Nur Aisyah Dahlan", class_name: "X-B", at: new Date(Date.now() - 7140000).toISOString(), rank: 2 },
-      { student_id: "3", name: "Fajri Ramadan", class_name: "XI MIPA 1", at: new Date(Date.now() - 7080000).toISOString(), rank: 3 }
+      { student_id: "1", name: "Andi Muhammad Asyraaf", class_name: classNames.arr1, at: new Date(Date.now() - 7200000).toISOString(), rank: 1 },
+      { student_id: "2", name: "Nur Aisyah Dahlan", class_name: classNames.arr2, at: new Date(Date.now() - 7140000).toISOString(), rank: 2 },
+      { student_id: "3", name: "Fajri Ramadan", class_name: classNames.arr3, at: new Date(Date.now() - 7080000).toISOString(), rank: 3 }
     ],
     week: [
-      { student_id: "1", name: "Andi Muhammad Asyraaf", class_name: "X-A", at: "5 hari hadir tepat waktu", rank: 1 },
-      { student_id: "2", name: "Fajri Ramadan", class_name: "XI MIPA 1", at: "5 hari hadir tepat waktu", rank: 2 },
-      { student_id: "3", name: "Nur Aisyah Dahlan", class_name: "X-B", at: "4 hari hadir tepat waktu", rank: 3 }
+      { student_id: "1", name: "Andi Muhammad Asyraaf", class_name: classNames.arr1, at: "5 hari hadir tepat waktu", rank: 1 },
+      { student_id: "2", name: "Fajri Ramadan", class_name: classNames.arr3, at: "5 hari hadir tepat waktu", rank: 2 },
+      { student_id: "3", name: "Nur Aisyah Dahlan", class_name: classNames.arr2, at: "4 hari hadir tepat waktu", rank: 3 }
     ],
     month: [
-      { student_id: "1", name: "Andi Muhammad Asyraaf", class_name: "X-A", at: "22 hari terdisiplin", rank: 1 },
-      { student_id: "2", name: "Fajri Ramadan", class_name: "XI MIPA 1", at: "21 hari terdisiplin", rank: 2 },
-      { student_id: "3", name: "Siti Nurhaliza", class_name: "XII MIPA 2", at: "20 hari terdisiplin", rank: 3 }
+      { student_id: "1", name: "Andi Muhammad Asyraaf", class_name: classNames.arr1, at: "22 hari terdisiplin", rank: 1 },
+      { student_id: "2", name: "Fajri Ramadan", class_name: classNames.arr3, at: "21 hari terdisiplin", rank: 2 },
+      { student_id: "3", name: "Siti Nurhaliza", class_name: classNames.arr4, at: "20 hari terdisiplin", rank: 3 }
     ],
     year: [
-      { student_id: "1", name: "Andi Muhammad Asyraaf", class_name: "X-A", at: "185 hari terdisiplin", rank: 1 },
-      { student_id: "2", name: "Fajri Ramadan", class_name: "XI MIPA 1", at: "180 hari terdisiplin", rank: 2 },
-      { student_id: "3", name: "Nur Aisyah Dahlan", class_name: "X-B", at: "176 hari terdisiplin", rank: 3 }
+      { student_id: "1", name: "Andi Muhammad Asyraaf", class_name: classNames.arr1, at: "185 hari terdisiplin", rank: 1 },
+      { student_id: "2", name: "Fajri Ramadan", class_name: classNames.arr3, at: "180 hari terdisiplin", rank: 2 },
+      { student_id: "3", name: "Nur Aisyah Dahlan", class_name: classNames.arr2, at: "176 hari terdisiplin", rank: 3 }
     ]
   };
 
@@ -193,27 +238,27 @@ function getDemoData(filters: Record<"arrivals" | "waste" | "library", PeriodFil
       total: 510,
       zero_count: 480,
       rows: [
-        { student_id: "s1", name: "Budi Santoso", class_name: "X-B", value: 4 },
-        { student_id: "s2", name: "Dewa Pratama", class_name: "XI IPS 1", value: 3 },
-        { student_id: "s3", name: "Citra Kirana", class_name: "XII MIPA 2", value: 2 }
+        { student_id: "s1", name: "Budi Santoso", class_name: classNames.supLate[0]!, value: 4 },
+        { student_id: "s2", name: "Dewa Pratama", class_name: classNames.supLate[1]!, value: 3 },
+        { student_id: "s3", name: "Citra Kirana", class_name: classNames.supLate[2]!, value: 2 }
       ]
     },
     waste: {
       total: 510,
       zero_count: 320,
       rows: [
-        { student_id: "s4", name: "Ahmad Rizky", class_name: "X-A", value: 0 },
-        { student_id: "s5", name: "Dian Sastro", class_name: "XI IPA 3", value: 0.1 },
-        { student_id: "s6", name: "Eka Putri", class_name: "XII IPS 1", value: 0.2 }
+        { student_id: "s4", name: "Ahmad Rizky", class_name: classNames.supWaste[0]!, value: 0 },
+        { student_id: "s5", name: "Dian Sastro", class_name: classNames.supWaste[1]!, value: 0.1 },
+        { student_id: "s6", name: "Eka Putri", class_name: classNames.supWaste[2]!, value: 0.2 }
       ]
     },
     library: {
       total: 510,
       zero_count: 210,
       rows: [
-        { student_id: "s7", name: "Fajar Nugraha", class_name: "X-C", value: 0 },
-        { student_id: "s8", name: "Gilang Ramadhan", class_name: "XI MIPA 2", value: 0 },
-        { student_id: "s9", name: "Hani Wijaya", class_name: "XII IPS 3", value: 1 }
+        { student_id: "s7", name: "Fajar Nugraha", class_name: classNames.supLib[0]!, value: 0 },
+        { student_id: "s8", name: "Gilang Ramadhan", class_name: classNames.supLib[1]!, value: 0 },
+        { student_id: "s9", name: "Hani Wijaya", class_name: classNames.supLib[2]!, value: 1 }
       ]
     }
   };
@@ -343,6 +388,8 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
   let deviceTotal = 0, deviceError = false;
   let wakeLock: WakeLockSentinel | null = null;
   let useDemoData = false;
+
+  const schoolLevel = detectSchoolLevel(options.school);
 
   const periodFilters: Record<"arrivals" | "waste" | "library", PeriodFilter> = {
     arrivals: "today",
@@ -659,7 +706,7 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
 
     // Auto demo fallback if metrics are empty/zero
     if (!isDemo && (!m || (m.attendance.students === 0 && m.waste.total_kg === 0 && m.library.visits === 0))) {
-      const demo = getDemoData();
+      const demo = getDemoData(undefined, schoolLevel);
       m = demo.snapshot.metrics;
       isDemo = true;
     }
@@ -689,7 +736,7 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
   }
 
   function paintArrivalChart() {
-    const demo = getDemoData(periodFilters);
+    const demo = getDemoData(periodFilters, schoolLevel);
     const points = (useDemoData || !snapshot || snapshot.metrics.attendance.students === 0) ? demo.hourly : demo.hourly;
     el("arrival-chart").innerHTML = renderArrivalLineChart(points);
   }
@@ -710,7 +757,7 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
   }
 
   function paintRankings() {
-    const demo = getDemoData(periodFilters);
+    const demo = getDemoData(periodFilters, schoolLevel);
     let r = rankings;
     if (useDemoData || !r || (r.arrivals.length === 0 && r.waste.length === 0)) {
       r = demo.rankings;
@@ -902,7 +949,7 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
   function paintSupport() {
     let s = support;
     if (useDemoData || !s || (!s.late.rows.length && !s.waste.rows.length)) {
-      s = getDemoData().support;
+      s = getDemoData(undefined, schoolLevel).support;
     }
 
     el("support-period").textContent = `${s.period_start} – ${s.period_end}`;
@@ -936,7 +983,7 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
 
     try {
       if (useDemoData) {
-        const demo = getDemoData();
+        const demo = getDemoData(periodFilters, schoolLevel);
         snapshot = demo.snapshot;
         rankings = demo.rankings;
         support = demo.support;
