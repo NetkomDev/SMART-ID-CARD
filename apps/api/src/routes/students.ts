@@ -208,19 +208,50 @@ async function assignStudentClass(client: any, schoolId: string, studentId: stri
 
   if (!activeYear) return;
 
+  const { data: currentHistory } = await client
+    .from("student_class_history")
+    .select("id, class_id, academic_year_id")
+    .eq("school_id", schoolId)
+    .eq("student_id", studentId)
+    .eq("is_current", true)
+    .maybeSingle();
+
+  if (currentHistory && currentHistory.class_id === classId && currentHistory.academic_year_id === activeYear.id) {
+    return;
+  }
+
   await client.from("student_class_history")
     .update({ is_current: false })
     .eq("school_id", schoolId)
     .eq("student_id", studentId);
 
-  await client.from("student_class_history").insert({
-    school_id: schoolId,
-    student_id: studentId,
-    class_id: classId,
-    academic_year_id: activeYear.id,
-    is_current: true,
-    start_date: new Date().toISOString().split("T")[0]
-  });
+  const todayStr = new Date().toISOString().split("T")[0];
+
+  const { data: existingHistory } = await client
+    .from("student_class_history")
+    .select("id")
+    .eq("school_id", schoolId)
+    .eq("student_id", studentId)
+    .eq("academic_year_id", activeYear.id)
+    .eq("class_id", classId)
+    .eq("start_date", todayStr)
+    .maybeSingle();
+
+  if (existingHistory) {
+    await client
+      .from("student_class_history")
+      .update({ is_current: true, end_date: null })
+      .eq("id", existingHistory.id);
+  } else {
+    await client.from("student_class_history").insert({
+      school_id: schoolId,
+      student_id: studentId,
+      class_id: classId,
+      academic_year_id: activeYear.id,
+      is_current: true,
+      start_date: todayStr
+    });
+  }
 }
 
 function formatStudentResponse(fullStudent: any) {
@@ -270,16 +301,31 @@ router.post("/check-existing", requirePermission("student.read"), validate({ bod
 }));
 
 router.post("/", requirePermission("student.create"), validate({ body: createStudentSchema }), asyncHandler(async (req, res) => {
-  const { class_id, class_name, overwrite, skip_if_exists, ...studentBody } = req.body as any;
+  const { class_id, class_name, overwrite, skip_if_exists, ...rawStudentBody } = req.body as any;
   const schoolId = req.tenant!.schoolId;
+
+  // Clean NISN and student_number
+  const cleanNisn = (typeof rawStudentBody.nisn === "string" && rawStudentBody.nisn.trim().length > 0)
+    ? rawStudentBody.nisn.trim()
+    : null;
+
+  const cleanStudentNumber = (typeof rawStudentBody.student_number === "string" && rawStudentBody.student_number.trim().length > 0)
+    ? rawStudentBody.student_number.trim()
+    : (cleanNisn || `STD-${Date.now()}-${Math.floor(Math.random() * 1000)}`);
+
+  const studentBody = {
+    ...rawStudentBody,
+    nisn: cleanNisn,
+    student_number: cleanStudentNumber
+  };
 
   // Search for existing student by NISN or student_number
   const searchConditions: string[] = [];
-  if (studentBody.nisn && String(studentBody.nisn).trim()) {
-    searchConditions.push(`nisn.eq."${String(studentBody.nisn).trim().replace(/"/g, '""')}"`);
+  if (studentBody.nisn) {
+    searchConditions.push(`nisn.eq."${studentBody.nisn.replace(/"/g, '""')}"`);
   }
-  if (studentBody.student_number && String(studentBody.student_number).trim()) {
-    searchConditions.push(`student_number.eq."${String(studentBody.student_number).trim().replace(/"/g, '""')}"`);
+  if (studentBody.student_number) {
+    searchConditions.push(`student_number.eq."${studentBody.student_number.replace(/"/g, '""')}"`);
   }
 
   let existingStudent: any = null;
@@ -390,6 +436,11 @@ router.patch("/:id", requirePermission("student.update"), validate({ params: idP
   }
 
   if (Object.keys(studentBody).length > 0) {
+    if (studentBody.nisn !== undefined) {
+      studentBody.nisn = (typeof studentBody.nisn === "string" && studentBody.nisn.trim().length > 0)
+        ? studentBody.nisn.trim()
+        : null;
+    }
     const { error: updateErr } = await req.auth!.client.from("students").update(studentBody)
       .eq("school_id", schoolId).eq("id", studentId).is("deleted_at", null);
     if (updateErr) throw fromDatabaseError(updateErr);
