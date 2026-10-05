@@ -9,7 +9,22 @@ export default defineConfig({
     emptyOutDir: true,
     sourcemap: false,
     target: "es2020",
-    chunkSizeWarningLimit: 300
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules/xlsx")) {
+            return "vendor-xlsx";
+          }
+          if (id.includes("node_modules/qrcode") || id.includes("node_modules/html5-qrcode")) {
+            return "vendor-qrcode";
+          }
+          if (id.includes("node_modules/@supabase")) {
+            return "vendor-supabase";
+          }
+        }
+      }
+    }
   },
   server: {
     host: true,
@@ -21,3 +36,4 @@ export default defineConfig({
     include: ['qrcode']
   }
 });
+

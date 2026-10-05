@@ -11,10 +11,90 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <title>AKSIS - Platform Smart ID Card Siswa & Kartu Pelajar Terintegrasi</title>
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        background-color: #172d28;
+        color: #f8fafc;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        min-height: 100vh;
+      }
+      .aksis-initial-loader {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        background: radial-gradient(circle at 50% 40%, #1c3a34 0%, #12221f 100%);
+        color: #ffffff;
+        text-align: center;
+        padding: 1.5rem;
+        box-sizing: border-box;
+      }
+      .aksis-loader-brand {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 2rem;
+      }
+      .aksis-loader-logo {
+        height: 76px;
+        width: auto;
+        object-fit: contain;
+        filter: drop-shadow(0 4px 14px rgba(0,0,0,0.4));
+        animation: aksisPulse 2s ease-in-out infinite;
+      }
+      .aksis-loader-spinner-ring {
+        position: relative;
+        width: 44px;
+        height: 44px;
+        margin-bottom: 1.25rem;
+      }
+      .aksis-loader-spinner-ring::before {
+        content: '';
+        box-sizing: border-box;
+        position: absolute;
+        inset: 0;
+        border: 3.5px solid rgba(255, 255, 255, 0.12);
+        border-top-color: #00e699;
+        border-right-color: #38bdf8;
+        border-radius: 50%;
+        animation: aksisSpin 0.75s cubic-bezier(0.68, -0.55, 0.27, 1.55) infinite;
+      }
+      .aksis-loader-title {
+        font-size: 1.05rem;
+        font-weight: 600;
+        color: #f1f5f9;
+        letter-spacing: 0.01em;
+        margin: 0 0 0.35rem 0;
+      }
+      .aksis-loader-subtitle {
+        font-size: 0.825rem;
+        color: #94a3b8;
+        margin: 0;
+      }
+      @keyframes aksisSpin {
+        to { transform: rotate(360deg); }
+      }
+      @keyframes aksisPulse {
+        0%, 100% { opacity: 0.92; transform: scale(1); }
+        50% { opacity: 1; transform: scale(1.02); }
+      }
+    </style>
   </head>
   <body>
     <a class="skip-link" href="#main-content">Lewati ke konten utama</a>
-    <div id="app"></div>
+    <div id="app">
+      <div class="aksis-initial-loader">
+        <div class="aksis-loader-brand">
+          <img src="/logo.png" alt="AKSIS Logo" class="aksis-loader-logo" />
+        </div>
+        <div class="aksis-loader-spinner-ring"></div>
+        <h3 class="aksis-loader-title">Memuat AKSIS Platform...</h3>
+        <p class="aksis-loader-subtitle">Smart School Ecosystem & Smart ID Card</p>
+      </div>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

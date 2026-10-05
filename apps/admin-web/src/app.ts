@@ -2751,7 +2751,7 @@ export async function render(): Promise<void> {
       return;
     }
 
-    if (isPlatformRoute(path)) { await bootstrap(); await mountPlatformPage(path, state.allSchools ?? [], shell, navigate); }
+    if (isPlatformRoute(path)) { await mountPlatformPage(path, state.allSchools ?? [], shell, navigate); }
     else if (path === "/") await dashboardPage();
     else if (path === "/students") await studentsPage();
     else if (path === "/academic-years") await academicYearsPage();
