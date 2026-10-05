@@ -1225,23 +1225,50 @@ async function linkView() {
     e.preventDefault();
     const d = new FormData(form);
     const errorEl = document.getElementById("error")!;
-    errorEl.style.display = "block";
-    errorEl.style.color = "#2563eb";
-    errorEl.style.padding = "10px 14px";
-    errorEl.style.borderRadius = "10px";
-    errorEl.style.background = "#eff6ff";
-    errorEl.style.border = "1px solid #bfdbfe";
-    errorEl.style.fontSize = "0.85rem";
-    errorEl.textContent = "🔄 Memverifikasi data anak dengan database sekolah…";
-
     const submit = form.querySelector<HTMLButtonElement>("button:not([type])")!;
+    const cancelBtn = document.getElementById("cancel-link") as HTMLButtonElement | null;
+    const inputs = form.querySelectorAll<HTMLInputElement>("input");
+
+    // 1. Visual processing state (banner + button + disabled inputs)
+    errorEl.style.display = "block";
+    errorEl.style.color = "#0369a1";
+    errorEl.style.padding = "12px 14px";
+    errorEl.style.borderRadius = "12px";
+    errorEl.style.background = "#e0f2fe";
+    errorEl.style.border = "1.5px solid #bae6fd";
+    errorEl.style.fontSize = "0.85rem";
+    errorEl.style.fontWeight = "600";
+    errorEl.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;">
+        <svg class="spin" style="width:20px;height:20px;flex-shrink:0;color:#0284c7;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle style="opacity:0.25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path style="opacity:0.75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <div>
+          <strong style="display:block;color:#0369a1;">Memverifikasi Data Siswa…</strong>
+          <span style="font-size:0.8rem;color:#0284c7;font-weight:400;">Menghubungkan ke database sekolah, mohon tunggu sebentar.</span>
+        </div>
+      </div>
+    `;
+
     submit.disabled = true;
+    if (cancelBtn) cancelBtn.disabled = true;
+    inputs.forEach(inp => inp.disabled = true);
+    submit.innerHTML = `
+      <span style="display:inline-flex;align-items:center;justify-content:center;gap:8px;">
+        <svg class="spin" style="width:18px;height:18px;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle style="opacity:0.25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path style="opacity:0.75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        Memproses Verifikasi...
+      </span>
+    `;
 
     const inputName = d.get("name") ? String(d.get("name")).trim() : "";
     const nameToSave = inputName || cachedParentName || "";
 
     try {
-      await request("/parent/link", {
+      const linkRes = await request<{ link_id: string; student_id: string }>("/parent/link", {
         method: "POST",
         body: JSON.stringify({
           nisn: String(d.get("nisn") ?? "").trim(),
@@ -1249,19 +1276,47 @@ async function linkView() {
           full_name: nameToSave
         })
       });
+
       if (nameToSave && nameToSave !== "Orang Tua") {
         cachedParentName = nameToSave;
         setStoredCache(CACHE_KEYS.PROFILE_NAME, cachedParentName);
       }
-      await fetchDashboardData();
+
+      // Success feedback & update state
+      errorEl.style.color = "#15803d";
+      errorEl.style.background = "#dcfce7";
+      errorEl.style.borderColor = "#86efac";
+      errorEl.innerHTML = `
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:1.3rem;">✨</span>
+          <div>
+            <strong style="display:block;color:#166534;">Anak Berhasil Dihubungkan!</strong>
+            <span style="font-size:0.8rem;color:#15803d;font-weight:400;">Dialihkan ke halaman Beranda...</span>
+          </div>
+        </div>
+      `;
+
+      const newStudentId = (linkRes as any)?.student_id;
+      if (newStudentId) {
+        selectedChildId = newStudentId;
+        setStoredCache(CACHE_KEYS.SELECTED_CHILD, newStudentId);
+      }
+
+      await fetchDashboardData(selectedChildId);
       offerInstall();
+
+      // Automatically navigate to Beranda (Home)
+      await dashboard(selectedChildId);
     } catch (err: any) {
       errorEl.style.color = "#991b1b";
       errorEl.style.background = "#fef2f2";
       errorEl.style.borderColor = "#fca5a5";
-      errorEl.textContent = "⚠️ " + (err?.message || "Data anak tidak ditemukan atau tidak cocok dengan database sekolah.");
-    } finally {
+      errorEl.innerHTML = "⚠️ " + (err?.message || "Data anak tidak ditemukan atau tidak cocok dengan database sekolah.");
+      
       submit.disabled = false;
+      if (cancelBtn) cancelBtn.disabled = false;
+      inputs.forEach(inp => inp.disabled = false);
+      submit.innerHTML = "Verifikasi & Hubungkan";
     }
   };
 }

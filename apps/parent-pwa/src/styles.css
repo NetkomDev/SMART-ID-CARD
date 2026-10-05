@@ -11,6 +11,8 @@ body::before { display: none; }
 .sync-progress-bar { position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, #269a68, #10b981, #06b6d4, #269a68); background-size: 200% 100%; animation: sync-loading 1.2s infinite linear; z-index: 100; opacity: 0; transition: opacity 0.2s ease; pointer-events: none; }
 .sync-progress-bar.active { opacity: 1; }
 @keyframes sync-loading { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+.spin { animation: spin 1s linear infinite; }
 .parent-header { padding: max(24px, env(safe-area-inset-top)) 24px 22px; border-radius: 0; background: #1f5642 url("/Header-PWA.svg") right center / cover no-repeat; box-shadow: 0 4px 18px rgba(31, 86, 66, 0.2); gap: 10px; }
 .brand { display: flex; align-items: center; gap: 13px; min-width: 0; }
 .parent-header .brand img { width: 60px; height: 60px!important; object-fit: contain; }
