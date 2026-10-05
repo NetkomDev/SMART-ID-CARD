@@ -151,15 +151,15 @@ body>main>#gate.portal-gate{margin:24px 16px!important}
 
 .brand{display:flex;align-items:center;gap:12px;min-width:0}
 
-/* Unified AKSIS PWA Header - Straight rectangular design matching Header-PWA.svg dimensions */
 .aksis-pwa-header, header.parent-header, header.waste-header, header.portal-header {
   position: relative !important;
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
-  padding: max(20px, env(safe-area-inset-top)) 24px 24px !important;
-  min-height: 110px !important;
-  background: #1f5642 url("/Header-PWA.svg") right center / cover no-repeat !important;
+  padding: max(18px, env(safe-area-inset-top)) 24px 18px !important;
+  height: 98px !important;
+  min-height: 98px !important;
+  background-color: #1f5642 !important;
   color: #ffffff !important;
   border: none !important;
   border-radius: 0 !important;
@@ -168,6 +168,25 @@ body>main>#gate.portal-gate{margin:24px 16px!important}
   box-shadow: 0 4px 18px rgba(31, 86, 66, 0.2) !important;
   margin-bottom: 0 !important;
   width: 100% !important;
+  overflow: visible !important;
+  box-sizing: border-box !important;
+}
+
+.aksis-pwa-header::after, header.parent-header::after, header.waste-header::after, header.portal-header::after {
+  content: "" !important;
+  position: absolute !important;
+  top: 0 !important;
+  right: 0 !important;
+  left: 0 !important;
+  height: 140px !important;
+  background: url("/Header-PWA.svg") right top / cover no-repeat !important;
+  pointer-events: none !important;
+  z-index: 1 !important;
+}
+
+.aksis-pwa-header > *, header.parent-header > *, header.waste-header > *, header.portal-header > * {
+  position: relative !important;
+  z-index: 2 !important;
 }
 
 .aksis-pwa-header .brand, header.parent-header .brand, header.waste-header .brand, header.portal-header .portal-brand {
