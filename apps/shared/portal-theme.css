@@ -151,19 +151,19 @@ body>main>#gate.portal-gate{margin:24px 16px!important}
 
 .brand{display:flex;align-items:center;gap:12px;min-width:0}
 
-/* Unified AKSIS PWA Header with 1 downward curve */
+/* Unified AKSIS PWA Header with Header-PWA.svg design */
 .aksis-pwa-header, header.parent-header, header.waste-header, header.portal-header {
   position: relative !important;
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
   padding: max(20px, env(safe-area-inset-top)) 24px 30px !important;
-  background: radial-gradient(ellipse at 20% 0%, #29634d, transparent 75%), #144837 !important;
+  background: #1f5642 url("/Header-PWA.svg") right center / cover no-repeat !important;
   color: #ffffff !important;
   border: none !important;
   border-bottom-left-radius: 50% 26px !important;
   border-bottom-right-radius: 50% 26px !important;
-  box-shadow: 0 8px 25px rgba(20, 72, 55, 0.2) !important;
+  box-shadow: 0 8px 25px rgba(31, 86, 66, 0.25) !important;
   margin-bottom: 0 !important;
   width: 100% !important;
 }
