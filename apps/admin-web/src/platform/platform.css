@@ -516,69 +516,54 @@
 }
 
 /* --------------------------------------------------------------------------
-   GRID DETAIL DATA SISWA (Jenis Kelamin, Tanggal Lahir, Alamat)
+   GRID DETAIL DATA SISWA DEPAN (3 ICON DETAIL: Tempat Lahir 📍, Tanggal Lahir 📅, Masa Berlaku 🛡️)
    -------------------------------------------------------------------------- */
 .id-details-grid {
   position: relative;
   z-index: 2;
   display: flex;
   flex-direction: column;
-  gap: 1mm;
-  font-size: 5pt;
-  /* Ukuran font detail data siswa */
+  gap: 1.2mm; /* Ubah jarak vertikal antar baris detail di sini */
+  font-size: 5.5pt; /* Ubah ukuran font detail di sini */
   color: #334155;
   margin-bottom: auto;
 }
 
 .detail-item {
   display: flex;
-  align-items: flex-start;
-  line-height: 1.25;
-}
-
-/* Icon / Logo kecil di depan detail - Dihapus karena sudah ada pada gambar template */
-.detail-icon {
-  display: none;
-}
-
-/* Label nama bidang (Jenis Kelamin, Tanggal Lahir, Alamat) */
-.detail-label {
-  width: 14mm;
-  height: 1.25em;
-  flex: none;
-  font-weight: 600;
-  color: #475569;
-  display: flex;
   align-items: center;
+  gap: 1.5mm; /* Jarak antara icon box dengan teks nilai */
+  line-height: 1.2;
 }
 
-/* Titik dua (:) */
-.detail-colon {
-  width: 1.5mm;
-  height: 1.25em;
+/* Container Icon Bulat Kecil */
+.detail-icon-box {
+  width: 3.8mm; /* Lebar container icon */
+  height: 3.8mm; /* Tinggi container icon */
   flex: none;
-  font-weight: 600;
-  color: #475569;
   display: flex;
   align-items: center;
   justify-content: center;
+  color: #0284c7; /* Warna SVG Icon (biru aksen) */
 }
 
+/* Icon SVG di dalam detail item */
+.detail-svg-icon {
+  width: 3.2mm; /* Lebar SVG icon */
+  height: 3.2mm; /* Tinggi SVG icon */
+  stroke-width: 2.2;
+}
+
+/* Nilai Teks Detail (Tempat Lahir, Tanggal Lahir, Masa Berlaku Kartu) */
 .detail-val {
   flex: 1;
   min-width: 0;
-  font-weight: 700;
-  color: #0f172a;
-  line-height: 1.25;
-}
-
-.addr-text {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
+  font-weight: 600;
+  color: #1e293b;
+  line-height: 1.2;
+  white-space: nowrap;
   overflow: hidden;
-  font-weight: 500;
+  text-overflow: ellipsis;
 }
 
 .emblem-watermark {

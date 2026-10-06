@@ -357,10 +357,9 @@ function generateCode128Svg(text: string): string {
   return `<svg viewBox="0 0 ${x} ${height}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;display:block;">${rects.join('')}</svg>`;
 }
 
-function formatIndonesianDate(dob?: string, pob?: string): string {
-  if (!dob && !pob) return '-';
-  let formattedDate = dob || '';
-  if (dob && /^\d{4}-\d{2}-\d{2}/.test(dob)) {
+function formatIndonesianDateOnly(dob?: string): string {
+  if (!dob) return '-';
+  if (/^\d{4}-\d{2}-\d{2}/.test(dob)) {
     const rawDatePart = dob.split('T')[0] ?? '';
     const parts = rawDatePart.split('-');
     if (parts.length >= 3) {
@@ -370,13 +369,31 @@ function formatIndonesianDate(dob?: string, pob?: string): string {
       const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
       const monthIdx = parseInt(m, 10) - 1;
       const monthName = months[monthIdx] ?? m;
-      formattedDate = `${parseInt(d, 10) || 1} ${monthName} ${y}`;
+      return `${parseInt(d, 10) || 1} ${monthName} ${y}`;
     }
   }
-  if (pob && formattedDate) {
-    return `${pob}, ${formattedDate}`;
+  return dob || '-';
+}
+
+/**
+ * FORMATTER MASA BERLAKU KARTU SISWA (S.D 30 JUNI {TAHUN_AKHIR})
+ * Contoh: TA 2026/2027 => s.d. 30 Juni 2027
+ */
+function formatValidityDate(academicYear?: string, validUntil?: string): string {
+  if (validUntil && validUntil.trim().length > 0) {
+    return `s.d. ${formatIndonesianDateOnly(validUntil)}`;
   }
-  return pob || formattedDate || '-';
+  if (academicYear) {
+    const years = academicYear.match(/\d{4}/g);
+    if (years && years.length >= 2) {
+      const endYear = years[1];
+      return `s.d. 30 Juni ${endYear}`;
+    } else if (years && years.length === 1) {
+      const endYear = parseInt(years[0], 10) + 1;
+      return `s.d. 30 Juni ${endYear}`;
+    }
+  }
+  return 's.d. 30 Juni 2027';
 }
 
 function getSchoolLogoHtml(logoUrl?: string): string {
@@ -391,16 +408,21 @@ function getSchoolLogoHtml(logoUrl?: string): string {
   </svg>`;
 }
 
+/* ==========================================================================
+   FUNGSI PEMBUAT HTML KARTU SISWA SISI DEPAN (FRONT CARD)
+   ========================================================================== */
 function front(c: Row, qr: string, customBgUrl?: string) {
   const s = c.print_snapshot ?? {};
   const schoolName = s.school_name || 'SMA NEGERI 3 WATAMPONE';
   const studentName = s.student_name || 'ANDI MUHAMMAD ASYRAAF';
   const nisn = s.nisn || s.student_number || '0064821736';
   const className = s.class_name || 'X-2';
-  const rawGender = String(s.gender || '').trim().toUpperCase();
-  const genderText = (rawGender === 'FEMALE' || rawGender === 'F' || rawGender === 'P' || rawGender.includes('PEREM') || rawGender.includes('WANITA')) ? 'Perempuan' : 'Laki-laki';
-  const formattedDob = formatIndonesianDate(s.date_of_birth, s.pob) || '14 Agustus 2008';
-  const addressText = s.address || 'Jl. Pendidikan No. 12 Watampone, Bone';
+  
+  /* DATA DETAIL 3 ICON SISWA */
+  const pobText = s.pob || 'Watampone';
+  const formattedDob = formatIndonesianDateOnly(s.date_of_birth) || '14 Agustus 2008';
+  const validityText = formatValidityDate(s.academic_year, s.valid_until);
+
   const logoHtml = getSchoolLogoHtml(s.school_logo_url);
   const photoUrl = (s.photo_url && String(s.photo_url).trim().length > 5) ? esc(s.photo_url) : `${location.origin}/logo.png`;
 
@@ -410,8 +432,10 @@ function front(c: Row, qr: string, customBgUrl?: string) {
   `;
 
   return `<div class="id-front-v2">
+    <!-- 1. LATAR / BACKGROUND TEMPLATE DEPAN -->
     ${bgHtml}
     
+    <!-- 2. HEADER KARTU: Logo & Nama Sekolah -->
     <div class="id-header-v2">
       <div class="header-logo">${logoHtml}</div>
       <div class="header-title-box">
@@ -420,12 +444,15 @@ function front(c: Row, qr: string, customBgUrl?: string) {
       </div>
     </div>
 
+    <!-- 3. BARIS UTAMA: Foto Siswa (Kiri) & Kelas/NISN/QR Code (Kanan) -->
     <div class="id-main-row">
+      <!-- FOTO SISWA -->
       <div class="photo-col">
         <div class="photo-frame">
           <img class="student-img" src="${photoUrl}" alt="${esc(studentName)}">
         </div>
       </div>
+      <!-- METADATA & QR CODE -->
       <div class="meta-col">
         <div class="meta-label">KELAS</div>
         <div class="meta-value-class">${esc(className)}</div>
@@ -437,26 +464,36 @@ function front(c: Row, qr: string, customBgUrl?: string) {
       </div>
     </div>
 
+    <!-- 4. BLOCK NAMA LENGKAP SISWA -->
     <div class="id-name-block">
       <div class="student-fullname">${esc(studentName)}</div>
       <div class="school-subname">${esc(schoolName)}</div>
     </div>
 
+    <!-- 5. GRID 3 DETAIL SISWA (1: TEMPAT LAHIR, 2: TANGGAL LAHIR, 3: MASA BERLAKU KARTU) -->
     <div class="id-details-grid">
+      <!-- ICON 1: TEMPAT LAHIR (📍 Pin Lokasi) -->
       <div class="detail-item">
-        <span class="detail-label">Jenis Kelamin</span>
-        <span class="detail-colon">:</span>
-        <span class="detail-val">${esc(genderText)}</span>
+        <span class="detail-icon-box">
+          <svg class="detail-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+        </span>
+        <span class="detail-val">${esc(pobText)}</span>
       </div>
+
+      <!-- ICON 2: TANGGAL LAHIR (📅 Kalender) -->
       <div class="detail-item">
-        <span class="detail-label">Tanggal Lahir</span>
-        <span class="detail-colon">:</span>
+        <span class="detail-icon-box">
+          <svg class="detail-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+        </span>
         <span class="detail-val">${esc(formattedDob)}</span>
       </div>
+
+      <!-- ICON 3: MASA BERLAKU KARTU (🛡️ Perisai Masa Berlaku) -->
       <div class="detail-item">
-        <span class="detail-label">Alamat</span>
-        <span class="detail-colon">:</span>
-        <span class="detail-val addr-text">${esc(addressText)}</span>
+        <span class="detail-icon-box">
+          <svg class="detail-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+        </span>
+        <span class="detail-val">${esc(validityText)}</span>
       </div>
     </div>
 
@@ -478,13 +515,14 @@ function back(c: Row, customBgUrl?: string) {
   const sigHtml = s.principal_signature_url ? `<img src="${esc(s.principal_signature_url)}" class="sig-img" alt="TTD">` : `<div class="sig-placeholder"></div>`;
   const barcodeCode = (s.school_code && nisn) ? `${s.school_code}-${nisn}` : (c.card_serial || 'SMAN3WTP-20250064821736');
   const barcodeSvg = generateCode128Svg(barcodeCode);
-  const websiteUrl = s.website || `www.${String(s.school_code || 'sman3watampone').toLowerCase()}.sch.id`;
 
   const bgHtml = customBgUrl ? `<img class="card-bg-template-img" src="${esc(customBgUrl)}" alt="Template Belakang">` : `<div class="back-top-polygon"></div>`;
 
   return `<div class="id-back-v2">
+    <!-- 1. LATAR / BACKGROUND TEMPLATE BELAKANG -->
     ${bgHtml}
 
+    <!-- 2. HEADER BELAKANG: Logo & Nama Sekolah -->
     <div class="back-header">
       <div class="back-header-left">
         <div class="back-logo">${logoHtml}</div>
@@ -492,6 +530,7 @@ function back(c: Row, customBgUrl?: string) {
       </div>
     </div>
 
+    <!-- 3. INFORMASI SISWA BELAKANG: NISN, Nama, Kelas, Tahun Ajaran -->
     <div class="back-blue-card">
       <div class="card-info-row">
         <div class="info-meta">
@@ -519,19 +558,24 @@ function back(c: Row, customBgUrl?: string) {
           <div class="info-lbl">Tahun Ajaran</div>
           <div class="info-txt bold">${esc(academicYear)}</div>
         </div>
+      </div>
     </div>
 
+    <!-- 4. BAGIAN BAWAH BELAKANG: BARCODE CODE128 & TTD KEPALA SEKOLAH (TIDAK BERUBAH) -->
     <div class="back-bottom-row">
+      <!-- A. BARCODE CODE128 (TIDAK BERUBAH) -->
       <div class="barcode-block">
         <div class="barcode-svg">${barcodeSvg}</div>
         <div class="barcode-text">${esc(barcodeCode)}</div>
       </div>
+      <!-- B. BLOK TANDA TANGAN KEPALA SEKOLAH (TIDAK BERUBAH) -->
       <div class="signature-block">
         <div class="sig-title">Kepala Sekolah</div>
         <div class="sig-image-wrap">${sigHtml}</div>
         <div class="sig-name">${esc(principalName)}</div>
         <div class="sig-nip">NIP. ${esc(principalNip)}</div>
       </div>
+    </div>
   </div>`;
 }
 
