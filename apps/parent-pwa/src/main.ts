@@ -104,142 +104,6 @@ function showSyncBar(show: boolean) {
   }
 }
 
-/**
- * FUNGSI CERDAS MAKEOVER FOTO SISWA HD & LATAR BIRU:
- * 1. Penajaman Kualitas HD (Sharpening Convolution & Contrast Enhancer) untuk foto buram.
- * 2. Deteksi & Penggantian Latar Belakang ke Biru Pas Foto Standar (#0052cc / Royal Blue).
- * 3. Presisi Posisi Pas Foto (Penyelarasan Kepala & Bahu secara Simetris).
- */
-function makeoverStudentPhoto(canvas: HTMLCanvasElement): HTMLCanvasElement {
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return canvas;
-
-  const w = canvas.width;
-  const h = canvas.height;
-  const imgData = ctx.getImageData(0, 0, w, h);
-  const data = imgData.data;
-
-  // A. Corner Color Sampling: Ambil sampel warna latar dari 4 sudut & tepi atas
-  let bgR = 0, bgG = 0, bgB = 0, sampleCount = 0;
-  const samplePoints = [
-    { x: 5, y: 5 }, { x: w - 5, y: 5 }, { x: 10, y: 15 }, { x: w - 10, y: 15 },
-    { x: Math.floor(w / 2), y: 5 }, { x: 5, y: Math.floor(h * 0.08) }, { x: w - 5, y: Math.floor(h * 0.08) }
-  ];
-
-  for (const pt of samplePoints) {
-    const idx = (pt.y * w + pt.x) * 4;
-    bgR += data[idx]!;
-    bgG += data[idx + 1]!;
-    bgB += data[idx + 2]!;
-    sampleCount++;
-  }
-
-  bgR = Math.round(bgR / sampleCount);
-  bgG = Math.round(bgG / sampleCount);
-  bgB = Math.round(bgB / sampleCount);
-
-  // Target Warna Latar Biru Pas Foto Standar (#0052cc)
-  const targetBlueR = 0;
-  const targetBlueG = 82;
-  const targetBlueB = 204;
-
-  // Masking Array untuk Segmentasi Subjek Siswa vs Background
-  const fgMask = new Uint8Array(w * h);
-
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const idx = (y * w + x) * 4;
-      const r = data[idx]!;
-      const g = data[idx + 1]!;
-      const b = data[idx + 2]!;
-
-      // Jarak warna dari sampel latar belakang
-      const colorDist = Math.sqrt((r - bgR) ** 2 + (g - bgG) ** 2 + (b - bgB) ** 2);
-
-      // Deteksi Warna Kulit Manusia
-      const isSkin = (r > 45 && g > 25 && b > 15 && r > g && (r - g) > 10 && (r - b) > 10);
-      // Deteksi Warna Rambut / Pakaian Gelap
-      const isHairOrDark = (r < 55 && g < 55 && b < 55 && y > h * 0.06);
-
-      // Subjek siswa jika memiliki warna kulit, rambut, atau beda dari latar
-      const isForeground = isSkin || isHairOrDark || (colorDist > 42 && y > h * 0.04);
-
-      if (isForeground) {
-        fgMask[y * w + x] = 1;
-      }
-    }
-  }
-
-  // B. Refine Foreground Mask & Ganti Latar ke Biru Pas Foto Standar
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const idx = (y * w + x) * 4;
-      const isFg = fgMask[y * w + x];
-
-      if (!isFg) {
-        // Latar Belakang Biru Pas Foto Standar HD dengan gradien halus
-        const vRatio = y / h;
-        data[idx] = Math.round(targetBlueR * (1 - vRatio * 0.15));
-        data[idx + 1] = Math.round(targetBlueG * (1 - vRatio * 0.1));
-        data[idx + 2] = Math.min(255, Math.round(targetBlueB * (1 - vRatio * 0.05)));
-      } else {
-        // Auto-Contrast & Color Brightness Enhancement (Mengubah foto buram jadi HD)
-        let r = data[idx]!;
-        let g = data[idx + 1]!;
-        let b = data[idx + 2]!;
-
-        r = Math.min(255, Math.max(0, Math.round(((r / 255 - 0.5) * 1.14 + 0.5) * 255 + 5)));
-        g = Math.min(255, Math.max(0, Math.round(((g / 255 - 0.5) * 1.14 + 0.5) * 255 + 5)));
-        b = Math.min(255, Math.max(0, Math.round(((b / 255 - 0.5) * 1.14 + 0.5) * 255 + 5)));
-
-        data[idx] = r;
-        data[idx + 1] = g;
-        data[idx + 2] = b;
-      }
-    }
-  }
-
-  ctx.putImageData(imgData, 0, 0);
-
-  // C. Unsharp Sharpening Convolution Filter (Mempertajam Deteksi Wajah & Rambut Blur)
-  const sharpCanvas = document.createElement("canvas");
-  sharpCanvas.width = w;
-  sharpCanvas.height = h;
-  const sharpCtx = sharpCanvas.getContext("2d")!;
-  sharpCtx.drawImage(canvas, 0, 0);
-
-  const sharpData = sharpCtx.getImageData(0, 0, w, h);
-  const src = new Uint8ClampedArray(sharpData.data);
-  const dst = sharpData.data;
-
-  // Matrix Kernel Penajaman Resolusi HD: [ [0, -0.35, 0], [-0.35, 2.4, -0.35], [0, -0.35, 0] ]
-  const weights = [0, -0.35, 0, -0.35, 2.4, -0.35, 0, -0.35, 0];
-
-  for (let y = 1; y < h - 1; y++) {
-    for (let x = 1; x < w - 1; x++) {
-      let r = 0, g = 0, b = 0;
-      for (let cy = -1; cy <= 1; cy++) {
-        for (let cx = -1; cx <= 1; cx++) {
-          const scx = x + cx;
-          const scy = y + cy;
-          const sidx = (scy * w + scx) * 4;
-          const wt = weights[(cy + 1) * 3 + (cx + 1)]!;
-          r += src[sidx]! * wt;
-          g += src[sidx + 1]! * wt;
-          b += src[sidx + 2]! * wt;
-        }
-      }
-      const didx = (y * w + x) * 4;
-      dst[didx] = Math.min(255, Math.max(0, Math.round(r)));
-      dst[didx + 1] = Math.min(255, Math.max(0, Math.round(g)));
-      dst[didx + 2] = Math.min(255, Math.max(0, Math.round(b)));
-    }
-  }
-
-  sharpCtx.putImageData(sharpData, 0, 0);
-  return sharpCanvas;
-}
-
 function showToastNotification(msg: string) {
   const toast = document.createElement("div");
   toast.style.cssText = "position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#0f172a;color:white;padding:12px 20px;border-radius:16px;box-shadow:0 10px 25px rgba(0,0,0,0.3);z-index:10000;font-size:0.88rem;font-weight:600;max-width:90%;text-align:center;border:1px solid #2563eb;";
@@ -290,8 +154,8 @@ function openPhotoCropperModal(studentId: string, studentName: string) {
       <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:12px 14px;margin-bottom:16px;font-size:0.82rem;color:#1e40af;">
         <strong style="display:block;margin-bottom:4px;color:#1e3a8a;">📌 Panduan Foto Resmi Sekolah:</strong>
         <ul style="margin:0;padding-left:16px;line-height:1.45;">
-          <li>Posisikan wajah di dalam **bingkai oval pas foto**</li>
-          <li>Sistem AI akan otomatis mengganti latar belakang ke Biru Pas Foto (#0000FF) & restorasi HD</li>
+          <li>Posisikan wajah di dalam bingkai oval pas foto</li>
+          <li>Latar biru & perbaikan pencahayaan diproses otomatis di server setelah foto dikirim</li>
         </ul>
       </div>
 
@@ -325,12 +189,6 @@ function openPhotoCropperModal(studentId: string, studentName: string) {
           </div>
         </div>
 
-        <div style="display:flex;gap:8px;margin-bottom:12px;width:100%;">
-          <button type="button" id="btn-auto-makeover" style="flex:1;padding:10px;border-radius:12px;background:linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);color:white;font-weight:700;font-size:0.85rem;border:none;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 4px 12px rgba(37,99,235,0.3);">
-            ✨ Makeover HD & Latar Biru
-          </button>
-        </div>
-
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;width:100%;justify-content:center;">
           <button type="button" id="btn-zoom-out" style="padding:6px 14px;border-radius:8px;border:1px solid #cbd5e1;background:white;font-weight:600;cursor:pointer;">🔍 -</button>
           <span style="font-size:0.82rem;color:#64748b;font-weight:500;">Geser & Zoom Foto</span>
@@ -356,7 +214,6 @@ function openPhotoCropperModal(studentId: string, studentName: string) {
   const cropperContainer = modal.querySelector("#cropper-container") as HTMLDivElement;
   const canvas = modal.querySelector("#cropper-canvas") as HTMLCanvasElement;
   const ctx = canvas.getContext("2d")!;
-  const btnMakeover = modal.querySelector("#btn-auto-makeover") as HTMLButtonElement;
   const zoomInBtn = modal.querySelector("#btn-zoom-in") as HTMLButtonElement;
   const zoomOutBtn = modal.querySelector("#btn-zoom-out") as HTMLButtonElement;
   const saveBtn = modal.querySelector("#btn-save-photo") as HTMLButtonElement;
@@ -369,7 +226,6 @@ function openPhotoCropperModal(studentId: string, studentName: string) {
   let isDragging = false;
   let startX = 0;
   let startY = 0;
-  let isMakeoverApplied = false;
 
   closeBtn.onclick = () => modal.remove();
   cameraBtn.onclick = () => cameraInput.click();
@@ -384,7 +240,6 @@ function openPhotoCropperModal(studentId: string, studentName: string) {
       img.onload = () => {
         loadedImg = img;
         cropperContainer.style.display = "flex";
-        isMakeoverApplied = false;
         
         const scaleX = 240 / img.width;
         const scaleY = 320 / img.height;
@@ -413,23 +268,7 @@ function openPhotoCropperModal(studentId: string, studentName: string) {
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, 240, 320);
     ctx.drawImage(loadedImg, offsetX, offsetY, loadedImg.width * scale, loadedImg.height * scale);
-
-    if (isMakeoverApplied) {
-      const processed = makeoverStudentPhoto(canvas);
-      ctx.drawImage(processed, 0, 0);
-    }
   }
-
-  btnMakeover.onclick = () => {
-    if (!loadedImg) return;
-    isMakeoverApplied = true;
-    draw();
-    btnMakeover.innerHTML = "✨ Makeover HD & Latar Biru (Aktif ✓)";
-    btnMakeover.style.background = "#16a34a";
-    statusDiv.style.color = "#16a34a";
-    statusDiv.style.fontWeight = "600";
-    statusDiv.textContent = "✨ Foto berhasil di-makeover ke resolusi HD & latar biru pas foto!";
-  };
 
   zoomInBtn.onclick = () => { scale *= 1.15; draw(); };
   zoomOutBtn.onclick = () => { scale /= 1.15; draw(); };
@@ -457,39 +296,39 @@ function openPhotoCropperModal(studentId: string, studentName: string) {
   saveBtn.onclick = () => {
     if (!loadedImg) return;
 
-    // 1. Persiapkan Foto Pemotongan & Makeover HD Latar Belakang Biru #0000FF
+    // 1. Hanya crop 3:4 foto ASLI (tanpa olah warna/segmentasi di HP).
+    //    Segmentasi latar, relighting & komposit biru dikerjakan di server.
+    const OUT_W = 900;  // <-- resolusi upload (sama dengan OUTPUT_WIDTH di server)
+    const OUT_H = 1200;
     const outCanvas = document.createElement("canvas");
-    outCanvas.width = 600;
-    outCanvas.height = 800;
+    outCanvas.width = OUT_W;
+    outCanvas.height = OUT_H;
     const outCtx = outCanvas.getContext("2d")!;
-    
-    const ratio = 600 / 240;
+    outCtx.imageSmoothingQuality = "high";
+    const ratio = OUT_W / 240;
     outCtx.fillStyle = "#ffffff";
-    outCtx.fillRect(0, 0, 600, 800);
+    outCtx.fillRect(0, 0, OUT_W, OUT_H);
     outCtx.drawImage(loadedImg, offsetX * ratio, offsetY * ratio, loadedImg.width * scale * ratio, loadedImg.height * scale * ratio);
+    const base64Photo = outCanvas.toDataURL("image/jpeg", 0.92);
 
-    const finalCanvas = makeoverStudentPhoto(outCanvas);
-    const base64Photo = finalCanvas.toDataURL("image/jpeg", 0.90);
-
-    // 2. Tutup Modal Secara Instant & Alihkan Orang Tua Langsung ke Halaman Home ID Siswa
+    // 2. Tutup modal & langsung kembali ke Home anak ini
     modal.remove();
-
-    // 3. Tampilkan Notifikasi Toast Latar Belakang
-    showToastNotification("🚀 Foto berhasil dikirim! Sistem AI AKSIS sedang memproses latar belakang biru & restorasi HD di latar belakang.");
-
-    // 4. Set Child ID & Alihkan Langsung ke Halaman Home Siswa
+    showToastNotification("🚀 Foto terkirim! Latar biru & pencahayaan sedang diproses otomatis. Anda tidak perlu melakukan apa-apa lagi.");
     selectedChildId = studentId;
     setStoredCache(CACHE_KEYS.SELECTED_CHILD, studentId);
     activeTab = "home";
+    void fetchDashboardData(studentId);
 
-    // 5. Eksekusi Pengunggahan ke Worker Backend di Latar Belakang
+    // 3. Upload + pemrosesan server berjalan di latar belakang
     void request(`/parent/children/${studentId}/photo`, {
       method: "POST",
       body: JSON.stringify({ photo_url: base64Photo })
     }).then(() => {
+      showToastNotification("✅ Foto siswa selesai diproses dan tersimpan.");
       void fetchDashboardData(studentId);
     }).catch((err) => {
       console.error("Background photo upload error:", err);
+      showToastNotification("❌ Foto gagal dikirim. Periksa koneksi lalu coba lagi.");
     });
   };
 }

@@ -81,15 +81,15 @@ router.post("/children/:id/photo", requireAuth, validate({ params: idParamsSchem
     throw new ApiError(400, "VALIDATION_ERROR", "Photo data is required");
   }
 
-  // Eksekusi Worker Pipeline: Segmentasi Background Blue #0000FF & Restorasi Wajah HD (Photoroom/Clipdrop/Native AI)
-  const processedPhoto = await processStudentPhotoWorker(photo_url.trim());
+  // Worker pipeline server-side: Photoroom (bg + relighting) / Clipdrop + sharp / foto asli
+  const processed = await processStudentPhotoWorker(photo_url.trim());
 
   const { data, error } = await req.auth!.client.rpc("update_student_photo_by_parent", {
     p_student_id: req.params.id,
-    p_photo_data: processedPhoto
+    p_photo_data: processed.dataUrl
   });
   if (error) throw fromDatabaseError(error);
-  sendData(res, data, 200);
+  sendData(res, { result: data, photo_provider: processed.provider }, 200);
 }));
 
 router.post("/link-tokens", requireAuth, requireTenant, requirePermission("parent.manage"),

@@ -274,7 +274,7 @@
   background: #ffffff;
   display: flex;
   flex-direction: column;
-  padding: 4mm 4mm 3mm 4mm;
+  padding: 4mm 4mm 1mm 4mm;
   /* Padding kartu depan: 4mm atas, 4mm kanan, 3mm bawah, 4mm kiri */
   overflow: hidden;
   color: #0f172a;
@@ -472,7 +472,7 @@
 .id-bottom-meta {
   position: absolute;
   z-index: 2;
-  bottom: 7.5mm; /* <-- GESER NISN & KELAS NAIK KE ATAS (Angka DIBESARKAN = LEBIH NAIK) */
+  bottom: 6.5mm; /* <-- GESER NISN & KELAS NAIK KE ATAS (Angka DIBESARKAN = LEBIH NAIK) */
   left: 0;
   width: 100%;
   display: flex;
@@ -488,8 +488,8 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  margin-left: 0mm;  /* <-- GESER NISN KIRI/KANAN (Positif = Ke Kanan, Negatif = Ke Kiri) */
-  margin-top: -2mm;  /* <-- GESER NISN ATAS/BAWAH (Negatif = NAIK) */
+  margin-left: 0.5mm;  /* <-- GESER NISN KIRI/KANAN (Positif = Ke Kanan, Negatif = Ke Kiri) */
+  margin-top: 4mm;  /* <-- GESER NISN ATAS/BAWAH (Negatif = NAIK) */
   width: 25mm;
 }
 
@@ -499,13 +499,13 @@
   flex-direction: column;
   align-items: flex-start;
   margin-left: 2.8mm; /* <-- GESER KELAS KIRI/KANAN (Positif = Ke Kanan, Negatif = Ke Kiri) */
-  margin-top: -2mm;  /* <-- GESER KELAS ATAS/BAWAH (Negatif = NAIK) */
+  margin-top: 4mm;  /* <-- GESER KELAS ATAS/BAWAH (Negatif = NAIK) */
   flex: 1;
 }
 
 /* Nilai Teks NISN & KELAS */
 .bottom-meta-val {
-  font-size: 8.5pt;
+  font-size: 9.5pt;
   /* Ukuran font Nilai NISN & KELAS */
   font-weight: 900;
   color: #002554;
@@ -721,7 +721,7 @@
   z-index: 2;
   top: 60mm;   /* <-- GESER BARCODE KE BAWAH (DIBESARKAN = TURUN KE BAWAH) */
   left: 5.5mm;   /* <-- GESER BARCODE KIRI/KANAN */
-  width: 20mm; /* <-- LEBAR BARCODE */
+  width: 24mm; /* <-- LEBAR BARCODE */
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -753,15 +753,15 @@
   position: absolute;
   z-index: 2;
   top: 67mm;   /* <-- GESER TTD/KEPALA SEKOLAH KE BAWAH (DIBESARKAN = TURUN KE BAWAH) */
-  left: 20mm;  /* <-- GESER TTD/KEPALA SEKOLAH KIRI/KANAN */
-  width: 30mm; /* <-- LEBAR AREA TTD/KEPALA SEKOLAH */
+  left: 17mm;  /* <-- GESER TTD/KEPALA SEKOLAH KIRI/KANAN */
+  width: 35mm; /* <-- LEBAR AREA TTD/KEPALA SEKOLAH */
   text-align: center;
   display: flex;
   flex-direction: column;
 }
 
 .sig-title {
-  font-size: 4.2pt;
+  font-size: 5pt;
   font-weight: 700;
   color: #334155;
   margin-bottom: 0.4mm;
@@ -775,7 +775,7 @@
 }
 
 .sig-img {
-  max-height: 5.5mm;
+  max-height: 8.5mm;
   max-width: 18mm;
   object-fit: contain;
 }
@@ -785,7 +785,7 @@
 }
 
 .sig-name {
-  font-size: 4.5pt;
+  font-size: 5pt;
   font-weight: 800;
   color: #0f172a;
   text-decoration: underline;
