@@ -654,6 +654,89 @@ function parentLayout(contentHTML: string, tabName: "home" | "add" | "profile" =
   `;
 }
 
+// Child Picker Bottom Sheet Modal
+function openChildPickerModal(children: Child[], activeStudentId: string) {
+  const existingModal = document.querySelector(".child-picker-overlay");
+  if (existingModal) existingModal.remove();
+
+  const modal = document.createElement("div");
+  modal.className = "child-picker-overlay";
+  
+  modal.innerHTML = `
+    <div class="child-picker-sheet">
+      <div class="sheet-pull-bar"></div>
+      <div class="sheet-header">
+        <div>
+          <h3 class="sheet-title">Pilih Anak</h3>
+          <p class="sheet-subtitle">Pilih data siswa yang ingin ditampilkan</p>
+        </div>
+        <button id="close-child-picker-x" class="btn-sheet-close" aria-label="Tutup">&times;</button>
+      </div>
+      <div class="child-options-list">
+        ${children.map(c => {
+          const isSelected = c.student_id === activeStudentId;
+          const cachedToday = getStoredCache<ParentTodayData>(CACHE_KEYS.TODAY(c.student_id));
+          const photoUrl = cachedToday?.profile?.photo_url ?? null;
+          const initials = c.full_name.split(/\s+/).slice(0, 2).map(n => n[0]).join("").toUpperCase();
+
+          return `
+            <button type="button" class="child-option-card ${isSelected ? 'active' : ''}" data-student-id="${esc(c.student_id)}">
+              <div class="child-option-avatar-wrap">
+                ${photoUrl ? `
+                  <img src="${esc(photoUrl)}" class="child-option-avatar" alt="${esc(c.full_name)}" />
+                ` : `
+                  <div class="child-option-fallback">${esc(initials)}</div>
+                `}
+              </div>
+              <div class="child-option-details">
+                <h4 class="child-option-name">${esc(c.full_name)}</h4>
+                <div class="child-option-meta">
+                  <span class="meta-school">${esc(c.school_name)}</span>
+                  <span class="meta-dot">•</span>
+                  <span class="meta-class">${esc(c.class_name || 'Belum ada kelas')}</span>
+                </div>
+              </div>
+              <div class="child-option-radio">
+                ${isSelected ? `
+                  <div class="radio-checked-badge">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  </div>
+                ` : `
+                  <div class="radio-unchecked-circle"></div>
+                `}
+              </div>
+            </button>
+          `;
+        }).join("")}
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  const closeModal = () => {
+    modal.classList.add("closing");
+    setTimeout(() => modal.remove(), 200);
+  };
+
+  modal.querySelector("#close-child-picker-x")?.addEventListener("click", closeModal);
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) closeModal();
+  });
+
+  modal.querySelectorAll<HTMLButtonElement>(".child-option-card").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const studentId = btn.dataset.studentId;
+      if (studentId) {
+        selectedChildId = studentId;
+        setStoredCache(CACHE_KEYS.SELECTED_CHILD, studentId);
+        closeModal();
+        void dashboard(selectedChildId);
+      }
+    });
+  });
+}
+
 // Synchronous 0ms Dashboard UI Renderer
 function renderDashboardUI(children: Child[], selected: Child, data: ParentTodayData) {
   dashboardVisible = true;
@@ -683,15 +766,6 @@ function renderDashboardUI(children: Child[], selected: Child, data: ParentToday
   const initials = profile.full_name.split(/\s+/).slice(0, 2).map(n => n[0]).join("").toUpperCase();
 
   const contentHTML = `
-    ${children.length > 1 ? `
-      <div class="child-picker-container">
-        <label class="sr-only" for="child-picker">Pilih anak</label>
-        <select id="child-picker" class="child-picker-select">
-          ${children.map(c => `<option value="${esc(c.student_id)}" ${c.student_id === selectedChildId ? 'selected' : ''}>Anak: ${esc(c.full_name)} (${esc(c.school_name)})</option>`).join("")}
-        </select>
-      </div>
-    ` : ""}
-
     <div class="parent-content">
       ${!profile.photo_url ? `
         <div class="photo-warning-banner" style="background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%); border: 1.5px solid #fdba74; border-radius: 16px; padding: 16px 18px; margin-bottom: 18px; display: flex; align-items: center; gap: 14px; box-shadow: 0 4px 12px rgba(234,88,12,0.08);">
@@ -705,15 +779,15 @@ function renderDashboardUI(children: Child[], selected: Child, data: ParentToday
       ` : ""}
 
       <!-- Student Profile Card -->
-      <section class="student-profile-card" style="cursor:pointer;" title="${profile.photo_url ? 'Klik untuk melihat foto full / mengganti foto' : 'Klik untuk mengunggah foto siswa'}">
-        <div class="student-avatar-wrap">
+      <section class="student-profile-card">
+        <div class="student-avatar-wrap" id="btn-avatar-action" style="cursor:pointer;" title="${profile.photo_url ? 'Klik untuk melihat foto full / mengganti foto' : 'Klik untuk mengunggah foto siswa'}">
           ${profile.photo_url ? `
             <img src="${esc(profile.photo_url)}" class="student-avatar" alt="${esc(profile.full_name)}" />
           ` : `
             <div class="avatar-fallback">${esc(initials)}</div>
           `}
         </div>
-        <div class="student-details">
+        <div class="student-details" id="btn-child-switcher-details" style="${children.length > 1 ? 'cursor:pointer;' : ''}" title="${children.length > 1 ? 'Klik untuk memilih anak' : ''}">
           <h2>${esc(profile.full_name)}</h2>
           <div class="info-row">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M3 7v14M21 7v14M6 21V11M18 21V11M12 21V4M12 4L4 7M12 4l8 3"/></svg>
@@ -728,6 +802,13 @@ function renderDashboardUI(children: Child[], selected: Child, data: ParentToday
             <span>${esc(formattedDate)}</span>
           </div>
         </div>
+        ${children.length > 1 ? `
+          <button type="button" class="btn-switch-child" id="btn-switch-child" aria-label="Ganti Pilihan Anak" title="Pilih Anak">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+          </button>
+        ` : ""}
       </section>
 
       <!-- 2x2 Grid -->
@@ -911,7 +992,20 @@ function renderDashboardUI(children: Child[], selected: Child, data: ParentToday
   };
 
   document.getElementById("btn-open-photo-modal")?.addEventListener("click", () => openPhotoCropperModal(selected.student_id, profile.full_name));
-  document.querySelector(".student-profile-card")?.addEventListener("click", handlePhotoClick);
+  document.getElementById("btn-avatar-action")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    handlePhotoClick();
+  });
+
+  if (children.length > 1) {
+    const handleSwitchChild = (e: Event) => {
+      e.stopPropagation();
+      openChildPickerModal(children, selectedChildId);
+    };
+
+    document.getElementById("btn-switch-child")?.addEventListener("click", handleSwitchChild);
+    document.getElementById("btn-child-switcher-details")?.addEventListener("click", handleSwitchChild);
+  }
 
   const drawer = document.querySelector<HTMLDialogElement>("#timeline-drawer")!;
   const openDrawer = (prefix = "") => {
@@ -957,12 +1051,6 @@ function renderDashboardUI(children: Child[], selected: Child, data: ParentToday
   
   document.querySelector<HTMLImageElement>(".student-avatar")?.addEventListener("error", event => {
     (event.target as HTMLImageElement).parentElement!.innerHTML = `<div class="avatar-fallback">${esc(initials)}</div>`;
-  });
-
-  document.querySelector<HTMLSelectElement>('#child-picker')?.addEventListener('change', event => {
-    selectedChildId = (event.target as HTMLSelectElement).value;
-    setStoredCache(CACHE_KEYS.SELECTED_CHILD, selectedChildId);
-    void dashboard(selectedChildId);
   });
 }
 
