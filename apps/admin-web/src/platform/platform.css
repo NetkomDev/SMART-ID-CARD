@@ -318,21 +318,22 @@
 }
 
 /* --------------------------------------------------------------------------
-   HEADER DEPAN: NAMA SEKOLAH (DIGESER KE ATAS, TANPA LOGO SEKOLAH)
+   HEADER DEPAN: NAMA SEKOLAH (DIGESER KE KANAN MELEWATI GARIS LOGO)
    -------------------------------------------------------------------------- */
 .id-header-v2 {
   position: relative;
-  z-index: 2;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  margin-top: 1.5mm; /* Geser posisi Nama Sekolah lebih ke atas */
-  margin-bottom: 3.5mm;
+  margin-top: 2.5mm;
+  margin-bottom: 2mm;
 }
 
 .header-title-box {
   flex: 1;
   min-width: 0;
+  margin-left: 11mm; /* Geser Nama Sekolah ke kanan melewati garis vertikal logo template */
 }
 
 /* Ukuran & Gaya Font Nama Sekolah di Header Atas */
@@ -341,7 +342,7 @@
   /* Ubah ukuran font Nama Sekolah di sini */
   font-weight: 800;
   color: #ffffff;
-  /* Warna teks putih agar tampak kontras & jelas di atas banner biru */
+  /* Teks putih terlihat jelas & kontras di atas banner biru */
   line-height: 1.15;
   text-transform: uppercase;
   letter-spacing: 0.2px;
@@ -359,38 +360,38 @@
 }
 
 /* --------------------------------------------------------------------------
-   BARIS UTAMA DEPAN: FOTO SISWA (KIRI, FULL BINGKAI) DAN QR CODE (KANAN)
+   BARIS UTAMA DEPAN: FOTO SISWA (DIGESER NAIK KE FRAME TEMPLATE) & QR CODE (DIGESER TURUN)
    -------------------------------------------------------------------------- */
 .id-main-row {
   position: relative;
   z-index: 2;
   display: flex;
   gap: 3mm;
-  align-items: center;
-  margin-top: 2mm;
-  margin-bottom: 2mm;
-  padding-left: 1mm;
+  align-items: flex-start;
+  margin-top: 1mm; /* Geser Foto Siswa NAIK agar pas di dalam frame template */
+  margin-bottom: 1mm;
+  padding-left: 0.8mm;
   padding-right: 1mm;
 }
 
 /* Kolom Foto Siswa */
 .photo-col {
-  width: 24mm;
+  width: 25.5mm;
   /* Ubah lebar kolom foto di sini */
   flex: none;
 }
 
-/* Bingkai / Frame Foto Siswa - Rapi Full di Dalam Bingkai */
+/* Bingkai / Frame Foto Siswa - Pas Sesuai Bingkai Template */
 .photo-frame {
-  width: 24mm;
-  /* Ubah lebar bingkai foto di sini */
-  height: 32mm;
-  /* Ubah tinggi bingkai foto di sini */
+  width: 25.5mm;
+  /* Lebar foto sesuai frame template */
+  height: 34.5mm;
+  /* Tinggi foto sesuai frame template */
   border-radius: 2mm;
   overflow: hidden;
-  border: 1.5px solid #0052cc;
+  border: 0.5px solid #848588;
   /* Warna border foto */
-  background: #e0f2fe;
+  background: #ffffff;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.12);
   box-sizing: border-box;
 }
@@ -402,29 +403,35 @@
   display: block;
 }
 
-/* Kolom Kanan (QR Code saja) */
+/* Kolom Kanan (QR Code saja, digeser sedikit ke bawah) */
 .meta-col {
   flex: 1;
   min-width: 0;
-  height: 32mm;
+  height: 36mm;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
 }
 
+/* ==========================================================================
+   PENGATURAN POSISI & UKURAN QR CODE (SEBELAH KANAN FOTO)
+   --------------------------------------------------------------------------
+   - GESER ATAS/BAWAH : Ubah `margin-top: 14mm;`  (Angka DIBESARKAN = TURUN, DIKECILKAN = NAIK)
+   - GESER KIRI/KANAN : Ubah `margin-left: -2.5mm;` (Nilai negatif lebih besar = KE KIRI)
+   - UKURAN QR CODE   : Ubah `width` & `height`
+   ========================================================================== */
 .id-front-v2 .qr-container,
 .meta-col .qr-container,
 .student-card-front .qr-container,
 .card-canvas .qr-container,
 .id-card-preview .qr-container {
-  width: 17mm;
-  /* Ubah lebar/tinggi QR Code di sini */
-  height: 17mm;
+  width: 17.5mm;
+  height: 17.5mm;
   padding: 0;
   border: none;
   background: transparent;
-  margin: auto;
-  align-self: center;
+  margin-top: 18mm;  /* <-- GESER QR CODE ATAS/BAWAH (DIBESARKAN = TURUN) */
+  margin-left: 0mm; /* <-- GESER QR CODE KIRI/KANAN (Nilai negatif = KE KIRI) */
 }
 
 .qr-img {
@@ -440,76 +447,69 @@
 .id-name-block {
   position: relative;
   z-index: 2;
-  margin-top: 1mm;
+  margin-top: -1mm;
   margin-bottom: auto;
   padding-left: 1mm;
 }
 
 /* Ukuran Font Nama Lengkap Siswa */
 .student-fullname {
-  font-size: 9.5pt;
-  /* Ubah ukuran font Nama Siswa di sini */
-  font-weight: 800;
-  color: #002554;
+  font-size: 14pt;
+  font-weight: 900;
+  color: #313437;
   text-transform: uppercase;
-  line-height: 1.15;
+  line-height: 1;
   letter-spacing: -0.2px;
 }
 
-/* --------------------------------------------------------------------------
-   AREA BAWAH: NISN (KIRI) DAN KELAS (KANAN) DIPISAHKAN GARIS VERTIKAL
-   (Sesuai Konsep 1.svg)
-   -------------------------------------------------------------------------- */
+/* ==========================================================================
+   PENGATURAN POSISI NILAI NISN & KELAS (BAGIAN BAWAH KARTU)
+   --------------------------------------------------------------------------
+   - POSISI UTAMA KOTAK BAWAH : Ubah `bottom: 7.5mm;` (Angka DIBESARKAN = NAIK KE ATAS)
+   - POSISI NISN (KIRI)       : Ubah `margin-left` (Kiri/Kanan) atau `margin-top` (Atas/Bawah)
+   - POSISI KELAS (KANAN)     : Ubah `margin-left` (Kiri/Kanan) atau `margin-top` (Atas/Bawah)
+   ========================================================================== */
 .id-bottom-meta {
-  position: relative;
+  position: absolute;
   z-index: 2;
+  bottom: 7.5mm; /* <-- GESER NISN & KELAS NAIK KE ATAS (Angka DIBESARKAN = LEBIH NAIK) */
+  left: 0;
+  width: 100%;
   display: flex;
   align-items: center;
-  justify-content: space-around;
-  margin-top: auto;
-  margin-bottom: 2mm;
-  padding: 2mm 3mm;
-  background: transparent;
-  width: 100%;
+  justify-content: flex-start;
+  padding-left: 6mm;
+  padding-right: 0mm;
   box-sizing: border-box;
 }
 
-/* Kolom Kiri / Kanan pada Bottom Meta */
-.bottom-meta-col {
+/* Slot Nilai NISN (Sebelah Kiri) */
+.bottom-meta-col.nisn-col {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
+  margin-left: 0mm;  /* <-- GESER NISN KIRI/KANAN (Positif = Ke Kanan, Negatif = Ke Kiri) */
+  margin-top: -2mm;  /* <-- GESER NISN ATAS/BAWAH (Negatif = NAIK) */
+  width: 25mm;
+}
+
+/* Slot Nilai KELAS (Sebelah Kanan) */
+.bottom-meta-col.kelas-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-left: 2.8mm; /* <-- GESER KELAS KIRI/KANAN (Positif = Ke Kanan, Negatif = Ke Kiri) */
+  margin-top: -2mm;  /* <-- GESER KELAS ATAS/BAWAH (Negatif = NAIK) */
   flex: 1;
 }
 
-/* Label Bidang (NISN / KELAS) */
-.bottom-meta-label {
-  font-size: 5.5pt;
-  /* Ubah ukuran font Label NISN/KELAS di sini */
-  font-weight: 700;
-  color: #0284c7;
-  letter-spacing: 0.5px;
-  line-height: 1;
-  margin-bottom: 0.8mm;
-  text-transform: uppercase;
-}
-
-/* Nilai Bidang (NISN / KELAS) */
+/* Nilai Teks NISN & KELAS */
 .bottom-meta-val {
-  font-size: 9.5pt;
-  /* Ubah ukuran font Nilai NISN/KELAS di sini */
+  font-size: 8.5pt;
+  /* Ukuran font Nilai NISN & KELAS */
   font-weight: 900;
   color: #002554;
   line-height: 1;
-}
-
-/* Garis Pemisah Vertikal antara NISN dan KELAS */
-.bottom-meta-divider {
-  width: 1px;
-  height: 7mm;
-  /* Tinggi garis vertikal pemisah */
-  background: #94a3b8;
-  flex: none;
 }
 
 .emblem-watermark {
@@ -566,6 +566,8 @@
   z-index: 2;
   display: flex;
   align-items: center;
+  margin-top: 0mm;  /* <-- GESER HEADER BELAKANG ATAS/BAWAH (Positif = Turun, Negatif = Naik) */
+  margin-left: 0mm; /* <-- GESER HEADER BELAKANG KIRI/KANAN (Positif = Kanan, Negatif = Kiri) */
   margin-bottom: 2mm;
 }
 
@@ -575,10 +577,24 @@
   gap: 1.5mm;
 }
 
+/* UKURAN & POSISI LOGO SEKOLAH BELAKANG */
 .back-logo {
-  width: 8mm;
-  height: 8mm;
+  width: 8mm;  /* <-- LEBAR LOGO BELAKANG */
+  height: 8mm; /* <-- TINGGI LOGO BELAKANG */
   flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.back-logo img,
+.back-logo .school-logo-img,
+.back-logo .school-logo-svg {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
 }
 
 .back-school-title {
@@ -607,11 +623,11 @@
 }
 
 /* ==========================================================================
-   PETUNJUK PENGATURAN POSISI DATA SISWA (NISN, NAMA, KELAS, TAHUN AJARAN)
+   PETUNJUK PENGATURAN POSISI DATA SISWA BELAKANG (TEMPAT LAHIR, TANGGAL LAHIR, MASA BERLAKU)
    --------------------------------------------------------------------------
-   - ATAS / BAWAH  : Tambahkan/Ubah `margin-top: 0mm;` (misal: `2mm` untuk TURUN, `-2mm` untuk NAIK)
-   - KIRI / KANAN  : Tambahkan/Ubah `margin-left: 0mm;` (misal: `3mm` untuk KANAN, `-2mm` untuk KIRI)
-   - JARAK BARIS   : Ubah nilai `gap: 1.2mm;`
+   - ATAS / BAWAH  : Tambahkan/Ubah `margin-top: 1.6mm;` (Positif = TURUN, Negatif = NAIK)
+   - KIRI / KANAN  : Tambahkan/Ubah `margin-left: 7mm;`   (Positif = KANAN, Negatif = KIRI)
+   - JARAK BARIS   : Ubah nilai `gap: 2mm;`
    ========================================================================== */
 .back-blue-card {
   position: relative;
@@ -619,15 +635,12 @@
   background: transparent;
   border: none;
   padding: 0;
-  margin-top: 1.6mm;
-  /* <-- GESER ATAS/BAWAH (Positif = Turun, Negatif = Naik) */
-  margin-left: 7mm;
-  /* <-- GESER KIRI/KANAN (Positif = Kanan, Negatif = Kiri) */
+  margin-top: 1.6mm;  /* <-- GESER DATA SISWA BELAKANG ATAS/BAWAH (Positif = Turun, Negatif = Naik) */
+  margin-left: 7mm;   /* <-- GESER DATA SISWA BELAKANG KIRI/KANAN (Positif = Kanan, Negatif = Kiri) */
   margin-bottom: 1mm;
   display: flex;
   flex-direction: column;
-  gap: 2mm;
-  /* <-- JARAK ANTAR KELOMPOK BARIS DATA */
+  gap: 2mm;           /* <-- JARAK ANTAR KELOMPOK BARIS DATA BELAKANG */
 }
 
 .card-info-row {
@@ -683,7 +696,7 @@
    --------------------------------------------------------------------------
    Barcode dan Tanda Tangan memakai `position: absolute` yang diukur dari
    TEPI KARTU (bukan dari elemen lain). Artinya:
-   - Menggeser keduanya TIDAK mempengaruhi NISN/NAMA/KELAS/TAHUN AJARAN.
+   - Menggeser keduanya TIDAK mempengaruhi Tempat Lahir/Tanggal Lahir/Masa Berlaku.
    - Barcode dan Tanda Tangan TIDAK saling mempengaruhi (independen).
    Ukuran kartu: lebar 54mm x tinggi 85.6mm.
    ========================================================================== */
@@ -695,26 +708,18 @@
 }
 
 /* ==========================================================================
-   PETUNJUK PENGATURAN POSISI BARCODE (INDEPENDEN)
+   PETUNJUK PENGATURAN POSISI BARCODE CODE128 (DIGESER KE BAWAH)
    --------------------------------------------------------------------------
-   - ATAS / BAWAH  : Ubah `top`  -> jarak dari TEPI ATAS kartu
-                     (angka DIBESARKAN = TURUN, DIKECILKAN = NAIK)
-   - KIRI / KANAN  : Ubah `left` -> jarak dari TEPI KIRI kartu
-                     * `left: 0mm`     = jarak 5.5mm dari tepi kartu
-                     * `left: -5.5mm`  = tepat menempel di tepi paling kiri kartu
-                     * `left: -8mm`    = lebih ke kiri lagi (menjorok ke tepi kiri)
-                     (Perbesar nilai negatif seperti -8mm, -10mm untuk geser semakin ke kiri)
-   - LEBAR BARCODE : Ubah `width`
+   - ATAS / BAWAH  : Ubah `top: 64mm;` -> (Angka DIBESARKAN = TURUN, DIKECILKAN = NAIK)
+   - KIRI / KANAN  : Ubah `left: 2mm;` -> (Angka DIBESARKAN = KE KANAN, DIKECILKAN = KE KIRI)
+   - LEBAR BARCODE : Ubah `width: 22mm;`
    ========================================================================== */
 .barcode-block {
   position: absolute;
   z-index: 2;
-  top: 43mm;
-  /* <-- GESER BARCODE ATAS/BAWAH */
-  left: -8mm;
-  /* <-- GESER BARCODE LEBIH KE KIRI (contoh: -8mm, -10mm) */
-  width: 20mm;
-  /* <-- LEBAR BARCODE */
+  top: 64mm;   /* <-- GESER BARCODE KE BAWAH (DIBESARKAN = TURUN KE BAWAH) */
+  left: 2mm;   /* <-- GESER BARCODE KIRI/KANAN */
+  width: 22mm; /* <-- LEBAR BARCODE */
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -735,26 +740,20 @@
 }
 
 /* ==========================================================================
-   PETUNJUK PENGATURAN POSISI KEPALA SEKOLAH & TANDA TANGAN (INDEPENDEN)
+   PETUNJUK PENGATURAN POSISI TANDA TANGAN & NIP KEPALA SEKOLAH (DIGESER KE BAWAH)
    --------------------------------------------------------------------------
-   - ATAS / BAWAH  : Ubah `top`  -> jarak dari TEPI ATAS kartu
-                     (angka DIBESARKAN = TURUN, DIKECILKAN = NAIK)
-   - KIRI / KANAN  : Ubah `left` -> jarak dari TEPI KIRI kartu
-                     (angka DIBESARKAN = KE KANAN, DIKECILKAN = KE KIRI)
-   - LEBAR AREA    : Ubah `width` (nama panjang akan turun ke baris baru jika melebihi)
+   - ATAS / BAWAH  : Ubah `top: 62mm;` -> (Angka DIBESARKAN = TURUN, DIKECILKAN = NAIK)
+   - KIRI / KANAN  : Ubah `left: 26mm;` -> (Angka DIBESARKAN = KE KANAN, DIKECILKAN = KE KIRI)
+   - LEBAR AREA    : Ubah `width: 25mm;`
    - PERATAAN TEKS : `text-align: center;` (bisa diganti `left` atau `right`)
    ========================================================================== */
 .signature-block {
   position: absolute;
   z-index: 2;
-  top: 45mm;
-  /* <-- GESER TTD/KEPALA SEKOLAH ATAS/BAWAH */
-  left: 13mm;
-  /* <-- GESER TTD/KEPALA SEKOLAH KIRI/KANAN */
-  width: 24mm;
-  /* <-- LEBAR AREA TTD/KEPALA SEKOLAH */
+  top: 62mm;   /* <-- GESER TTD/KEPALA SEKOLAH KE BAWAH (DIBESARKAN = TURUN KE BAWAH) */
+  left: 26mm;  /* <-- GESER TTD/KEPALA SEKOLAH KIRI/KANAN */
+  width: 25mm; /* <-- LEBAR AREA TTD/KEPALA SEKOLAH */
   text-align: center;
-  /* <-- PERATAAN TEKS: center / left / right */
   display: flex;
   flex-direction: column;
 }

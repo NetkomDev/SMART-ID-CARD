@@ -458,15 +458,12 @@ function front(c: Row, qr: string, customBgUrl?: string) {
       <div class="student-fullname">${esc(studentName)}</div>
     </div>
 
-    <!-- 5. AREA BAWAH: NISN (Sebelah Kiri) & KELAS (Sebelah Kanan) dipisahkan Garis Vertikal -->
+    <!-- 5. AREA BAWAH: NISN (Sebelah Kiri) & KELAS (Sebelah Kanan) Pas Sesuai Slot Template -->
     <div class="id-bottom-meta">
-      <div class="bottom-meta-col">
-        <span class="bottom-meta-label">NISN</span>
+      <div class="bottom-meta-col nisn-col">
         <span class="bottom-meta-val">${esc(nisn)}</span>
       </div>
-      <div class="bottom-meta-divider"></div>
-      <div class="bottom-meta-col">
-        <span class="bottom-meta-label">KELAS</span>
+      <div class="bottom-meta-col kelas-col">
         <span class="bottom-meta-val">${esc(className)}</span>
       </div>
     </div>
@@ -478,14 +475,14 @@ function front(c: Row, qr: string, customBgUrl?: string) {
 function back(c: Row, customBgUrl?: string) {
   const s = c.print_snapshot ?? {};
   const schoolName = s.school_name || 'SMA NEGERI 3 WATAMPONE';
-  const studentName = s.student_name || 'ANDI MUHAMMAD ASYRAAF';
-  const nisn = s.nisn || s.student_number || '0064821736';
-  const className = s.class_name || 'X-2';
-  const academicYear = s.academic_year || '2025 / 2026';
+  const pob = s.place_of_birth || s.pob || 'Watampone';
+  const dobFormatted = formatIndonesianDateOnly(s.date_of_birth || s.dob || '2008-08-14');
+  const validityFormatted = formatValidityDate(s.academic_year, s.valid_until);
   const logoHtml = getSchoolLogoHtml(s.school_logo_url);
   const principalName = s.principal_name || 'Drs. H. Muh. Yusuf, M.Pd';
   const principalNip = s.principal_nip || '19681231 199403 1 006';
   const sigHtml = s.principal_signature_url ? `<img src="${esc(s.principal_signature_url)}" class="sig-img" alt="TTD">` : `<div class="sig-placeholder"></div>`;
+  const nisn = s.nisn || s.student_number || '0064821736';
   const barcodeCode = (s.school_code && nisn) ? `${s.school_code}-${nisn}` : (c.card_serial || 'SMAN3WTP-20250064821736');
   const barcodeSvg = generateCode128Svg(barcodeCode);
 
@@ -503,45 +500,41 @@ function back(c: Row, customBgUrl?: string) {
       </div>
     </div>
 
-    <!-- 3. INFORMASI SISWA BELAKANG: NISN, Nama, Kelas, Tahun Ajaran -->
+    <!-- 3. INFORMASI SISWA BELAKANG: Tempat Lahir, Tanggal Lahir, Masa Berlaku (Tahun Ajaran Dihapus) -->
     <div class="back-blue-card">
+      <!-- TEMPAT LAHIR -->
       <div class="card-info-row">
         <div class="info-meta">
-          <div class="info-lbl">NISN</div>
-          <div class="info-txt bold">${esc(nisn)}</div>
+          <div class="info-lbl">Tempat Lahir</div>
+          <div class="info-txt bold uppercase">${esc(pob)}</div>
         </div>
       </div>
 
+      <!-- TANGGAL LAHIR -->
       <div class="card-info-row">
         <div class="info-meta">
-          <div class="info-lbl">Nama</div>
-          <div class="info-txt bold uppercase">${esc(studentName)}</div>
+          <div class="info-lbl">Tanggal Lahir</div>
+          <div class="info-txt bold">${esc(dobFormatted)}</div>
         </div>
       </div>
 
+      <!-- MASA BERLAKU KARTU -->
       <div class="card-info-row">
         <div class="info-meta">
-          <div class="info-lbl">Kelas</div>
-          <div class="info-txt bold">${esc(className)}</div>
-        </div>
-      </div>
-
-      <div class="card-info-row">
-        <div class="info-meta">
-          <div class="info-lbl">Tahun Ajaran</div>
-          <div class="info-txt bold">${esc(academicYear)}</div>
+          <div class="info-lbl">Masa Berlaku</div>
+          <div class="info-txt bold">${esc(validityFormatted)}</div>
         </div>
       </div>
     </div>
 
-    <!-- 4. BAGIAN BAWAH BELAKANG: BARCODE CODE128 & TTD KEPALA SEKOLAH (TIDAK BERUBAH) -->
+    <!-- 4. BAGIAN BAWAH BELAKANG: BARCODE CODE128 & TTD KEPALA SEKOLAH (Posisi diatur di platform.css) -->
     <div class="back-bottom-row">
-      <!-- A. BARCODE CODE128 (TIDAK BERUBAH) -->
+      <!-- A. BARCODE CODE128 (Posisi & Ukuran di .barcode-block platform.css) -->
       <div class="barcode-block">
         <div class="barcode-svg">${barcodeSvg}</div>
         <div class="barcode-text">${esc(barcodeCode)}</div>
       </div>
-      <!-- B. BLOK TANDA TANGAN KEPALA SEKOLAH (TIDAK BERUBAH) -->
+      <!-- B. BLOK TANDA TANGAN KEPALA SEKOLAH (Posisi & Ukuran di .signature-block platform.css) -->
       <div class="signature-block">
         <div class="sig-title">Kepala Sekolah</div>
         <div class="sig-image-wrap">${sigHtml}</div>
