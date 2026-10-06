@@ -274,8 +274,8 @@
   background: #ffffff;
   display: flex;
   flex-direction: column;
-  padding: 10mm 3mm 2mm 3mm;
-  /* Edit padding atas, kanan, bawah, kiri di sini (padding atas diperbesar agar semua konten digeser turun) */
+  padding: 4mm 4mm 3mm 4mm;
+  /* Padding kartu depan: 4mm atas, 4mm kanan, 3mm bawah, 4mm kiri */
   overflow: hidden;
   color: #0f172a;
   box-sizing: border-box;
@@ -318,40 +318,16 @@
 }
 
 /* --------------------------------------------------------------------------
-   HEADER DEPAN: LOGO & NAMA SEKOLAH
+   HEADER DEPAN: NAMA SEKOLAH (DIGESER KE ATAS, TANPA LOGO SEKOLAH)
    -------------------------------------------------------------------------- */
 .id-header-v2 {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   display: flex;
   align-items: center;
-  gap: 1mm;
-  /* Jarak antara Logo dan Nama Sekolah */
-  margin-bottom: 1mm;
-}
-
-/* Ukuran Logo Sekolah */
-.header-logo {
-  width: 11mm;
-  /* Ubah lebar logo sekolah di sini */
-  height: 11mm;
-  /* Ubah tinggi logo sekolah di sini */
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.school-logo-img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-.school-logo-svg {
-  width: 100%;
-  height: 100%;
-  display: block;
+  justify-content: flex-start;
+  margin-top: 1.5mm; /* Geser posisi Nama Sekolah lebih ke atas */
+  margin-bottom: 3.5mm;
 }
 
 .header-title-box {
@@ -359,62 +335,64 @@
   min-width: 0;
 }
 
-/* Ukuran & Gaya Font Nama Sekolah */
+/* Ukuran & Gaya Font Nama Sekolah di Header Atas */
 .school-name-v2 {
-  font-size: 9pt;
+  font-size: 9.5pt;
   /* Ubah ukuran font Nama Sekolah di sini */
-  font-weight: 600;
-  color: #6082af;
-  /* Ubah warna font Nama Sekolah di sini */
-  line-height: 1.1;
+  font-weight: 800;
+  color: #ffffff;
+  /* Warna teks putih agar tampak kontras & jelas di atas banner biru */
+  line-height: 1.15;
   text-transform: uppercase;
-  letter-spacing: -0.2px;
+  letter-spacing: 0.2px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 /* Slogan Kecil di bawah Nama Sekolah */
 .school-slogan-v2 {
   font-size: 4pt;
   font-style: italic;
-  color: #0284c7;
-  margin-top: 0.4mm;
+  color: #e0f2fe;
+  margin-top: 0.3mm;
   font-weight: 600;
   white-space: nowrap;
 }
 
 /* --------------------------------------------------------------------------
-   BARIS UTAMA DEPAN: FOTO SISWA, KELAS, NISN, DAN QR CODE
+   BARIS UTAMA DEPAN: FOTO SISWA (KIRI, FULL BINGKAI) DAN QR CODE (KANAN)
    -------------------------------------------------------------------------- */
 .id-main-row {
   position: relative;
   z-index: 2;
   display: flex;
-  gap: 2mm;
-  align-items: flex-start;
-  margin-bottom: 0.8mm;
-  /* Jarak dibuat lebih rapat agar Nama Siswa naik mendekat ke Foto */
+  gap: 3mm;
+  align-items: center;
+  margin-top: 2mm;
+  margin-bottom: 2mm;
   padding-left: 1mm;
-  /* Geser foto dan kolom kanan lebih masuk ke dalam */
+  padding-right: 1mm;
 }
 
 /* Kolom Foto Siswa */
 .photo-col {
-  width: 21mm;
-  /* Lebar kolom foto */
+  width: 24mm;
+  /* Ubah lebar kolom foto di sini */
   flex: none;
 }
 
-/* Bingkai / Frame Foto Siswa */
+/* Bingkai / Frame Foto Siswa - Rapi Full di Dalam Bingkai */
 .photo-frame {
-  width: 21mm;
+  width: 24mm;
   /* Ubah lebar bingkai foto di sini */
-  height: 30mm;
-  /* Ubah tinggi bingkai foto di sini (30mm sejajar bottom QR) */
+  height: 32mm;
+  /* Ubah tinggi bingkai foto di sini */
   border-radius: 2mm;
   overflow: hidden;
-  border: 1.5px solid #5d7b8a;
+  border: 1.5px solid #0052cc;
   /* Warna border foto */
   background: #e0f2fe;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.12);
+  box-sizing: border-box;
 }
 
 .student-img {
@@ -424,45 +402,14 @@
   display: block;
 }
 
-/* Kolom Kanan (Kelas, NISN, QR Code) - Lurus rata kiri mengikuti garis pandu vertikal */
+/* Kolom Kanan (QR Code saja) */
 .meta-col {
   flex: 1;
   min-width: 0;
-  height: 30mm;
-  /* Samakan tinggi kolom kanan dengan bingkai foto (30mm) */
+  height: 32mm;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  /* Semua elemen (KELAS, NISN, QR Code) rata kiri sejajar garis pandu vertikal */
-}
-
-.meta-label {
-  font-size: 4.8pt;
-  font-weight: 700;
-  color: #0284c7;
-  letter-spacing: 0.3px;
-  line-height: 1;
-  margin-bottom: 0.4mm;
-}
-
-/* Ukuran Font Nilai KELAS (mis: X-2) */
-.meta-value-class {
-  font-size: 13.5pt;
-  /* Ubah ukuran font Kelas di sini */
-  font-weight: 900;
-  color: #002554;
-  line-height: 1;
-  margin-bottom: 1.2mm;
-}
-
-/* Ukuran Font Nilai NISN */
-.meta-value-nisn {
-  font-size: 7.5pt;
-  /* Ubah ukuran font NISN di sini */
-  font-weight: 800;
-  color: #0f172a;
-  line-height: 1;
-  margin-bottom: 1.5mm;
+  align-items: center;
+  justify-content: center;
 }
 
 .id-front-v2 .qr-container,
@@ -470,15 +417,14 @@
 .student-card-front .qr-container,
 .card-canvas .qr-container,
 .id-card-preview .qr-container {
-  width: 14.5mm;
-  height: 14.5mm;
+  width: 17mm;
+  /* Ubah lebar/tinggi QR Code di sini */
+  height: 17mm;
   padding: 0;
   border: none;
   background: transparent;
-  margin-top: auto;
-  align-self: flex-start;
-  margin-left: 0;
-  /* QR Code 0-margin sejajar lurus rata kiri dengan KELAS & NISN, dan rata bawah dengan foto siswa (30mm) */
+  margin: auto;
+  align-self: center;
 }
 
 .qr-img {
@@ -494,12 +440,14 @@
 .id-name-block {
   position: relative;
   z-index: 2;
-  margin-bottom: 1.5mm;
+  margin-top: 1mm;
+  margin-bottom: auto;
+  padding-left: 1mm;
 }
 
 /* Ukuran Font Nama Lengkap Siswa */
 .student-fullname {
-  font-size: 8.5pt;
+  font-size: 9.5pt;
   /* Ubah ukuran font Nama Siswa di sini */
   font-weight: 800;
   color: #002554;
@@ -508,62 +456,60 @@
   letter-spacing: -0.2px;
 }
 
-.school-subname {
-  font-size: 5.8pt;
-  font-weight: 700;
-  color: #548cab;
-  margin-top: 0.4mm;
-}
-
 /* --------------------------------------------------------------------------
-   GRID DETAIL DATA SISWA DEPAN (3 ICON DETAIL: Tempat Lahir 📍, Tanggal Lahir 📅, Masa Berlaku 🛡️)
+   AREA BAWAH: NISN (KIRI) DAN KELAS (KANAN) DIPISAHKAN GARIS VERTIKAL
+   (Sesuai Konsep 1.svg)
    -------------------------------------------------------------------------- */
-.id-details-grid {
+.id-bottom-meta {
   position: relative;
   z-index: 2;
   display: flex;
+  align-items: center;
+  justify-content: space-around;
+  margin-top: auto;
+  margin-bottom: 2mm;
+  padding: 2mm 3mm;
+  background: transparent;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Kolom Kiri / Kanan pada Bottom Meta */
+.bottom-meta-col {
+  display: flex;
   flex-direction: column;
-  gap: 1.2mm; /* Ubah jarak vertikal antar baris detail di sini */
-  font-size: 5.5pt; /* Ubah ukuran font detail di sini */
-  color: #334155;
-  margin-bottom: auto;
-}
-
-.detail-item {
-  display: flex;
   align-items: center;
-  gap: 1.5mm; /* Jarak antara icon box dengan teks nilai */
-  line-height: 1.2;
-}
-
-/* Container Icon Bulat Kecil */
-.detail-icon-box {
-  width: 3.8mm; /* Lebar container icon */
-  height: 3.8mm; /* Tinggi container icon */
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #0284c7; /* Warna SVG Icon (biru aksen) */
-}
-
-/* Icon SVG di dalam detail item */
-.detail-svg-icon {
-  width: 3.2mm; /* Lebar SVG icon */
-  height: 3.2mm; /* Tinggi SVG icon */
-  stroke-width: 2.2;
-}
-
-/* Nilai Teks Detail (Tempat Lahir, Tanggal Lahir, Masa Berlaku Kartu) */
-.detail-val {
   flex: 1;
-  min-width: 0;
-  font-weight: 600;
-  color: #1e293b;
-  line-height: 1.2;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+/* Label Bidang (NISN / KELAS) */
+.bottom-meta-label {
+  font-size: 5.5pt;
+  /* Ubah ukuran font Label NISN/KELAS di sini */
+  font-weight: 700;
+  color: #0284c7;
+  letter-spacing: 0.5px;
+  line-height: 1;
+  margin-bottom: 0.8mm;
+  text-transform: uppercase;
+}
+
+/* Nilai Bidang (NISN / KELAS) */
+.bottom-meta-val {
+  font-size: 9.5pt;
+  /* Ubah ukuran font Nilai NISN/KELAS di sini */
+  font-weight: 900;
+  color: #002554;
+  line-height: 1;
+}
+
+/* Garis Pemisah Vertikal antara NISN dan KELAS */
+.bottom-meta-divider {
+  width: 1px;
+  height: 7mm;
+  /* Tinggi garis vertikal pemisah */
+  background: #94a3b8;
+  flex: none;
 }
 
 .emblem-watermark {

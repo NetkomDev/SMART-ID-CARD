@@ -418,12 +418,6 @@ function front(c: Row, qr: string, customBgUrl?: string) {
   const nisn = s.nisn || s.student_number || '0064821736';
   const className = s.class_name || 'X-2';
   
-  /* DATA DETAIL 3 ICON SISWA */
-  const pobText = s.pob || 'Watampone';
-  const formattedDob = formatIndonesianDateOnly(s.date_of_birth) || '14 Agustus 2008';
-  const validityText = formatValidityDate(s.academic_year, s.valid_until);
-
-  const logoHtml = getSchoolLogoHtml(s.school_logo_url);
   const photoUrl = (s.photo_url && String(s.photo_url).trim().length > 5) ? esc(s.photo_url) : `${location.origin}/logo.png`;
 
   const bgHtml = customBgUrl ? `<img class="card-bg-template-img" src="${esc(customBgUrl)}" alt="Template Depan">` : `
@@ -435,16 +429,15 @@ function front(c: Row, qr: string, customBgUrl?: string) {
     <!-- 1. LATAR / BACKGROUND TEMPLATE DEPAN -->
     ${bgHtml}
     
-    <!-- 2. HEADER KARTU: Logo & Nama Sekolah -->
+    <!-- 2. HEADER KARTU: Nama Sekolah Digeser ke Atas (Tanpa Logo Sekolah) -->
     <div class="id-header-v2">
-      <div class="header-logo">${logoHtml}</div>
       <div class="header-title-box">
         <div class="school-name-v2">${esc(schoolName)}</div>
         <div class="school-slogan-v2">Berilmu · Berkarakter · Berprestasi</div>
       </div>
     </div>
 
-    <!-- 3. BARIS UTAMA: Foto Siswa (Kiri) & Kelas/NISN/QR Code (Kanan) -->
+    <!-- 3. BARIS UTAMA: Foto Siswa (Kiri, Full Bingkai) & QR Code (Kanan) -->
     <div class="id-main-row">
       <!-- FOTO SISWA -->
       <div class="photo-col">
@@ -452,52 +445,32 @@ function front(c: Row, qr: string, customBgUrl?: string) {
           <img class="student-img" src="${photoUrl}" alt="${esc(studentName)}">
         </div>
       </div>
-      <!-- METADATA & QR CODE -->
+      <!-- QR CODE (Di samping foto) -->
       <div class="meta-col">
-        <div class="meta-label">KELAS</div>
-        <div class="meta-value-class">${esc(className)}</div>
-        <div class="meta-label">NISN</div>
-        <div class="meta-value-nisn">${esc(nisn)}</div>
         <div class="qr-container">
           <img class="qr-img" src="${qr}" alt="QR Code">
         </div>
       </div>
     </div>
 
-    <!-- 4. BLOCK NAMA LENGKAP SISWA -->
+    <!-- 4. BLOCK NAMA LENGKAP SISWA (Tanpa nama sekolah kecil & tanpa detail tambahan) -->
     <div class="id-name-block">
       <div class="student-fullname">${esc(studentName)}</div>
-      <div class="school-subname">${esc(schoolName)}</div>
     </div>
 
-    <!-- 5. GRID 3 DETAIL SISWA (1: TEMPAT LAHIR, 2: TANGGAL LAHIR, 3: MASA BERLAKU KARTU) -->
-    <div class="id-details-grid">
-      <!-- ICON 1: TEMPAT LAHIR (📍 Pin Lokasi) -->
-      <div class="detail-item">
-        <span class="detail-icon-box">
-          <svg class="detail-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-        </span>
-        <span class="detail-val">${esc(pobText)}</span>
+    <!-- 5. AREA BAWAH: NISN (Sebelah Kiri) & KELAS (Sebelah Kanan) dipisahkan Garis Vertikal -->
+    <div class="id-bottom-meta">
+      <div class="bottom-meta-col">
+        <span class="bottom-meta-label">NISN</span>
+        <span class="bottom-meta-val">${esc(nisn)}</span>
       </div>
-
-      <!-- ICON 2: TANGGAL LAHIR (📅 Kalender) -->
-      <div class="detail-item">
-        <span class="detail-icon-box">
-          <svg class="detail-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
-        </span>
-        <span class="detail-val">${esc(formattedDob)}</span>
-      </div>
-
-      <!-- ICON 3: MASA BERLAKU KARTU (🛡️ Perisai Masa Berlaku) -->
-      <div class="detail-item">
-        <span class="detail-icon-box">
-          <svg class="detail-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
-        </span>
-        <span class="detail-val">${esc(validityText)}</span>
+      <div class="bottom-meta-divider"></div>
+      <div class="bottom-meta-col">
+        <span class="bottom-meta-label">KELAS</span>
+        <span class="bottom-meta-val">${esc(className)}</span>
       </div>
     </div>
 
-    ${!customBgUrl ? `<div class="emblem-watermark">${logoHtml}</div>` : ''}
     ${!customBgUrl ? '<div class="bg-shape-bottom-right"></div>' : ''}
   </div>`;
 }
