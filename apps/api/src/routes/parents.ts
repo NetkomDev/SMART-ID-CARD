@@ -8,6 +8,7 @@ import { requirePermission, requireTenant } from "../middleware/tenant.js";
 import { validate } from "../middleware/validate.js";
 import { idParamsSchema } from "../schemas/common.js";
 import { claimParentLinkSchema, claimParentPermitSchema, createParentTokenSchema } from "../schemas/parent.js";
+import { processStudentPhotoWorker } from "../services/photo-processor.js";
 
 const router = Router();
 
@@ -79,9 +80,13 @@ router.post("/children/:id/photo", requireAuth, validate({ params: idParamsSchem
   if (!photo_url || typeof photo_url !== "string" || !photo_url.trim()) {
     throw new ApiError(400, "VALIDATION_ERROR", "Photo data is required");
   }
+
+  // Eksekusi Worker Pipeline: Segmentasi Background Blue #0000FF & Restorasi Wajah HD (Photoroom/Clipdrop/Native AI)
+  const processedPhoto = await processStudentPhotoWorker(photo_url.trim());
+
   const { data, error } = await req.auth!.client.rpc("update_student_photo_by_parent", {
     p_student_id: req.params.id,
-    p_photo_data: photo_url.trim()
+    p_photo_data: processedPhoto
   });
   if (error) throw fromDatabaseError(error);
   sendData(res, data, 200);

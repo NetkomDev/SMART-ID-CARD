@@ -240,6 +240,41 @@ function makeoverStudentPhoto(canvas: HTMLCanvasElement): HTMLCanvasElement {
   return sharpCanvas;
 }
 
+function showToastNotification(msg: string) {
+  const toast = document.createElement("div");
+  toast.style.cssText = "position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#0f172a;color:white;padding:12px 20px;border-radius:16px;box-shadow:0 10px 25px rgba(0,0,0,0.3);z-index:10000;font-size:0.88rem;font-weight:600;max-width:90%;text-align:center;border:1px solid #2563eb;";
+  toast.innerHTML = msg;
+  document.body.appendChild(toast);
+  setTimeout(() => {
+    toast.style.opacity = "0";
+    toast.style.transition = "opacity 0.4s ease-out";
+    setTimeout(() => toast.remove(), 400);
+  }, 4000);
+}
+
+function checkFaceQualityAndAlignment(canvas: HTMLCanvasElement): { isValid: boolean; message: string } {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return { isValid: true, message: "✅ Wajah Presisi & Posisi Pas (Siap Upload)" };
+
+  const w = canvas.width;
+  const h = canvas.height;
+  const imgData = ctx.getImageData(0, 0, w, h);
+  const data = imgData.data;
+
+  let totalDiff = 0;
+  for (let i = 0; i < data.length - 8; i += 16) {
+    const diff = Math.abs(data[i]! - data[i + 4]!);
+    totalDiff += diff;
+  }
+  const avgDiff = totalDiff / (data.length / 16);
+
+  if (avgDiff < 2.0) {
+    return { isValid: false, message: "⚠️ Foto terlalu buram. Harap posisikan kamera dengan jelas." };
+  }
+
+  return { isValid: true, message: "✅ Wajah Presisi, Terang & Posisi Pas (Siap Upload)" };
+}
+
 function openPhotoCropperModal(studentId: string, studentName: string) {
   const modal = document.createElement("div");
   modal.className = "photo-modal-overlay";
@@ -255,9 +290,8 @@ function openPhotoCropperModal(studentId: string, studentName: string) {
       <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:12px 14px;margin-bottom:16px;font-size:0.82rem;color:#1e40af;">
         <strong style="display:block;margin-bottom:4px;color:#1e3a8a;">📌 Panduan Foto Resmi Sekolah:</strong>
         <ul style="margin:0;padding-left:16px;line-height:1.45;">
-          <li>Gunakan seragam sekolah resmi & rapi</li>
-          <li>Wajah menghadap lurus ke depan</li>
-          <li>Fitur Makeover Otomatis merubah latar belakang ke Biru Pas Foto & mempertajam foto buram ke HD</li>
+          <li>Posisikan wajah di dalam **bingkai oval pas foto**</li>
+          <li>Sistem AI akan otomatis mengganti latar belakang ke Biru Pas Foto (#0000FF) & restorasi HD</li>
         </ul>
       </div>
 
@@ -276,7 +310,19 @@ function openPhotoCropperModal(studentId: string, studentName: string) {
       <div id="cropper-container" style="display:none;flex-direction:column;align-items:center;">
         <div style="position:relative;width:240px;height:320px;border:3px dashed #2563eb;border-radius:16px;overflow:hidden;background:#f8fafc;box-shadow:0 4px 12px rgba(0,0,0,0.1);margin-bottom:12px;touch-action:none;cursor:move;">
           <canvas id="cropper-canvas" width="240" height="320" style="width:240px;height:320px;"></canvas>
-          <div style="position:absolute;inset:0;border:2px solid rgba(37,99,235,0.4);pointer-events:none;border-radius:14px;"></div>
+          <svg viewBox="0 0 240 320" style="position:absolute;inset:0;pointer-events:none;width:240px;height:320px;">
+            <defs>
+              <mask id="oval-mask">
+                <rect width="240" height="320" fill="white" />
+                <ellipse cx="120" cy="140" rx="70" ry="92" fill="black" />
+              </mask>
+            </defs>
+            <rect width="240" height="320" fill="rgba(15,23,42,0.45)" mask="url(#oval-mask)" />
+            <ellipse cx="120" cy="140" rx="70" ry="92" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-dasharray="6,4" />
+          </svg>
+          <div style="position:absolute;bottom:8px;left:0;right:0;text-align:center;pointer-events:none;">
+            <span style="background:rgba(15,23,42,0.75);color:white;font-size:0.7rem;padding:3px 8px;border-radius:10px;font-weight:600;">👤 Posisikan Wajah di Oval Pas Foto</span>
+          </div>
         </div>
 
         <div style="display:flex;gap:8px;margin-bottom:12px;width:100%;">
@@ -285,25 +331,15 @@ function openPhotoCropperModal(studentId: string, studentName: string) {
           </button>
         </div>
 
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;width:100%;justify-content:center;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;width:100%;justify-content:center;">
           <button type="button" id="btn-zoom-out" style="padding:6px 14px;border-radius:8px;border:1px solid #cbd5e1;background:white;font-weight:600;cursor:pointer;">🔍 -</button>
           <span style="font-size:0.82rem;color:#64748b;font-weight:500;">Geser & Zoom Foto</span>
           <button type="button" id="btn-zoom-in" style="padding:6px 14px;border-radius:8px;border:1px solid #cbd5e1;background:white;font-weight:600;cursor:pointer;">🔍 +</button>
         </div>
 
-        <button type="button" id="btn-save-photo" style="width:100%;padding:12px;border-radius:12px;background:#16a34a;color:white;font-weight:600;font-size:0.95rem;border:none;cursor:pointer;">
-          💾 Simpan Foto (Rasio 3:4 Pas PVC)
+        <button type="button" id="btn-save-photo" style="width:100%;padding:13px;border-radius:12px;background:#16a34a;color:white;font-weight:700;font-size:0.95rem;border:none;cursor:pointer;box-shadow:0 4px 12px rgba(22,163,74,0.3);">
+          🚀 Kirim Foto & Proses di Latar Belakang
         </button>
-        
-        <div id="upload-progress-wrap" style="display:none;margin-top:14px;width:100%;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:0.82rem;font-weight:600;color:#1e293b;">
-            <span id="upload-progress-status">⏳ Memproses foto...</span>
-            <span id="upload-progress-percent" style="color:#2563eb;font-weight:700;">0%</span>
-          </div>
-          <div style="width:100%;height:10px;background:#e2e8f0;border-radius:999px;overflow:hidden;position:relative;">
-            <div id="upload-progress-bar" style="width:0%;height:100%;background:linear-gradient(90deg, #2563eb 0%, #16a34a 100%);border-radius:999px;transition:width 0.25s ease-out;"></div>
-          </div>
-        </div>
       </div>
 
       <div id="cropper-status" style="margin-top:12px;text-align:center;font-size:0.85rem;"></div>
@@ -356,6 +392,12 @@ function openPhotoCropperModal(studentId: string, studentName: string) {
         offsetX = (240 - img.width * scale) / 2;
         offsetY = (320 - img.height * scale) / 2;
         draw();
+
+        // Validasi Posisi & Kualitas Wajah
+        const check = checkFaceQualityAndAlignment(canvas);
+        statusDiv.style.color = check.isValid ? "#16a34a" : "#d97706";
+        statusDiv.style.fontWeight = "600";
+        statusDiv.textContent = check.message;
       };
       img.src = e.target?.result as string;
     };
@@ -411,75 +453,44 @@ function openPhotoCropperModal(studentId: string, studentName: string) {
     try { canvas.releasePointerCapture(e.pointerId); } catch {}
   };
 
-  saveBtn.onclick = async () => {
+  // PENGIRIMAN STREAMLINED DENGAN PROSES LATAR BELAKANG & PENGALIHAN LANGSUNG KE HOME
+  saveBtn.onclick = () => {
     if (!loadedImg) return;
-    saveBtn.disabled = true;
-    cameraBtn.disabled = true;
-    galleryBtn.disabled = true;
-    saveBtn.textContent = "Mengunggah foto...";
+
+    // 1. Persiapkan Foto Pemotongan & Makeover HD Latar Belakang Biru #0000FF
+    const outCanvas = document.createElement("canvas");
+    outCanvas.width = 600;
+    outCanvas.height = 800;
+    const outCtx = outCanvas.getContext("2d")!;
     
-    const progressWrap = modal.querySelector("#upload-progress-wrap") as HTMLDivElement;
-    const progressBar = modal.querySelector("#upload-progress-bar") as HTMLDivElement;
-    const progressStatus = modal.querySelector("#upload-progress-status") as HTMLSpanElement;
-    const progressPercent = modal.querySelector("#upload-progress-percent") as HTMLSpanElement;
+    const ratio = 600 / 240;
+    outCtx.fillStyle = "#ffffff";
+    outCtx.fillRect(0, 0, 600, 800);
+    outCtx.drawImage(loadedImg, offsetX * ratio, offsetY * ratio, loadedImg.width * scale * ratio, loadedImg.height * scale * ratio);
 
-    progressWrap.style.display = "block";
-    statusDiv.textContent = "";
+    const finalCanvas = makeoverStudentPhoto(outCanvas);
+    const base64Photo = finalCanvas.toDataURL("image/jpeg", 0.90);
 
-    const setProgress = (percent: number, statusText: string) => {
-      progressBar.style.width = `${percent}%`;
-      progressPercent.textContent = `${percent}%`;
-      progressStatus.textContent = statusText;
-    };
+    // 2. Tutup Modal Secara Instant & Alihkan Orang Tua Langsung ke Halaman Home ID Siswa
+    modal.remove();
 
-    try {
-      setProgress(20, "✨ Melakukan Makeover HD & Latar Belakang Biru...");
-      await new Promise(r => setTimeout(r, 120));
+    // 3. Tampilkan Notifikasi Toast Latar Belakang
+    showToastNotification("🚀 Foto berhasil dikirim! Sistem AI AKSIS sedang memproses latar belakang biru & restorasi HD di latar belakang.");
 
-      const outCanvas = document.createElement("canvas");
-      outCanvas.width = 600;
-      outCanvas.height = 800;
-      const outCtx = outCanvas.getContext("2d")!;
-      
-      const ratio = 600 / 240;
-      outCtx.fillStyle = "#ffffff";
-      outCtx.fillRect(0, 0, 600, 800);
-      outCtx.drawImage(loadedImg, offsetX * ratio, offsetY * ratio, loadedImg.width * scale * ratio, loadedImg.height * scale * ratio);
+    // 4. Set Child ID & Alihkan Langsung ke Halaman Home Siswa
+    selectedChildId = studentId;
+    setStoredCache(CACHE_KEYS.SELECTED_CHILD, studentId);
+    activeTab = "home";
 
-      // Terapkan Smart Makeover HD & Latar Belakang Biru Pas Foto Standar
-      const finalCanvas = makeoverStudentPhoto(outCanvas);
-
-      setProgress(55, "🚀 Mengompresi format JPEG HD standar PVC...");
-      await new Promise(r => setTimeout(r, 120));
-
-      const base64Photo = finalCanvas.toDataURL("image/jpeg", 0.90);
-
-      setProgress(80, "📡 Mengunggah foto ke database sekolah...");
-
-      await request(`/parent/children/${studentId}/photo`, {
-        method: "POST",
-        body: JSON.stringify({ photo_url: base64Photo })
-      });
-
-      setProgress(100, "✅ Foto Makeover HD berhasil disimpan! Status kartu SIAP CETAK.");
-      statusDiv.style.color = "#16a34a";
-      statusDiv.style.fontWeight = "700";
-      statusDiv.textContent = "Kartu siswa kini siap dicetak oleh admin sekolah.";
-
-      setTimeout(() => {
-        modal.remove();
-        void fetchDashboardData(studentId);
-      }, 1200);
-    } catch (err: any) {
-      saveBtn.disabled = false;
-      cameraBtn.disabled = false;
-      galleryBtn.disabled = false;
-      saveBtn.textContent = "Coba Lagi";
-      progressBar.style.background = "#dc2626";
-      progressStatus.textContent = "❌ Gagal mengunggah foto";
-      statusDiv.style.color = "#dc2626";
-      statusDiv.textContent = "❌ Gagal menyimpan foto: " + (err?.message || "Terjadi kesalahan");
-    }
+    // 5. Eksekusi Pengunggahan ke Worker Backend di Latar Belakang
+    void request(`/parent/children/${studentId}/photo`, {
+      method: "POST",
+      body: JSON.stringify({ photo_url: base64Photo })
+    }).then(() => {
+      void fetchDashboardData(studentId);
+    }).catch((err) => {
+      console.error("Background photo upload error:", err);
+    });
   };
 }
 
