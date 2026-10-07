@@ -54,10 +54,10 @@ async function sync() {
   syncing = Promise.resolve(navigator.locks ? navigator.locks.request(queueKey(), work) : work()).then(() => undefined).finally(() => { syncing = null; });
   return syncing;
 }
-form.onsubmit = async event => {
-  event.preventDefault();
+
+async function recordVisit(scannedCode: string) {
   const key = queueKey();
-  const visit: Visit = { event_id: crypto.randomUUID(), card_uid: card.value.trim(), occurred_at: new Date().toISOString(), local_sequence: Date.now(), metadata: { terminal: "library-pwa" } };
+  const visit: Visit = { event_id: crypto.randomUUID(), card_uid: scannedCode.trim(), occurred_at: new Date().toISOString(), local_sequence: Date.now(), metadata: { terminal: "library-pwa" } };
   try {
     const result = await portal.request<{student_name?:string;duplicate?:boolean}>("/library/visits", { method: "POST", body: JSON.stringify(visit) });
     status.value = result.student_name ? `Kunjungan tercatat: ${result.student_name}` : "Kunjungan tercatat";
@@ -70,6 +70,11 @@ form.onsubmit = async event => {
     if (error instanceof PortalError && error.status < 500) { status.value = error.message; return; }
     save([...queue(key), visit], key); status.value = "Koneksi tertunda — kunjungan tersimpan di perangkat";
   }
+}
+
+form.onsubmit = async event => {
+  event.preventDefault();
+  await recordVisit(card.value);
   card.value = ""; card.focus();
 };
 const showError = (error: unknown) => {
@@ -109,6 +114,8 @@ window.addEventListener("online", () => { if (portal.connected) void sync().catc
 
 let html5QrCode: any = null;
 let isScanning = false;
+let lastScannedText = "";
+let lastScannedTime = 0;
 
 async function stopCameraScanner() {
   if (html5QrCode && isScanning) {
@@ -141,9 +148,14 @@ async function startCameraScanner() {
         }
       } catch {}
 
-      card.value = decodedText;
-      await stopCameraScanner();
-      form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+      const now = Date.now();
+      if (decodedText === lastScannedText && now - lastScannedTime < 3000) {
+        return; // Prevent duplicate consecutive scans within 3 seconds
+      }
+      lastScannedText = decodedText;
+      lastScannedTime = now;
+
+      await recordVisit(decodedText);
     };
 
     try {
