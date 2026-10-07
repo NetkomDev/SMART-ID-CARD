@@ -11,14 +11,16 @@ const installed = () => window.matchMedia("(display-mode: standalone)").matches 
 export function setupInstallPrompt(appName: string, base: string, production = true) {
   title = appName;
   window.addEventListener("beforeinstallprompt", event => {
-    event.preventDefault(); deferred = event as InstallEvent;
+    event.preventDefault();
+    deferred = event as InstallEvent;
     const button = document.querySelector<HTMLButtonElement>("#aksis-install-action");
     if (button) { button.hidden = false; button.textContent = "Pasang aplikasi"; }
     if (ready) show();
   });
   window.addEventListener("appinstalled", () => document.querySelector("#aksis-install")?.remove());
-  if (production && "serviceWorker" in navigator && window.isSecureContext) {
-    void navigator.serviceWorker.register(`${base}sw.js`, { scope: base }).catch(() => undefined);
+  if ("serviceWorker" in navigator) {
+    const swPath = `${base.endsWith('/') ? base : base + '/'}sw.js`;
+    void navigator.serviceWorker.register(swPath, { scope: base }).catch(() => undefined);
   }
 }
 export function offerInstall() { ready = true; show(); }
