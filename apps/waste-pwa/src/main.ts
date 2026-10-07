@@ -125,6 +125,7 @@ async function startCamera() {
       await scanner.start({ facingMode: facing }, { fps: 10, qrbox: (w: number, h: number) => ({ width: Math.min(220, w * .7, h * .7), height: Math.min(220, w * .7, h * .7) }) }, (decoded: string) => {
         if (resolving || view === "input") return;
         triggerCameraFlash();
+        void stopCamera();
         void resolveStudent(decoded);
       }, () => undefined);
       scanning = true;
