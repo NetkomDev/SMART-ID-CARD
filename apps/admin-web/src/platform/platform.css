@@ -409,15 +409,16 @@
   min-width: 0;
   height: 34.5mm;
   display: flex;
-  align-items: flex-end;
-  justify-content: center;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
 }
 
 /* ==========================================================================
    PENGATURAN POSISI & UKURAN QR CODE (SEBELAH KANAN FOTO)
    --------------------------------------------------------------------------
-   - GESER ATAS/BAWAH : Ubah `margin-top: 14mm;`  (Angka DIBESARKAN = TURUN, DIKECILKAN = NAIK)
-   - GESER KIRI/KANAN : Ubah `margin-left: -2.5mm;` (Nilai negatif lebih besar = KE KIRI)
+   - GESER ATAS/BAWAH : Gunakan `margin-top: auto;` untuk otomatis sejajar rata bawah foto
+   - GESER KIRI/KANAN : Ubah `margin-left`
    - UKURAN QR CODE   : Ubah `width` & `height`
    ========================================================================== */
 .id-front-v2 .qr-container,
@@ -425,13 +426,13 @@
 .student-card-front .qr-container,
 .card-canvas .qr-container,
 .id-card-preview .qr-container {
-  width: 27mm;
-  height: 27mm;
+  width: 25mm;
+  height: 25mm;
   padding: 0;
   border: none;
   background: transparent;
-  margin-top: 0;  /* Rata bawah otomatis dengan bingkai foto (align-items: flex-end) */
-  margin-left: 0mm; /* <-- GESER QR CODE KIRI/KANAN (Nilai negatif = KE KIRI) */
+  margin-top: auto;  /* Rata bawah otomatis presisi sejajar dengan dasar bingkai foto siswa */
+  margin-left: 0mm;
 }
 
 .qr-img {
