@@ -106,7 +106,6 @@ function showLoadingOverlay(show: boolean) {
 }
 
 async function stopCamera() {
-  if (cameraStart) await cameraStart;
   if (scanning && scanner) { try { await scanner.stop(); } catch { /* Already stopped by browser. */ } }
   scanning = false;
   el("qr-reader").style.display = "none";
@@ -150,7 +149,12 @@ function switchView(next: View) {
   showLoadingOverlay(false);
   if (next !== "scan" && next !== "input") void stopCamera();
   for (const name of ["login", "scan", "input", "success", "ranking"] as View[]) {
-    el(`view-${name}`).style.display = name === next || (next === "input" && name === "scan") ? "block" : "none";
+    const section = el(`view-${name}`);
+    if (name === next || (next === "input" && name === "scan")) {
+      section.style.display = name === "input" ? "flex" : "block";
+    } else {
+      section.style.display = "none";
+    }
   }
   el("workspace-nav").hidden = next === "login";
   el("today-panel").hidden = next !== "ranking";
