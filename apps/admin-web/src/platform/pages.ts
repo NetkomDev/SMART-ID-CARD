@@ -311,7 +311,8 @@ async function production(root:HTMLElement,content:HTMLElement,schools:School[],
         if (!fd) return;
         await api(`/platform/production/batches/${id}/action`, { method: 'POST', body: JSON.stringify({ event_id: crypto.randomUUID(), action, reason: fd.get('reason') }) });
         if (isCancel) {
-          await open('batches');
+          location.reload();
+          return;
         } else {
           await batch(id);
         }
