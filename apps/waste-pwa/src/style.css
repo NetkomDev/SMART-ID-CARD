@@ -98,14 +98,14 @@ body{background:radial-gradient(ellipse at 0 15%,#dcf5e7,transparent 50%),radial
 
 #view-scan .nav-actions button#btn-ranking {
   width: 100% !important;
-  min-height: 20px !important; /* PETUNJUK: Tinggi tombol Klasemen */
-  height: 40px !important;     /* PETUNJUK: Ubah angka ini untuk memperbesar/memperkecil tinggi tombol */
+  min-height: 42px !important;
+  height: 42px !important;
   padding: 6px 16px !important;
   background: #e3eee6 !important;
   color: #076340 !important;
   border: 1px solid #cce2d4 !important;
   border-radius: 14px !important;
-  font-size: 0.84rem !important;
+  font-size: 0.85rem !important;
   font-weight: 750 !important;
   box-shadow: none !important;
   cursor: pointer !important;
@@ -113,6 +113,17 @@ body{background:radial-gradient(ellipse at 0 15%,#dcf5e7,transparent 50%),radial
   align-items: center !important;
   justify-content: center !important;
   gap: 8px !important;
+}
+
+#view-scan .nav-actions button#btn-ranking svg,
+.nav-actions button svg {
+  width: 18px !important;
+  height: 18px !important;
+  max-width: 18px !important;
+  max-height: 18px !important;
+  flex-shrink: 0 !important;
+  display: inline-block !important;
+  vertical-align: middle !important;
 }
 
 #view-scan .nav-actions button#btn-ranking:hover {
