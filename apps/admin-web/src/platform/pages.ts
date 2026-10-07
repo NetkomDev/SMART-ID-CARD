@@ -215,7 +215,10 @@ async function production(root:HTMLElement,content:HTMLElement,schools:School[],
     const batchEpoch = ++tabEpoch;
     const { data: cards } = await api<Row[]>(`/platform/production/batches/${id}`);
     if (!alive() || tabEpoch !== batchEpoch) return;
-    if (!cards.length) throw Error('Batch tidak ditemukan.');
+    if (!cards || !cards.length) {
+      await open('batches');
+      return;
+    }
 
     const templatesRes = await api<Row[]>('/platform/card-templates').catch(() => ({ data: [] }));
     const templatesMap: Record<string, string> = {};
