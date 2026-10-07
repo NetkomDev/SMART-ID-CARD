@@ -425,12 +425,12 @@
 .student-card-front .qr-container,
 .card-canvas .qr-container,
 .id-card-preview .qr-container {
-  width: 17.5mm;
-  height: 17.5mm;
+  width: 22mm;
+  height: 22mm;
   padding: 0;
   border: none;
   background: transparent;
-  margin-top: 18mm;  /* <-- GESER QR CODE ATAS/BAWAH (DIBESARKAN = TURUN) */
+  margin-top: 12.5mm;  /* <-- GESER QR CODE ATAS/BAWAH (DIBESARKAN = TURUN) */
   margin-left: 0mm; /* <-- GESER QR CODE KIRI/KANAN (Nilai negatif = KE KIRI) */
 }
 

@@ -254,7 +254,7 @@ async function production(root:HTMLElement,content:HTMLElement,schools:School[],
         const nisn = (s.nisn && String(s.nisn).trim().length >= 3) ? String(s.nisn).trim() : null;
         const studentNum = (s.student_number && String(s.student_number).trim().length >= 3) ? String(s.student_number).trim() : null;
         const payload = nisn || studentNum || c.qr_key;
-        return QRCode.toDataURL(payload, { errorCorrectionLevel: 'M', margin: 4, width: 300 });
+        return QRCode.toDataURL(payload, { errorCorrectionLevel: 'M', margin: 1, width: 400 });
       })
     );
     if (!alive() || tabEpoch !== batchEpoch) return;
