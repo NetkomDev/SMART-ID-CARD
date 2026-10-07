@@ -100,6 +100,11 @@ function hideNotFoundModal() {
   if (modal) modal.style.display = "none";
 }
 
+function showLoadingOverlay(show: boolean) {
+  const overlay = el("loading-overlay");
+  if (overlay) overlay.style.display = show ? "flex" : "none";
+}
+
 async function stopCamera() {
   if (cameraStart) await cameraStart;
   if (scanning && scanner) { try { await scanner.stop(); } catch { /* Already stopped by browser. */ } }
@@ -142,6 +147,7 @@ async function startCamera() {
 function switchView(next: View) {
   view = next;
   hideNotFoundModal();
+  showLoadingOverlay(false);
   if (next !== "scan" && next !== "input") void stopCamera();
   for (const name of ["login", "scan", "input", "success", "ranking"] as View[]) {
     el(`view-${name}`).style.display = name === next || (next === "input" && name === "scan") ? "block" : "none";
@@ -290,6 +296,7 @@ async function resolveStudent(scannedText?: string) {
 
   resolving = true;
   hideNotFoundModal();
+  showLoadingOverlay(true);
   el("scan-error").style.display = "none";
   el("scan-error").textContent = "";
   el<HTMLButtonElement>("btn-ranking").disabled = true;
@@ -349,6 +356,7 @@ async function resolveStudent(scannedText?: string) {
     el("modal-not-found").style.display = "flex";
   } finally {
     resolving = false;
+    showLoadingOverlay(false);
     el<HTMLButtonElement>("btn-ranking").disabled = false;
   }
 }
