@@ -196,29 +196,39 @@ body{background:radial-gradient(ellipse at 0 15%,#dcf5e7,transparent 50%),radial
   box-sizing: border-box;
 }
 
-.deposit-student .student-avatar {
-  width: 90px;
-  height: 110px;
-  border-radius: 16px;
-  border: 3px solid #ffffff;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
-  flex-shrink: 0;
-  position: relative;
-  overflow: hidden;
+.deposit-student #student-avatar,
+#app-container #student-avatar {
+  width: 92px !important;
+  height: 115px !important;
+  min-width: 92px !important;
+  min-height: 115px !important;
+  border-radius: 18px !important;
+  border: 3px solid #ffffff !important;
+  box-shadow: 0 4px 16px rgba(7, 99, 64, 0.12) !important;
+  flex-shrink: 0 !important;
+  position: relative !important;
+  overflow: hidden !important;
   padding: 0 !important;
-  background: #dcf5e7;
+  margin: 0 !important;
+  background: #dcf5e7 !important;
   display: block !important;
 }
 
-.deposit-student .student-photo-img {
-  position: absolute;
-  top: 0;
-  left: 0;
+.deposit-student #student-avatar img,
+.deposit-student #student-avatar .student-photo-img,
+#app-container #student-avatar img {
+  position: absolute !important;
+  inset: 0 !important;
   width: 100% !important;
   height: 100% !important;
+  min-width: 100% !important;
+  min-height: 100% !important;
   object-fit: cover !important;
+  object-position: center !important;
   display: block !important;
-  border-radius: 12px !important;
+  border-radius: 14px !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 .deposit-student .avatar-fallback {
@@ -231,8 +241,8 @@ body{background:radial-gradient(ellipse at 0 15%,#dcf5e7,transparent 50%),radial
 }
 
 .deposit-student .avatar-fallback svg {
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
 }
 
 .deposit-student .student-details {
@@ -374,10 +384,9 @@ fieldset.deposit-section {
 }
 
 .type-options .type-icon {
-  width: 26px;
-  height: 26px;
-  stroke-width: 2.2;
-  color: #527566;
+  width: 32px !important;
+  height: 32px !important;
+  color: #4b675b;
   transition: color 0.2s ease, transform 0.2s ease;
   flex-shrink: 0;
 }
@@ -391,7 +400,7 @@ fieldset.deposit-section {
 
 .type-options input:checked + span .type-icon {
   color: #08763b;
-  transform: scale(1.1);
+  transform: scale(1.12);
 }
 
 .type-options input:checked + span:after {
