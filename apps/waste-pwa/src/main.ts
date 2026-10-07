@@ -168,8 +168,11 @@ function switchView(next: View) {
   if (subEl) subEl.textContent = "Piket Sampah";
   if (next === "ranking") window.scrollTo({ top: 0, behavior: "instant" });
   for (const [id, active] of [["btn-ranking", next === "ranking"], ["btn-deposit", next !== "ranking"]] as const) {
-    el(id).classList.toggle("active", active);
-    if (active) el(id).setAttribute("aria-current", "page"); else el(id).removeAttribute("aria-current");
+    const btn = document.getElementById(id);
+    if (btn) {
+      btn.classList.toggle("active", active);
+      if (active) btn.setAttribute("aria-current", "page"); else btn.removeAttribute("aria-current");
+    }
   }
 }
 function updateMeasurement() {
@@ -416,7 +419,10 @@ for (const [id, delta] of [["weight-minus", -.1], ["weight-plus", .1]] as const)
 el("btn-cancel-input").addEventListener("click", () => { if (!pending) { student = null; switchView("scan"); } });
 el("btn-next-scan").addEventListener("click", () => { student = null; switchView("scan"); });
 el("btn-ranking").addEventListener("click", () => { switchView("ranking"); void loadDashboard(); });
-el("btn-deposit").addEventListener("click", () => switchView(student && view !== "success" ? "input" : "scan"));
+const depBtn = document.getElementById("btn-deposit");
+if (depBtn) depBtn.addEventListener("click", () => switchView(student && view !== "success" ? "input" : "scan"));
+const floatBtn = document.getElementById("btn-deposit-floating");
+if (floatBtn) floatBtn.addEventListener("click", () => switchView(student && view !== "success" ? "input" : "scan"));
 el("btn-refresh").addEventListener("click", () => void loadDashboard());
 el("ranking-period").addEventListener("change", () => { el("ranking-content").hidden = true; el("ranking-updated").textContent = "Memuat periode…"; void loadDashboard(); });
 el("btn-fullscreen").addEventListener("click", async () => {

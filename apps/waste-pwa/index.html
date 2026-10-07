@@ -54,7 +54,6 @@
       <p id="scan-error" class="error" role="alert" style="display:none;"></p>
       
       <div class="nav-actions">
-        <button id="btn-deposit" class="active" type="button" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M5 14v6h14v-6" stroke-linecap="round" stroke-linejoin="round"/></svg>Setoran</button>
         <button id="btn-ranking" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 20V10h5v10m0 0V4h6v16m0 0V13h5v7M3 20h18" stroke-linecap="round" stroke-linejoin="round"/></svg>Klasemen</button>
       </div>
     </section>
@@ -151,7 +150,11 @@
     </section>
     <section id="view-success" style="display:none"><div class="success-icon">✓</div><h1>Setoran berhasil disimpan</h1><p id="success-detail">Terima kasih sudah menjaga sekolah tetap bersih.</p><button id="btn-next-scan" type="button">Pindai siswa berikutnya →</button></section>
     <section id="view-ranking" style="display:none">
-    <section id="today-panel" hidden class="waste-card"><div class="section-head"><h2>▥ Setoran Hari Ini</h2><span id="today-date"></span></div><p id="today-scope" class="summary-scope">Semua kelas di sekolah tempat piket bertugas</p><div class="daily-stats"><div><strong id="today-students">—</strong><span>Siswa menyetor</span></div><div><strong id="today-weight">—</strong><span>Total setoran</span></div><div><strong id="today-points">—</strong><span id="today-points-label">Total poin</span></div></div><p id="dashboard-error" class="error" role="status"></p></section>
+      <button id="btn-deposit-floating" type="button" class="btn-floating-deposit" aria-label="Kembali ke setoran">
+        <span>Setoran</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
+      </button>
+      <section id="today-panel" hidden class="waste-card"><div class="section-head"><h2>▥ Setoran Hari Ini</h2><span id="today-date"></span></div><p id="today-scope" class="summary-scope">Semua kelas di sekolah tempat piket bertugas</p><div class="daily-stats"><div><strong id="today-students">—</strong><span>Siswa menyetor</span></div><div><strong id="today-weight">—</strong><span>Total setoran</span></div><div><strong id="today-points">—</strong><span id="today-points-label">Total poin</span></div></div><p id="dashboard-error" class="error" role="status"></p></section>
       <div class="ranking-hero"><div class="ranking-heading"><small>PAPAN PRESTASI</small><h1>Klasemen Sekolah</h1></div><div class="ranking-actions"><label for="ranking-period">Periode klasemen<select id="ranking-period"><option value="today">Hari ini</option><option value="month" selected>Bulan ini</option><option value="all">Semua waktu</option></select></label><button id="btn-refresh" type="button" class="btn-secondary">↻ Perbarui</button><button id="btn-fullscreen" type="button" class="btn-secondary">⛶ Layar penuh</button></div></div>
       <div class="ranking-meta"><span id="ranking-updated" role="status">Memuat klasemen…</span><span>Berdasarkan berat setoran (kg)</span></div><p id="ranking-error" class="error" role="alert"></p>
       <div id="ranking-content" hidden>

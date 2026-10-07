@@ -37,14 +37,21 @@ body{background:radial-gradient(ellipse at 0 15%,#dcf5e7,transparent 50%),radial
 .waste-header .page-title{min-width:0;border-left:1px solid #cce2d4;padding-left:24px}
 .waste-header .page-title h1{font-size:1.65rem;line-height:1.2;letter-spacing:-.035em}
 .waste-header .page-title span{display:block;font-size:.8rem;margin-top:4px}
+#workspace-nav {
+  display: block !important;
+  border: none !important;
+  padding: 0 !important;
+  margin: 0 0 4px !important;
+}
+
 .school-header-row {
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
   width: 100% !important;
-  padding: 4px 0 14px !important;
-  margin: 0 0 10px !important;
-  border-bottom: 1px solid #d5e9db !important;
+  padding: 2px 0 4px !important;
+  margin: 0 0 4px !important;
+  border: none !important;
 }
 
 .school-context {
@@ -71,29 +78,72 @@ body{background:radial-gradient(ellipse at 0 15%,#dcf5e7,transparent 50%),radial
   max-width: none !important;
 }
 
-.nav-actions {
-  display: grid !important;
-  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  gap: 6px !important;
+/* Compact Klasemen button at bottom of Scan page */
+#view-scan .nav-actions {
+  display: block !important;
   width: 100% !important;
-  padding: 5px !important;
-  background: #e3eee6 !important;
-  border-radius: 16px !important;
-  margin-top: 16px !important;
+  padding: 0 !important;
+  background: transparent !important;
+  margin-top: 10px !important;
 }
 
-.nav-actions button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 48px;
-  padding: 10px 16px;
-  border: 1px solid transparent;
-  border-radius: 12px;
-  font-size: 0.88rem;
-  font-weight: 700;
-  box-shadow: none;
+#view-scan .nav-actions button#btn-ranking {
+  width: 100% !important;
+  min-height: 42px !important;
+  height: 42px !important;
+  padding: 6px 16px !important;
+  background: #e3eee6 !important;
+  color: #076340 !important;
+  border: 1px solid #cce2d4 !important;
+  border-radius: 14px !important;
+  font-size: 0.84rem !important;
+  font-weight: 750 !important;
+  box-shadow: none !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+}
+
+#view-scan .nav-actions button#btn-ranking:hover {
+  background: #d5e6da !important;
+}
+
+/* Floating Action Button (FAB) on Klasemen page */
+.btn-floating-deposit {
+  position: fixed !important;
+  bottom: 24px !important;
+  right: 20px !important;
+  z-index: 9999 !important;
+  background: linear-gradient(115deg, #0a7950, #075236) !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: 30px !important;
+  padding: 10px 20px !important;
+  font-size: 0.92rem !important;
+  font-weight: 800 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  box-shadow: 0 8px 24px rgba(7, 99, 64, 0.35) !important;
+  cursor: pointer !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+}
+
+.btn-floating-deposit svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2.8;
+}
+
+.btn-floating-deposit:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 10px 28px rgba(7, 99, 64, 0.45) !important;
+}
+
+.btn-floating-deposit:active {
+  transform: scale(0.95) !important;
 }
 
 @media(max-width:600px){
