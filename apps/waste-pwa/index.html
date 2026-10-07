@@ -51,15 +51,17 @@
       <p id="scan-error" class="error" role="alert"></p>
     </section>
     <section id="view-input" style="display:none">
-      <div class="student-card"><div class="student-avatar" id="student-avatar" aria-hidden="true">◎</div><div class="student-details"><small>SISWA PENYETOR</small><h2 id="input-student-name"></h2><p id="input-student-nisn"></p><span class="status-chip">✓ Identitas terverifikasi</span></div><button id="btn-cancel-input" type="button" class="btn-text">Ganti</button></div>
-      <form id="form-input">
-        <fieldset class="waste-card"><legend>♻ Jenis Sampah</legend><p>Pilih jenis sampah yang disetor</p><div class="type-options"><label><input type="radio" name="waste_type" value="ORGANIC" checked><span><i aria-hidden="true">❧</i>Organik</span></label><label><input type="radio" name="waste_type" value="INORGANIC"><span><i aria-hidden="true">♻</i>Anorganik</span></label></div></fieldset>
-        <div class="measurement-grid"><div class="waste-card weight-card"><label for="weight-input">Berat Setoran</label><div class="weight-controls"><button id="weight-minus" type="button" aria-label="Kurangi berat">−</button><input id="weight-input" type="number" name="weight" min="0.001" max="1000" step="0.001" value="0.500" required><button id="weight-plus" type="button" aria-label="Tambah berat">+</button></div><select id="unit-select" aria-label="Satuan berat"><option value="KG">Kilogram (kg)</option><option value="KTG">Kantong (1 kantong = 0,5 kg)</option></select><output id="total">0,5 kg</output></div><div class="waste-card points-card"><span class="star" aria-hidden="true">★</span><span>Poin Diperoleh</span><strong id="points-preview">—</strong><small id="points-hint">Mengikuti aturan sekolah</small></div></div>
-        <div class="staff-card"><span>◎ Petugas</span><strong id="staff-label">Piket Sampah</strong><span class="status-chip">Akses sekolah</span></div>
-        <button type="submit" id="btn-save">▣ Simpan Setoran <span>→</span></button>
-        <p id="input-error" class="error" role="alert"></p>
-        <div class="ready-note"><span>✓</span><div><strong>Data siap disimpan</strong><p>Pastikan jenis dan berat setoran sudah sesuai.</p></div></div>
-      </form>
+      <div class="modal-content-wrap">
+        <div class="student-card"><div class="student-avatar" id="student-avatar" aria-hidden="true">◎</div><div class="student-details"><small>SISWA PENYETOR</small><h2 id="input-student-name"></h2><p id="input-student-nisn"></p><span class="status-chip">✓ Identitas terverifikasi</span></div><button id="btn-cancel-input" type="button" class="btn-text">Ganti</button></div>
+        <form id="form-input">
+          <fieldset class="waste-card"><legend>♻ Jenis Sampah</legend><p>Pilih jenis sampah yang disetor</p><div class="type-options"><label><input type="radio" name="waste_type" value="ORGANIC" checked><span><i aria-hidden="true">❧</i>Organik</span></label><label><input type="radio" name="waste_type" value="INORGANIC"><span><i aria-hidden="true">♻</i>Anorganik</span></label></div></fieldset>
+          <div class="measurement-grid"><div class="waste-card weight-card"><label for="weight-input">Berat Setoran</label><div class="weight-controls"><button id="weight-minus" type="button" aria-label="Kurangi berat">−</button><input id="weight-input" type="number" name="weight" min="0.001" max="1000" step="0.001" value="0.500" required><button id="weight-plus" type="button" aria-label="Tambah berat">+</button></div><select id="unit-select" aria-label="Satuan berat"><option value="KG">Kilogram (kg)</option><option value="KTG">Kantong (1 kantong = 0,5 kg)</option></select><output id="total">0,5 kg</output></div><div class="waste-card points-card"><span class="star" aria-hidden="true">★</span><span>Poin Diperoleh</span><strong id="points-preview">—</strong><small id="points-hint">Mengikuti aturan sekolah</small></div></div>
+          <div class="staff-card"><span>◎ Petugas</span><strong id="staff-label">Piket Sampah</strong><span class="status-chip">Akses sekolah</span></div>
+          <button type="submit" id="btn-save">▣ Simpan Setoran <span>→</span></button>
+          <p id="input-error" class="error" role="alert"></p>
+          <div class="ready-note"><span>✓</span><div><strong>Data siap disimpan</strong><p>Pastikan jenis dan berat setoran sudah sesuai.</p></div></div>
+        </form>
+      </div>
     </section>
     <section id="view-success" style="display:none"><div class="success-icon">✓</div><h1>Setoran berhasil disimpan</h1><p id="success-detail">Terima kasih sudah menjaga sekolah tetap bersih.</p><button id="btn-next-scan" type="button">Pindai siswa berikutnya →</button></section>
     <section id="view-ranking" style="display:none">

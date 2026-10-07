@@ -63,7 +63,7 @@ router.get("/summary", requirePermission("card.read"), asyncHandler(async (req, 
   });
 }));
 
-router.post("/resolve", requirePermission("student.read"), validate({ body: z.object({ qr_key: z.string().trim().min(16).max(128) }).strict() }), asyncHandler(async (req, res) => {
+router.post("/resolve", requirePermission("student.read"), validate({ body: z.object({ qr_key: z.string().trim().min(1).max(128) }).strict() }), asyncHandler(async (req, res) => {
   const { data, error } = await req.auth!.client.rpc("resolve_student_card", { p_school: req.tenant!.schoolId, p_qr: req.body.qr_key });
   if (error) throw fromDatabaseError(error);
   sendData(res, data);

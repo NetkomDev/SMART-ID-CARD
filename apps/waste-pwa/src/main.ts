@@ -101,9 +101,8 @@ async function startCamera() {
       el("qr-reader").style.display = "block";
       el("scanner-placeholder").hidden = true;
       await scanner.start({ facingMode: facing }, { fps: 10, qrbox: (w: number, h: number) => ({ width: Math.min(220, w * .7, h * .7), height: Math.min(220, w * .7, h * .7) }) }, (decoded: string) => {
-        if (resolving || view !== "scan") return;
-        input("scan-input").value = decoded;
-        void resolveStudent();
+        if (resolving || view === "input") return;
+        void resolveStudent(decoded);
       }, () => undefined);
       scanning = true;
       el("btn-toggle-camera").textContent = "Tutup Kamera";
@@ -117,16 +116,16 @@ async function startCamera() {
 }
 function switchView(next: View) {
   view = next;
-  if (next !== "scan") void stopCamera();
+  if (next !== "scan" && next !== "input") void stopCamera();
   for (const name of ["login", "scan", "input", "success", "ranking"] as View[]) {
     el(`view-${name}`).style.display = name === next || (next === "input" && name === "scan") ? "block" : "none";
   }
   el("workspace-nav").hidden = next === "login";
   el("today-panel").hidden = next !== "ranking";
-  el("form-scan").hidden = next === "input";
-  el("btn-toggle-camera").hidden = next === "input";
-  el("btn-switch-camera").hidden = next === "input";
-  el("scanner-hint").textContent = next === "input" ? "Identitas siswa berhasil diverifikasi" : "Kartu kecil, langkah besar untuk bumi yang lebih bersih.";
+  el("form-scan").hidden = false;
+  el("btn-toggle-camera").hidden = false;
+  el("btn-switch-camera").hidden = false;
+  el("scanner-hint").textContent = "Kartu kecil, langkah besar untuk bumi yang lebih bersih.";
   el("scan-status").textContent = next === "input" ? "✓ Siswa terdeteksi · siap mencatat setoran" : "Siap memindai identitas siswa";
   document.body.classList.toggle("show-ranking", next === "ranking");
   const subEl = document.getElementById("header-subtitle");
@@ -259,25 +258,68 @@ async function init() {
     el("btn-start-login-scan").style.display = "block";
   }
 }
-async function resolveStudent() {
-  const query = input("scan-input").value.trim();
+async function resolveStudent(scannedText?: string) {
+  const query = (scannedText ?? input("scan-input").value).trim();
   if (!query || resolving || pending) return;
-  resolving = true; el("scan-error").textContent = "Mencari siswa…";
+
+  resolving = true;
+  el("scan-error").textContent = "Mencari siswa…";
   el<HTMLButtonElement>("btn-ranking").disabled = true;
+
   try {
-    await stopCamera();
-    const students = /^[a-f0-9]{48}$/.test(query)
-      ? [await portal.request<Student>("/cards/resolve", { method: "POST", body: JSON.stringify({ qr_key: query }) })]
-      : await portal.request<Student[]>(`/students?search=${encodeURIComponent(query)}`);
-    if (students.length !== 1) throw new Error(students.length ? "Lebih dari satu siswa cocok. Masukkan NIS/NISN lengkap." : "Siswa tidak ditemukan di kelas ini.");
-    if (view !== "scan") return;
-    showStudent(students[0]!);
-    input("scan-input").value = ""; el("scan-error").textContent = ""; el("input-error").textContent = "";
-    input("weight-input").value = "0.500"; input<HTMLSelectElement>("unit-select").value = "KG";
-    document.querySelector<HTMLInputElement>('input[value="ORGANIC"]')!.checked = true;
-    updateMeasurement(); switchView("input");
-  } catch (error) { el("scan-error").textContent = message(error); }
-  finally { resolving = false; el<HTMLButtonElement>("btn-ranking").disabled = false; }
+    let resolvedStudent: Student | null = null;
+
+    // 1. Try card resolve RPC endpoint first (handles hex QR keys, card UIDs, card serials, etc.)
+    try {
+      const cardRes = await portal.request<Student>("/cards/resolve", {
+        method: "POST",
+        body: JSON.stringify({ qr_key: query })
+      });
+      if (cardRes && cardRes.id) {
+        resolvedStudent = cardRes;
+      }
+    } catch {
+      // Fallback below
+    }
+
+    // 2. Fallback: Search students by NISN / NIS / Name
+    if (!resolvedStudent) {
+      try {
+        const list = await portal.request<Student[]>(`/students?search=${encodeURIComponent(query)}`);
+        if (Array.isArray(list) && list.length === 1) {
+          resolvedStudent = list[0]!;
+        } else if (Array.isArray(list) && list.length > 1) {
+          throw new Error("Lebih dari satu siswa cocok. Masukkan NIS / NISN lengkap.");
+        }
+      } catch (err: any) {
+        if (err?.message?.includes("Lebih dari satu")) throw err;
+      }
+    }
+
+    if (!resolvedStudent) {
+      throw new Error("Kartu / siswa tidak ditemukan di sekolah ini.");
+    }
+
+    // If scanned via camera, keep manual search input box untouched!
+    if (!scannedText) {
+      input("scan-input").value = "";
+    }
+
+    showStudent(resolvedStudent);
+    el("scan-error").textContent = "";
+    el("input-error").textContent = "";
+    input("weight-input").value = "0.500";
+    input<HTMLSelectElement>("unit-select").value = "KG";
+    const organicInput = document.querySelector<HTMLInputElement>('input[value="ORGANIC"]');
+    if (organicInput) organicInput.checked = true;
+    updateMeasurement();
+    switchView("input");
+  } catch (error) {
+    el("scan-error").textContent = message(error);
+  } finally {
+    resolving = false;
+    el<HTMLButtonElement>("btn-ranking").disabled = false;
+  }
 }
 function lockForm(locked: boolean) {
   el("form-input").querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>("input, select, button[type=button]").forEach(control => control.disabled = locked);
