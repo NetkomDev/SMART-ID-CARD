@@ -66,11 +66,21 @@ let scanner: any = null, resolving = false, saving = false;
 type PendingDeposit = { event_id: string; class_id: string; student_id: string; organic_kg: number; inorganic_kg: number; source: string };
 let pending: PendingDeposit | null = null;
 const pendingKey = () => `aksis.waste.pending.${portal.context?.id ?? ""}`;
+const activeSessionKey = () => `aksis.waste.active_session.${portal.context?.id ?? ""}`;
 function rememberPending() {
   try {
     if (pending && student) sessionStorage.setItem(pendingKey(), JSON.stringify({ pending, student }));
     else sessionStorage.removeItem(pendingKey());
   } catch { /* In-memory retry still protects this session when storage is disabled. */ }
+}
+function rememberActiveSession() {
+  try {
+    if (student && view === "input") {
+      sessionStorage.setItem(activeSessionKey(), JSON.stringify({ student, view: "input" }));
+    } else {
+      sessionStorage.removeItem(activeSessionKey());
+    }
+  } catch { /* Storage fallback */ }
 }
 function showStudent(selected: Student) {
   student = selected;
@@ -81,6 +91,7 @@ function showStudent(selected: Student) {
   } else {
     avatarEl.innerHTML = `<div class="avatar-fallback" title="${esc(student.full_name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke-linecap="round"/><circle cx="12" cy="7" r="4"/></svg></div>`;
   }
+  rememberActiveSession();
 }
 
 function triggerCameraFlash() {
@@ -174,6 +185,7 @@ function switchView(next: View) {
       if (active) btn.setAttribute("aria-current", "page"); else btn.removeAttribute("aria-current");
     }
   }
+  rememberActiveSession();
 }
 function updateMeasurement() {
   const type = document.querySelector<HTMLInputElement>('input[name="waste_type"]:checked')!.value as WasteType;
@@ -288,6 +300,13 @@ async function init() {
         document.querySelector<HTMLInputElement>(`input[value="${pending.organic_kg > 0 ? "ORGANIC" : "INORGANIC"}"]`)!.checked = true;
         lockForm(true); switchView("input"); updateMeasurement();
         el("input-error").textContent = "Ada setoran yang belum terkonfirmasi. Tekan Simpan Setoran untuk memeriksa atau mengulang tanpa menggandakan data.";
+      } else {
+        const activeSaved = JSON.parse(sessionStorage.getItem(activeSessionKey()) ?? "null") as { student: Student; view: View } | null;
+        if (activeSaved?.student?.id && activeSaved.view === "input") {
+          showStudent(activeSaved.student);
+          switchView("input");
+          updateMeasurement();
+        }
       }
     } catch { /* Ignore malformed browser storage. */ }
     void loadDashboard(); offerInstall();
