@@ -277,8 +277,37 @@ body{background:radial-gradient(ellipse at 0 15%,#dcf5e7,transparent 50%),radial
   box-sizing: border-box;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
-  overscroll-behavior-y: contain;
+.zoom-controls-bar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  margin: 10px 0 6px !important;
+  z-index: 10 !important;
+  position: relative !important;
+}
+
+.zoom-btn {
+  background: rgba(255, 255, 255, 0.15) !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  color: #ffffff !important;
+  border-radius: 20px !important;
+  padding: 4px 14px !important;
+  font-size: 0.8rem !important;
+  font-weight: 800 !important;
+  min-height: 32px !important;
+  height: 32px !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  line-height: 1 !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15) !important;
+}
+
+.zoom-btn:hover, .zoom-btn.active {
+  background: #39c778 !important;
+  color: #07472c !important;
+  border-color: #39c778 !important;
+  box-shadow: 0 4px 12px rgba(57, 199, 120, 0.4) !important;
 }
 
 @media (min-width: 680px) {

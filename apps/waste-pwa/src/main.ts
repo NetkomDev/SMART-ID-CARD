@@ -94,7 +94,16 @@ function showStudent(selected: Student) {
   rememberActiveSession();
 }
 
+function triggerHapticFeedback() {
+  if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+    try {
+      navigator.vibrate([120, 60, 120]);
+    } catch { /* Ignore vibration block */ }
+  }
+}
+
 function triggerCameraFlash() {
+  triggerHapticFeedback();
   const flashEl = el("camera-shutter-flash");
   if (flashEl) {
     flashEl.classList.remove("flash-active");
@@ -104,6 +113,84 @@ function triggerCameraFlash() {
       flashEl.classList.remove("flash-active");
     }, 450);
   }
+}
+
+let currentZoom = 1;
+let initialTouchDistance = 0;
+let initialZoomOnTouch = 1;
+
+function getActiveCameraTrack(): MediaStreamTrack | null {
+  const videoEl = document.querySelector<HTMLVideoElement>("#qr-reader video");
+  if (!videoEl || !videoEl.srcObject) return null;
+  const stream = videoEl.srcObject as MediaStream;
+  const tracks = stream.getVideoTracks();
+  return tracks[0] ?? null;
+}
+
+async function setCameraZoom(zoomLevel: number) {
+  currentZoom = Math.max(1, Math.min(5, zoomLevel));
+  const track = getActiveCameraTrack();
+  if (track && typeof track.getCapabilities === "function") {
+    try {
+      const caps = (track.getCapabilities() as any) || {};
+      if (caps.zoom) {
+        const min = caps.zoom.min || 1;
+        const max = caps.zoom.max || 5;
+        const targetZoom = Math.max(min, Math.min(max, currentZoom));
+        await track.applyConstraints({
+          advanced: [{ zoom: targetZoom } as any]
+        });
+      }
+    } catch { /* Hardware zoom fallback to CSS scale below */ }
+  }
+
+  const videoEl = document.querySelector<HTMLVideoElement>("#qr-reader video");
+  if (videoEl) {
+    videoEl.style.transform = currentZoom > 1 ? `scale(${currentZoom.toFixed(2)})` : "none";
+    videoEl.style.transformOrigin = "center center";
+    videoEl.style.transition = "transform 0.15s ease-out";
+  }
+
+  const zoomBox = el("zoom-controls");
+  if (zoomBox) {
+    zoomBox.querySelectorAll<HTMLButtonElement>(".zoom-btn").forEach(btn => {
+      const val = Number(btn.getAttribute("data-zoom"));
+      btn.classList.toggle("active", Math.abs(val - currentZoom) < 0.3);
+    });
+  }
+}
+
+function setupScannerPinchZoom() {
+  const stage = el("scanner-stage");
+  if (!stage) return;
+
+  stage.addEventListener("touchstart", (e: TouchEvent) => {
+    if (e.touches.length === 2 && scanning) {
+      if (e.cancelable) e.preventDefault();
+      const t1 = e.touches[0]!;
+      const t2 = e.touches[1]!;
+      initialTouchDistance = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      initialZoomOnTouch = currentZoom;
+    }
+  }, { passive: false });
+
+  stage.addEventListener("touchmove", (e: TouchEvent) => {
+    if (e.touches.length === 2 && scanning && initialTouchDistance > 0) {
+      if (e.cancelable) e.preventDefault();
+      const t1 = e.touches[0]!;
+      const t2 = e.touches[1]!;
+      const currentDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      const factor = currentDist / initialTouchDistance;
+      const targetZoom = Math.max(1, Math.min(5, initialZoomOnTouch * factor));
+      void setCameraZoom(targetZoom);
+    }
+  }, { passive: false });
+
+  stage.addEventListener("touchend", (e: TouchEvent) => {
+    if (e.touches.length < 2) {
+      initialTouchDistance = 0;
+    }
+  });
 }
 
 function hideNotFoundModal() {
@@ -119,6 +206,9 @@ function showLoadingOverlay(show: boolean) {
 async function stopCamera() {
   if (scanning && scanner) { try { await scanner.stop(); } catch { /* Already stopped by browser. */ } }
   scanning = false;
+  currentZoom = 1;
+  const zoomControls = el("zoom-controls");
+  if (zoomControls) zoomControls.style.display = "none";
   el("qr-reader").style.display = "none";
   el("scanner-placeholder").hidden = false;
   el("btn-toggle-camera").textContent = "Buka Kamera Scanner";
@@ -145,6 +235,9 @@ async function startCamera() {
       }, () => undefined);
       scanning = true;
       el("btn-toggle-camera").textContent = "Tutup Kamera";
+      const zoomControls = el("zoom-controls");
+      if (zoomControls) zoomControls.style.display = "flex";
+      void setCameraZoom(1);
     } catch {
       el("scan-error").style.display = "block";
       el("scan-error").textContent = "Kamera tidak tersedia. Izinkan akses kamera atau masukkan nomor siswa.";
@@ -465,5 +558,12 @@ document.addEventListener("fullscreenchange", () => {
 });
 window.setInterval(() => { if (!document.hidden && view !== "login") void loadDashboard(); }, 60_000);
 document.addEventListener("visibilitychange", () => { if (document.hidden) void stopCamera(); else void loadDashboard(); });
+document.querySelectorAll<HTMLButtonElement>(".zoom-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const zoomVal = Number(btn.getAttribute("data-zoom")) || 1;
+    void setCameraZoom(zoomVal);
+  });
+});
+setupScannerPinchZoom();
 void init();
 
