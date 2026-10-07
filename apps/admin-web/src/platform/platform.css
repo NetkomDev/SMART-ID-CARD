@@ -407,9 +407,9 @@
 .meta-col {
   flex: 1;
   min-width: 0;
-  height: 36mm;
+  height: 34.5mm;
   display: flex;
-  align-items: flex-start;
+  align-items: flex-end;
   justify-content: center;
 }
 
@@ -425,12 +425,12 @@
 .student-card-front .qr-container,
 .card-canvas .qr-container,
 .id-card-preview .qr-container {
-  width: 22mm;
-  height: 22mm;
+  width: 27mm;
+  height: 27mm;
   padding: 0;
   border: none;
   background: transparent;
-  margin-top: 12.5mm;  /* <-- GESER QR CODE ATAS/BAWAH (DIBESARKAN = TURUN) */
+  margin-top: 0;  /* Rata bawah otomatis dengan bingkai foto (align-items: flex-end) */
   margin-left: 0mm; /* <-- GESER QR CODE KIRI/KANAN (Nilai negatif = KE KIRI) */
 }
 
