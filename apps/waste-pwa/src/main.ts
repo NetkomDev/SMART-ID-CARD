@@ -79,6 +79,23 @@ function showStudent(selected: Student) {
   el("student-avatar").textContent = student.full_name.split(/\s+/).slice(0, 2).map(n => n[0]).join("").toUpperCase();
 }
 
+function triggerCameraFlash() {
+  const flashEl = el("camera-shutter-flash");
+  if (flashEl) {
+    flashEl.classList.remove("flash-active");
+    void flashEl.offsetWidth; // force reflow
+    flashEl.classList.add("flash-active");
+    setTimeout(() => {
+      flashEl.classList.remove("flash-active");
+    }, 450);
+  }
+}
+
+function hideNotFoundModal() {
+  const modal = el("modal-not-found");
+  if (modal) modal.style.display = "none";
+}
+
 async function stopCamera() {
   if (cameraStart) await cameraStart;
   if (scanning && scanner) { try { await scanner.stop(); } catch { /* Already stopped by browser. */ } }
@@ -97,16 +114,19 @@ async function startCamera() {
         const { Html5Qrcode } = await import("html5-qrcode");
         scanner = new Html5Qrcode("qr-reader");
       }
+      el("scan-error").style.display = "none";
       el("scan-error").textContent = "";
       el("qr-reader").style.display = "block";
       el("scanner-placeholder").hidden = true;
       await scanner.start({ facingMode: facing }, { fps: 10, qrbox: (w: number, h: number) => ({ width: Math.min(220, w * .7, h * .7), height: Math.min(220, w * .7, h * .7) }) }, (decoded: string) => {
         if (resolving || view === "input") return;
+        triggerCameraFlash();
         void resolveStudent(decoded);
       }, () => undefined);
       scanning = true;
       el("btn-toggle-camera").textContent = "Tutup Kamera";
     } catch {
+      el("scan-error").style.display = "block";
       el("scan-error").textContent = "Kamera tidak tersedia. Izinkan akses kamera atau masukkan nomor siswa.";
       el("qr-reader").style.display = "none";
       el("scanner-placeholder").hidden = false;
@@ -116,6 +136,7 @@ async function startCamera() {
 }
 function switchView(next: View) {
   view = next;
+  hideNotFoundModal();
   if (next !== "scan" && next !== "input") void stopCamera();
   for (const name of ["login", "scan", "input", "success", "ranking"] as View[]) {
     el(`view-${name}`).style.display = name === next || (next === "input" && name === "scan") ? "block" : "none";
@@ -263,7 +284,9 @@ async function resolveStudent(scannedText?: string) {
   if (!query || resolving || pending) return;
 
   resolving = true;
-  el("scan-error").textContent = "Mencari siswa…";
+  hideNotFoundModal();
+  el("scan-error").style.display = "none";
+  el("scan-error").textContent = "";
   el<HTMLButtonElement>("btn-ranking").disabled = true;
 
   try {
@@ -306,6 +329,7 @@ async function resolveStudent(scannedText?: string) {
     }
 
     showStudent(resolvedStudent);
+    el("scan-error").style.display = "none";
     el("scan-error").textContent = "";
     el("input-error").textContent = "";
     input("weight-input").value = "0.500";
@@ -315,7 +339,9 @@ async function resolveStudent(scannedText?: string) {
     updateMeasurement();
     switchView("input");
   } catch (error) {
-    el("scan-error").textContent = message(error);
+    const errMsg = message(error);
+    el("not-found-msg-text").textContent = errMsg;
+    el("modal-not-found").style.display = "flex";
   } finally {
     resolving = false;
     el<HTMLButtonElement>("btn-ranking").disabled = false;
@@ -355,6 +381,17 @@ el("btn-switch-camera").addEventListener("click", async () => {
   el("btn-switch-camera").querySelector("span")!.textContent = facing === "environment" ? "Kamera belakang" : "Kamera depan";
   void startCamera();
 });
+el("btn-rescan-qr").addEventListener("click", () => {
+  hideNotFoundModal();
+  input("scan-input").value = "";
+  if (!scanning) {
+    void startCamera();
+  }
+});
+el("btn-close-not-found").addEventListener("click", () => {
+  hideNotFoundModal();
+  input("scan-input").focus();
+});
 for (const [id, delta] of [["weight-minus", -.1], ["weight-plus", .1]] as const) el(id).addEventListener("click", () => {
   input("weight-input").value = Math.max(.001, Math.min(1000, Number(input("weight-input").value) + delta)).toFixed(3); updateMeasurement();
 });
@@ -375,3 +412,4 @@ document.addEventListener("fullscreenchange", () => {
 window.setInterval(() => { if (!document.hidden && view !== "login") void loadDashboard(); }, 60_000);
 document.addEventListener("visibilitychange", () => { if (document.hidden) void stopCamera(); else void loadDashboard(); });
 void init();
+

@@ -41,6 +41,7 @@
     </section>
     <section id="view-scan" style="display:none">
       <div class="scanner-stage">
+        <div id="camera-shutter-flash" class="camera-shutter-flash"></div>
         <div class="scanner-heading"><div><strong>Scan QR Siswa</strong><span>Arahkan kamera ke QR kartu siswa</span></div><button id="btn-switch-camera" type="button" class="camera-switch" aria-label="Ganti kamera">↻ <span>Kamera belakang</span></button></div>
         <div id="qr-reader" style="display:none"></div>
         <div id="scanner-placeholder"><div class="scan-reticle" aria-hidden="true"><svg viewBox="0 0 80 80" fill="none"><path d="M24 5H5v19M56 5h19v19M5 56v19h19M75 56v19H56" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><path d="M20 20h14v14H20zM46 20h14v14H46zM20 46h14v14H20zM46 46h6v6h8v8H46z" stroke="currentColor" stroke-width="3"/></svg><span class="scan-line"></span></div><p id="scanner-hint">Kartu kecil, langkah besar<br>untuk bumi yang lebih bersih.</p></div>
@@ -48,8 +49,23 @@
         <div class="scan-state"><span class="live-dot"></span><span id="scan-status">Siap memindai identitas siswa</span></div>
       </div>
       <form id="form-scan"><label for="scan-input">Atau masukkan QR / NIS / NISN siswa</label><div class="manual-scan"><input id="scan-input" type="text" placeholder="Nomor siswa" autocomplete="off" required><button type="submit">Cari siswa →</button></div></form>
-      <p id="scan-error" class="error" role="alert"></p>
+      <p id="scan-error" class="error" role="alert" style="display:none;"></p>
     </section>
+
+    <!-- Modal Not Found Dialog -->
+    <div id="modal-not-found" class="modal-not-found-overlay" style="display:none;">
+      <div class="modal-not-found-card">
+        <div class="not-found-icon-wrap">
+          <div class="not-found-badge">⚠️</div>
+        </div>
+        <h3 class="not-found-title">Siswa Tidak Ditemukan</h3>
+        <p class="not-found-msg" id="not-found-msg-text">Kartu atau nomor identitas siswa ini tidak terdaftar pada piket kelas sekolah ini.</p>
+        <div class="not-found-actions">
+          <button type="button" id="btn-rescan-qr" class="btn-rescan">📷 Pindai Ulang Kamera</button>
+          <button type="button" id="btn-close-not-found" class="btn-manual-fallback">Cari Manual</button>
+        </div>
+      </div>
+    </div>
     <section id="view-input" style="display:none">
       <div class="modal-content-wrap">
         <div class="student-card"><div class="student-avatar" id="student-avatar" aria-hidden="true">◎</div><div class="student-details"><small>SISWA PENYETOR</small><h2 id="input-student-name"></h2><p id="input-student-nisn"></p><span class="status-chip">✓ Identitas terverifikasi</span></div><button id="btn-cancel-input" type="button" class="btn-text">Ganti</button></div>
