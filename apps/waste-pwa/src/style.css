@@ -123,3 +123,451 @@ body{background:radial-gradient(ellipse at 0 15%,#dcf5e7,transparent 50%),radial
  body.board-mode #view-ranking #today-panel{padding:14px;margin-bottom:14px!important}
  body.board-mode #view-ranking .ranking-hero{min-height:0;padding:0}
 }
+
+/* ==========================================================================
+   Input Waste View (#view-input) Fullscreen & Modern Redesign
+   ========================================================================== */
+
+#view-input {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  background: #eff8f2;
+  padding: 0;
+  max-width: none !important;
+  margin: 0 !important;
+  width: 100%;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.deposit-sheet {
+  background: #eff8f2;
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: max(12px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (min-width: 680px) {
+  #view-input {
+    align-items: center;
+    justify-content: center;
+    background: rgba(6, 20, 14, 0.78);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+  .deposit-sheet {
+    height: auto;
+    max-height: 92dvh;
+    border-radius: 28px;
+    background: #ffffff;
+    padding: 24px;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    overflow-y: auto;
+  }
+}
+
+/* Topbar */
+.deposit-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0 10px;
+  border-bottom: 1px solid #dceee3;
+  flex-shrink: 0;
+  margin-bottom: 10px;
+}
+
+.deposit-back {
+  background: #e2f2e7;
+  color: #076340;
+  border: 1px solid #c5e4d2;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 0.82rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.deposit-back svg {
+  width: 18px;
+  height: 18px;
+}
+
+.deposit-back:hover {
+  background: #d3eadb;
+}
+
+.deposit-topbar strong {
+  font-size: 1.1rem;
+  font-weight: 850;
+  color: #075b3d;
+  letter-spacing: -0.02em;
+}
+
+.deposit-topbar-spacer {
+  width: 70px;
+}
+
+/* Student Banner / Card */
+.deposit-student {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: linear-gradient(135deg, #ffffff 0%, #f0faf3 100%);
+  border: 2px solid #ffffff;
+  box-shadow: 0 8px 24px rgba(7, 99, 64, 0.08), 0 0 0 1px #d2e9db;
+  border-radius: 22px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.deposit-student .student-avatar {
+  width: 88px;
+  height: 110px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #dcf5e7, #bde6cd);
+  border: 3px solid #ffffff;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.deposit-student .student-photo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 13px;
+  display: block;
+}
+
+.deposit-student .avatar-fallback {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: #076340;
+  background: linear-gradient(135deg, #dcf5e7, #bde6cd);
+}
+
+.deposit-student .avatar-fallback svg {
+  width: 48px;
+  height: 48px;
+}
+
+.deposit-student .student-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.deposit-student .student-details h2 {
+  font-size: clamp(1.4rem, 5.2vw, 2.1rem);
+  font-weight: 850;
+  color: #075b3d;
+  letter-spacing: -0.04em;
+  line-height: 1.12;
+  margin: 0 0 8px;
+  word-break: break-word;
+}
+
+.deposit-student .status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #d7f5dd;
+  color: #08712f;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.74rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+/* Form & Body */
+.deposit-form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.deposit-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  min-height: 0;
+  justify-content: space-evenly;
+}
+
+.deposit-section {
+  background: #ffffff;
+  border: 1px solid #dceee3;
+  border-radius: 18px;
+  padding: 12px 14px;
+  box-shadow: 0 2px 10px rgba(22, 74, 45, 0.03);
+  margin: 0;
+}
+
+fieldset.deposit-section {
+  position: static;
+  padding: 12px 14px;
+}
+
+.deposit-label {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #076340;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+  display: block;
+}
+
+/* Waste Type Radio Selector */
+.type-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.type-options label {
+  position: relative;
+  cursor: pointer;
+}
+
+.type-options input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.type-options span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 54px;
+  border: 1px solid #d4e8dc;
+  border-radius: 14px;
+  background: #f7faf8;
+  color: #4b675b;
+  font-size: 0.95rem;
+  font-weight: 750;
+  transition: all 0.2s ease;
+}
+
+.type-options i {
+  font-style: normal;
+  font-size: 1.4rem;
+}
+
+.type-options input:checked + span {
+  background: linear-gradient(120deg, #e9fff0, #d6f7df);
+  border-color: #36b863;
+  color: #08763b;
+  box-shadow: 0 4px 12px rgba(54, 184, 99, 0.15), inset 0 0 0 1px #36b863;
+}
+
+.type-options input:checked + span:after {
+  content: '✓';
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #13af56;
+  color: white;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  text-align: center;
+  line-height: 20px;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+/* Weight Controls */
+.deposit-weight {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.weight-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f2f9f4;
+  border: 1px solid #d4e8dc;
+  border-radius: 16px;
+  padding: 6px 10px;
+}
+
+.weight-controls button {
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: #076340;
+  color: #ffffff;
+  font-size: 1.5rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 3px 10px rgba(7, 99, 64, 0.22);
+  transition: transform 0.1s ease, background 0.15s ease;
+  flex-shrink: 0;
+}
+
+.weight-controls button:active {
+  transform: scale(0.92);
+}
+
+.weight-controls input {
+  width: 110px;
+  border: none;
+  background: transparent !important;
+  font-size: 1.85rem;
+  font-weight: 850;
+  text-align: center;
+  color: #075b3d;
+  outline: none;
+  min-height: 40px;
+  padding: 0;
+}
+
+#unit-select {
+  width: 100%;
+  border: 1px solid #d4e8dc;
+  background: #ffffff;
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-size: 0.84rem;
+  font-weight: 650;
+  color: #163c38;
+  outline: none;
+  cursor: pointer;
+}
+
+/* Deposit Summary */
+.deposit-summary {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 10px;
+  background: linear-gradient(135deg, #eaf6ed 0%, #d8f1e2 100%);
+  border: 1px solid #c4e5d1;
+  border-radius: 16px;
+  padding: 12px 14px;
+  align-items: center;
+}
+
+.deposit-summary > div:first-child {
+  display: flex;
+  flex-direction: column;
+}
+
+.deposit-summary span {
+  font-size: 0.72rem;
+  color: #527566;
+  font-weight: 600;
+}
+
+.deposit-summary output {
+  font-size: 1.25rem;
+  font-weight: 850;
+  color: #075b3d;
+  line-height: 1.2;
+}
+
+.deposit-points {
+  display: flex;
+  flex-direction: column;
+}
+
+.deposit-points strong {
+  font-size: 1.3rem;
+  font-weight: 850;
+  color: #087447;
+  line-height: 1.2;
+}
+
+.deposit-points small {
+  font-size: 0.62rem;
+  color: #527566;
+}
+
+/* Deposit Footer */
+.deposit-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+
+.deposit-staff {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: #527566;
+  padding: 0 4px;
+}
+
+.deposit-staff strong {
+  color: #075b3d;
+  font-weight: 750;
+}
+
+#btn-save {
+  width: 100%;
+  min-height: 52px;
+  background: linear-gradient(115deg, #0a7950, #075236);
+  color: #ffffff;
+  border: none;
+  border-radius: 16px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-shadow: 0 6px 20px rgba(7, 99, 64, 0.25);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+#btn-save:hover {
+  box-shadow: 0 8px 24px rgba(7, 99, 64, 0.32);
+}
+
+#btn-save:active {
+  transform: translateY(1px);
+}
+

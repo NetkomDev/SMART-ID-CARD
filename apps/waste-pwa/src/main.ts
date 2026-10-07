@@ -147,10 +147,10 @@ function switchView(next: View) {
   view = next;
   hideNotFoundModal();
   showLoadingOverlay(false);
-  if (next !== "scan" && next !== "input") void stopCamera();
+  if (next !== "scan") void stopCamera();
   for (const name of ["login", "scan", "input", "success", "ranking"] as View[]) {
     const section = el(`view-${name}`);
-    if (name === next || (next === "input" && name === "scan")) {
+    if (name === next) {
       section.style.display = name === "input" ? "flex" : "block";
     } else {
       section.style.display = "none";
