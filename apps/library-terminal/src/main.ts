@@ -54,19 +54,39 @@ async function sync() {
   syncing = Promise.resolve(navigator.locks ? navigator.locks.request(queueKey(), work) : work()).then(() => undefined).finally(() => { syncing = null; });
   return syncing;
 }
+function showLoadingOverlay(show: boolean) {
+  const overlay = document.getElementById("loading-overlay");
+  if (overlay) overlay.style.display = show ? "flex" : "none";
+}
 
-async function recordVisit(scannedCode: string) {
+async function processVisit(uid: string, isFromCamera: boolean = false) {
   const key = queueKey();
-  const visit: Visit = { event_id: crypto.randomUUID(), card_uid: scannedCode.trim(), occurred_at: new Date().toISOString(), local_sequence: Date.now(), metadata: { terminal: "library-pwa" } };
+  const visit: Visit = { event_id: crypto.randomUUID(), card_uid: uid, occurred_at: new Date().toISOString(), local_sequence: Date.now(), metadata: { terminal: "library-pwa" } };
+  
+  if (isFromCamera) {
+    triggerHapticFeedback();
+    const flash = document.getElementById("camera-shutter-flash");
+    if (flash) {
+      flash.classList.remove("flash-active");
+      void flash.offsetWidth;
+      flash.classList.add("flash-active");
+    }
+    await stopCameraScanner();
+    showLoadingOverlay(true);
+  }
+
   try {
     const result = await portal.request<{student_name?:string;duplicate?:boolean}>("/library/visits", { method: "POST", body: JSON.stringify(visit) });
+    if (isFromCamera) showLoadingOverlay(false);
+    
     status.value = result.student_name ? `Kunjungan tercatat: ${result.student_name}` : "Kunjungan tercatat";
     studentName.textContent = result.student_name ?? "Siswa";
     visitTime.textContent = `${result.duplicate ? "Sudah tercatat" : "Tercatat"} pukul ${new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit" }).format(new Date())}`;
     studentResult.hidden = false;
     void loadDailySummary();
-    triggerHapticFeedback();
+    if (!isFromCamera) triggerHapticFeedback();
   } catch (error) {
+    if (isFromCamera) showLoadingOverlay(false);
     if (error instanceof PortalError && error.status < 500) { status.value = error.message; return; }
     save([...queue(key), visit], key); status.value = "Koneksi tertunda — kunjungan tersimpan di perangkat";
   }
@@ -74,7 +94,9 @@ async function recordVisit(scannedCode: string) {
 
 form.onsubmit = async event => {
   event.preventDefault();
-  await recordVisit(card.value);
+  const uid = card.value.trim();
+  if (!uid) return;
+  await processVisit(uid, false);
   card.value = ""; card.focus();
 };
 const showError = (error: unknown) => {
@@ -114,8 +136,6 @@ window.addEventListener("online", () => { if (portal.connected) void sync().catc
 
 let html5QrCode: any = null;
 let isScanning = false;
-let lastScannedText = "";
-let lastScannedTime = 0;
 
 async function stopCameraScanner() {
   if (html5QrCode && isScanning) {
@@ -138,25 +158,18 @@ async function startCameraScanner() {
     if (ph) ph.style.display = "none";
     document.getElementById("qr-reader")!.style.display = "block";
     const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-    const onScanSuccess = async (decodedText: string) => {
-      try {
-        const url = new URL(decodedText);
-        if (url.hash.includes("token=") || url.searchParams.has("token")) {
-          await stopCameraScanner();
-          window.location.href = decodedText;
-          return;
-        }
-      } catch {}
-
-      const now = Date.now();
-      if (decodedText === lastScannedText && now - lastScannedTime < 3000) {
-        return; // Prevent duplicate consecutive scans within 3 seconds
-      }
-      lastScannedText = decodedText;
-      lastScannedTime = now;
-
-      await recordVisit(decodedText);
-    };
+      const onScanSuccess = async (decodedText: string) => {
+        try {
+          const url = new URL(decodedText);
+          if (url.hash.includes("token=") || url.searchParams.has("token")) {
+            await stopCameraScanner();
+            window.location.href = decodedText;
+            return;
+          }
+        } catch {}
+  
+        void processVisit(decodedText, true);
+      };
 
     try {
       await html5QrCode.start({ facingMode: { exact: "environment" } }, config, onScanSuccess, () => {});

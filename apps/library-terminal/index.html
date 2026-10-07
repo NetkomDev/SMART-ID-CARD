@@ -40,6 +40,7 @@
           <button id="btn-switch-camera" type="button" class="camera-switch" style="display:none" aria-label="Ganti kamera">↻ <span>Kamera belakang</span></button>
         </div>
         <div id="qr-reader" class="camera-reader" style="display:none"></div>
+        <div id="camera-shutter-flash" class="camera-shutter-flash"></div>
         <div id="scanner-placeholder">
           <div class="scan-reticle" aria-hidden="true">
             <svg viewBox="0 0 80 80" fill="none"><path d="M24 5H5v19M56 5h19v19M5 56v19h19M75 56v19H56" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><path d="M20 20h14v14H20zM46 20h14v14H46zM20 46h14v14H20zM46 46h6v6h8v8H46z" stroke="currentColor" stroke-width="3"/></svg>
@@ -83,6 +84,14 @@
       <div class="sync-banner"><span class="round-icon"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span><div><strong>Data kunjungan tersimpan</strong><span>Sistem akan menyinkronkan data secara otomatis.</span></div></div>
       <div class="actions-row"><button id="sync">Sinkronkan sekarang</button></div>
     </section>
+
+    <!-- Loading Toast Overlay ("Memproses...") -->
+    <div id="loading-overlay" class="loading-overlay-container" style="display:none;">
+      <div class="loading-toast-card">
+        <div class="toast-spinner" aria-hidden="true"></div>
+        <span>Memproses...</span>
+      </div>
+    </div>
   </main>
   <script type="module" src="/src/main.ts"></script>
 </body>
