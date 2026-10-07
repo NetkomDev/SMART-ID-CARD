@@ -244,7 +244,13 @@ async function production(root:HTMLElement,content:HTMLElement,schools:School[],
 
     const printable = cards.every(c => ['DRAFT', 'PRINTED'].includes(c.production_status));
     const images = await Promise.all(
-      cards.map(c => QRCode.toDataURL(c.qr_key, { errorCorrectionLevel: 'M', margin: 4, width: 300 }))
+      cards.map(c => {
+        const s = c.print_snapshot ?? {};
+        const nisn = (s.nisn && String(s.nisn).trim().length >= 3) ? String(s.nisn).trim() : null;
+        const studentNum = (s.student_number && String(s.student_number).trim().length >= 3) ? String(s.student_number).trim() : null;
+        const payload = nisn || studentNum || c.qr_key;
+        return QRCode.toDataURL(payload, { errorCorrectionLevel: 'M', margin: 4, width: 300 });
+      })
     );
     if (!alive() || tabEpoch !== batchEpoch) return;
 
