@@ -51,19 +51,19 @@
           Buka Kamera Scanner
         </button>
         <div class="scan-state"><span class="live-dot"></span><span id="scan-status">Siap memindai identitas siswa</span></div>
-        
-        <div class="scan-divider"><span>atau masukkan manual / tap card reader</span></div>
-        <form id="scan">
-          <label for="card" class="sr-only">NISN siswa</label>
-          <div class="scan-input-wrap">
-            <div class="input-icon-wrap">
-              <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h4M7 13h7"/></svg>
-              <input type="text" id="card" placeholder="Masukkan NISN lengkap" autocomplete="off" required minlength="4" maxlength="64">
-            </div>
-            <button type="submit" class="btn-search">Cari siswa</button>
-          </div>
-        </form>
       </div>
+        
+      <div class="scan-divider"><span>atau masukkan manual / tap card reader</span></div>
+      <form id="scan" class="manual-input-card">
+        <label for="card" class="sr-only">NISN siswa</label>
+        <div class="scan-input-wrap">
+          <div class="input-icon-wrap">
+            <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h4M7 13h7"/></svg>
+            <input type="text" id="card" placeholder="Masukkan NISN lengkap" autocomplete="off" required minlength="4" maxlength="64">
+          </div>
+          <button type="submit" class="btn-search">Cari siswa</button>
+        </div>
+      </form>
 
       <output id="status" aria-live="polite">Siap memindai</output>
       <section id="student-result" class="student-result" hidden>
