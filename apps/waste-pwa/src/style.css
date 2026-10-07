@@ -310,6 +310,12 @@ body{background:radial-gradient(ellipse at 0 15%,#dcf5e7,transparent 50%),radial
   box-shadow: 0 4px 12px rgba(57, 199, 120, 0.4) !important;
 }
 
+#scanner-stage, #qr-reader, #qr-reader video, #qr-reader canvas {
+  touch-action: none !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}
+
 @media (min-width: 680px) {
   #view-input {
     align-items: center;

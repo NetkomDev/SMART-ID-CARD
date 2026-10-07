@@ -97,9 +97,28 @@ function showStudent(selected: Student) {
 function triggerHapticFeedback() {
   if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
     try {
-      navigator.vibrate([120, 60, 120]);
+      navigator.vibrate(200);
     } catch { /* Ignore vibration block */ }
   }
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (AudioCtx) {
+      const ctx = new AudioCtx();
+      if (ctx.state === "suspended") {
+        void ctx.resume();
+      }
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(960, ctx.currentTime);
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.15);
+    }
+  } catch { /* Audio fallback */ }
 }
 
 function triggerCameraFlash() {
@@ -130,9 +149,9 @@ function getActiveCameraTrack(): MediaStreamTrack | null {
 async function setCameraZoom(zoomLevel: number) {
   currentZoom = Math.max(1, Math.min(5, zoomLevel));
   const track = getActiveCameraTrack();
-  if (track && typeof track.getCapabilities === "function") {
+  if (track) {
     try {
-      const caps = (track.getCapabilities() as any) || {};
+      const caps = (track.getCapabilities ? track.getCapabilities() : {}) as any;
       if (caps.zoom) {
         const min = caps.zoom.min || 1;
         const max = caps.zoom.max || 5;
@@ -144,11 +163,14 @@ async function setCameraZoom(zoomLevel: number) {
     } catch { /* Hardware zoom fallback to CSS scale below */ }
   }
 
-  const videoEl = document.querySelector<HTMLVideoElement>("#qr-reader video");
-  if (videoEl) {
-    videoEl.style.transform = currentZoom > 1 ? `scale(${currentZoom.toFixed(2)})` : "none";
-    videoEl.style.transformOrigin = "center center";
-    videoEl.style.transition = "transform 0.15s ease-out";
+  const qrContainer = el("qr-reader");
+  if (qrContainer) {
+    const mediaEls = qrContainer.querySelectorAll<HTMLVideoElement | HTMLCanvasElement>("video, canvas");
+    mediaEls.forEach(media => {
+      media.style.transform = currentZoom > 1 ? `scale(${currentZoom.toFixed(2)})` : "none";
+      media.style.transformOrigin = "center center";
+      media.style.transition = "transform 0.12s ease-out";
+    });
   }
 
   const zoomBox = el("zoom-controls");
@@ -164,33 +186,46 @@ function setupScannerPinchZoom() {
   const stage = el("scanner-stage");
   if (!stage) return;
 
-  stage.addEventListener("touchstart", (e: TouchEvent) => {
-    if (e.touches.length === 2 && scanning) {
+  const handleTouchStart = (e: TouchEvent) => {
+    const target = e.target as HTMLElement | null;
+    const isInside = target && (stage.contains(target) || !!target.closest("#scanner-stage, #qr-reader"));
+    if (isInside && e.touches.length === 2 && scanning) {
       if (e.cancelable) e.preventDefault();
       const t1 = e.touches[0]!;
       const t2 = e.touches[1]!;
       initialTouchDistance = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
       initialZoomOnTouch = currentZoom;
     }
-  }, { passive: false });
+  };
 
-  stage.addEventListener("touchmove", (e: TouchEvent) => {
-    if (e.touches.length === 2 && scanning && initialTouchDistance > 0) {
+  const handleTouchMove = (e: TouchEvent) => {
+    const target = e.target as HTMLElement | null;
+    const isInside = target && (stage.contains(target) || !!target.closest("#scanner-stage, #qr-reader"));
+    if (isInside && e.touches.length === 2 && scanning) {
       if (e.cancelable) e.preventDefault();
       const t1 = e.touches[0]!;
       const t2 = e.touches[1]!;
       const currentDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
-      const factor = currentDist / initialTouchDistance;
-      const targetZoom = Math.max(1, Math.min(5, initialZoomOnTouch * factor));
-      void setCameraZoom(targetZoom);
+      if (initialTouchDistance === 0) {
+        initialTouchDistance = currentDist;
+        initialZoomOnTouch = currentZoom;
+      } else {
+        const factor = currentDist / initialTouchDistance;
+        const targetZoom = Math.max(1, Math.min(5, initialZoomOnTouch * factor));
+        void setCameraZoom(targetZoom);
+      }
     }
-  }, { passive: false });
+  };
 
-  stage.addEventListener("touchend", (e: TouchEvent) => {
+  const handleTouchEnd = (e: TouchEvent) => {
     if (e.touches.length < 2) {
       initialTouchDistance = 0;
     }
-  });
+  };
+
+  window.addEventListener("touchstart", handleTouchStart, { passive: false });
+  window.addEventListener("touchmove", handleTouchMove, { passive: false });
+  window.addEventListener("touchend", handleTouchEnd);
 }
 
 function hideNotFoundModal() {
