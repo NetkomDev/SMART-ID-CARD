@@ -25,3 +25,47 @@ document.querySelector<HTMLButtonElement>('#release-local')!.onclick=()=>void ac
 // Device secrets intentionally remain in memory; never use a Super Admin token here.
 let heartbeatRunning=false;const started=Date.now();setInterval(()=>{if(heartbeatRunning||!device.value||!secret.value)return;heartbeatRunning=true;void post('/devices/heartbeat',{uptime_seconds:Math.floor((Date.now()-started)/1000),firmware_version:'card-station-web-v1',storage_status:{pending:!!active},reported_at:new Date().toISOString()}).catch(()=>{}).finally(()=>{heartbeatRunning=false;});},30000);
 display();
+
+let scanner: any = null;
+let scanning = false;
+document.querySelector<HTMLButtonElement>('#btn-toggle-camera')!.onclick = async () => {
+  if (scanning) {
+    if (scanner) await scanner.stop();
+    scanning = false;
+    document.querySelector<HTMLElement>('#qr-reader')!.style.display = 'none';
+    document.querySelector<HTMLButtonElement>('#btn-toggle-camera')!.textContent = 'Buka Kamera Scanner';
+    return;
+  }
+  
+  const { Html5Qrcode } = await import('html5-qrcode');
+  if (!scanner) scanner = new Html5Qrcode('qr-reader');
+  
+  document.querySelector<HTMLElement>('#qr-reader')!.style.display = 'block';
+  document.querySelector<HTMLButtonElement>('#btn-toggle-camera')!.textContent = 'Tutup Kamera';
+  scanning = true;
+
+  try {
+    await scanner.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: { width: 250, height: 250 } },
+      (text: string) => {
+        if (!active) {
+          qr.value = text;
+        } else {
+          verifyQr.value = text;
+        }
+        scanner.stop();
+        scanning = false;
+        document.querySelector<HTMLElement>('#qr-reader')!.style.display = 'none';
+        document.querySelector<HTMLButtonElement>('#btn-toggle-camera')!.textContent = 'Buka Kamera Scanner';
+        status.textContent = 'QR Berhasil discan (Kamera)';
+      },
+      undefined
+    );
+  } catch (err: any) {
+    status.textContent = 'Gagal membuka kamera: ' + err.message;
+    scanning = false;
+    document.querySelector<HTMLElement>('#qr-reader')!.style.display = 'none';
+    document.querySelector<HTMLButtonElement>('#btn-toggle-camera')!.textContent = 'Buka Kamera Scanner';
+  }
+};

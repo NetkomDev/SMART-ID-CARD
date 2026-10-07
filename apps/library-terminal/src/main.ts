@@ -65,6 +65,7 @@ form.onsubmit = async event => {
     visitTime.textContent = `${result.duplicate ? "Sudah tercatat" : "Tercatat"} pukul ${new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit" }).format(new Date())}`;
     studentResult.hidden = false;
     void loadDailySummary();
+    triggerHapticFeedback();
   } catch (error) {
     if (error instanceof PortalError && error.status < 500) { status.value = error.message; return; }
     save([...queue(key), visit], key); status.value = "Koneksi tertunda — kunjungan tersimpan di perangkat";
@@ -75,6 +76,33 @@ const showError = (error: unknown) => {
   status.value = error instanceof Error ? error.message : "Sinkronisasi tertunda";
   status.className = "error";
 };
+
+function triggerHapticFeedback() {
+  if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+    try {
+      navigator.vibrate(200);
+    } catch {}
+  }
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (AudioCtx) {
+      const ctx = new AudioCtx();
+      if (ctx.state === "suspended") {
+        void ctx.resume();
+      }
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(960, ctx.currentTime);
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.15);
+    }
+  } catch {}
+}
 
 document.querySelector<HTMLButtonElement>("#sync")!.onclick = () => void sync().catch(showError);
 window.addEventListener("online", () => { if (portal.connected) void sync().catch(showError); });

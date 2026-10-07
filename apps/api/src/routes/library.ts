@@ -2,7 +2,7 @@ import { Router } from "express";
 import { readDeviceCredentials } from "../lib/device-credentials.js";
 import { fromDatabaseError } from "../lib/errors.js";
 import { sendData } from "../lib/responses.js";
-import { createPublicClient } from "../lib/supabase.js";
+import { createPublicClient, createServiceClient } from "../lib/supabase.js";
 import { asyncHandler } from "../middleware/async-handler.js";
 import { requirePermission } from "../middleware/tenant.js";
 import { validate } from "../middleware/validate.js";
@@ -47,8 +47,38 @@ libraryRouter.get("/summary", requirePermission("library.read"), validate({ quer
 
 // Staff PWA uses its own user-scoped permission; device routes remain unchanged.
 libraryRouter.post("/visits", requirePermission("library.visit"), validate({ body: libraryVisitSchema }), asyncHandler(async (req, res) => {
+  let finalCardUid = req.body.card_uid;
+
+  // Transparently resolve NISN or Student Number to the corresponding active card's qr_key.
+  // This workaround is needed because the printed QR code sometimes encodes the NISN,
+  // but record_portal_library_visit strictly requires the card's qr_key or NFC card_uid.
+  if (/^[a-zA-Z0-9]+$/.test(finalCardUid)) {
+    const admin = createServiceClient();
+    const { data: student } = await admin.from("students")
+      .select("id")
+      .eq("school_id", req.tenant!.schoolId)
+      .or(`nisn.eq.${finalCardUid},student_number.eq.${finalCardUid}`)
+      .eq("is_active", true)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (student) {
+      const { data: card } = await admin.from("student_cards")
+        .select("qr_key")
+        .eq("school_id", req.tenant!.schoolId)
+        .eq("student_id", student.id)
+        .eq("status", "ACTIVE")
+        .in("production_status", ["VERIFIED", "LEGACY"])
+        .maybeSingle();
+
+      if (card) {
+        finalCardUid = card.qr_key;
+      }
+    }
+  }
+
   const { data, error } = await req.auth!.client.rpc("record_portal_library_visit", {
-    target_school_id: req.tenant!.schoolId, p_event_id: req.body.event_id, p_card_uid: req.body.card_uid,
+    target_school_id: req.tenant!.schoolId, p_event_id: req.body.event_id, p_card_uid: finalCardUid,
     p_occurred_at: req.body.occurred_at, p_local_sequence: req.body.local_sequence
   });
   if (error) throw fromDatabaseError(error);

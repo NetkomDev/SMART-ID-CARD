@@ -1,8 +1,118 @@
-import{Router}from"express";import{readDeviceCredentials}from"../lib/device-credentials.js";import{fromDatabaseError,ApiError}from"../lib/errors.js";import{sendData}from"../lib/responses.js";import{createPublicClient}from"../lib/supabase.js";import{asyncHandler}from"../middleware/async-handler.js";import{requirePermission}from"../middleware/tenant.js";import{validate}from"../middleware/validate.js";import{idParamsSchema,paginationSchema}from"../schemas/common.js";import{claimCardWriteJobSchema,completeCardWriteJobSchema,createCardWriteJobSchema}from"../schemas/card-writer.js";
-export const cardWriterDeviceRouter=Router();
-cardWriterDeviceRouter.post("/jobs/claim",validate({body:claimCardWriteJobSchema}),asyncHandler(async(req,res)=>{const c=readDeviceCredentials(req),{data,error}=await createPublicClient().rpc("claim_card_write_job",{target_device_id:c.deviceId,device_secret:c.secret,p_qr:req.body.qr_key,p_uid:req.body.card_uid,p_lease_seconds:req.body.lease_seconds});if(error)throw fromDatabaseError(error);sendData(res,data)}));
-cardWriterDeviceRouter.post("/jobs/complete",validate({body:completeCardWriteJobSchema}),asyncHandler(async(req,res)=>{const c=readDeviceCredentials(req),{data,error}=await createPublicClient().rpc("complete_card_write_job",{target_device_id:c.deviceId,device_secret:c.secret,p_job_id:req.body.job_id,p_lease_token:req.body.lease_token,p_observed_uid:req.body.observed_uid,p_observed_rfid:req.body.observed_rfid,p_observed_qr:req.body.observed_qr,p_retryable:req.body.retryable,p_error_code:req.body.error_code});if(error)throw fromDatabaseError(error);sendData(res,data)}));
-export const cardWriterRouter=Router();const fields="id,school_id,card_id,status,attempt_count,max_attempts,leased_by_device_id,lease_expires_at,last_error_code,created_at,updated_at,completed_at";
-cardWriterRouter.get("/jobs",requirePermission("card.write"),validate({query:paginationSchema}),asyncHandler(async(req,res)=>{const page=req.query.page as unknown as number,size=req.query.page_size as unknown as number,{data,error,count}=await req.auth!.client.from("card_write_jobs").select(fields,{count:"exact"}).eq("school_id",req.tenant!.schoolId).order("created_at",{ascending:false}).range((page-1)*size,page*size-1);if(error)throw fromDatabaseError(error);sendData(res,data??[],200,{page,page_size:size,total:count??0})}));
-cardWriterRouter.post("/jobs",(_req,_res,next)=>next(new ApiError(409,"CONFLICT","Create and release a printed card batch through platform production")));
-cardWriterRouter.post("/jobs/:id/cancel",(_req,_res,next)=>next(new ApiError(409,"CONFLICT","Cancel the production job with a reason through platform production")));
+import { Router } from "express";
+import { readDeviceCredentials } from "../lib/device-credentials.js";
+import { fromDatabaseError, ApiError } from "../lib/errors.js";
+import { sendData } from "../lib/responses.js";
+import { createPublicClient, createServiceClient } from "../lib/supabase.js";
+import { asyncHandler } from "../middleware/async-handler.js";
+import { requirePermission } from "../middleware/tenant.js";
+import { validate } from "../middleware/validate.js";
+import { idParamsSchema, paginationSchema } from "../schemas/common.js";
+import { claimCardWriteJobSchema, completeCardWriteJobSchema, createCardWriteJobSchema } from "../schemas/card-writer.js";
+
+export const cardWriterDeviceRouter = Router();
+
+cardWriterDeviceRouter.post("/jobs/claim", validate({ body: claimCardWriteJobSchema }), asyncHandler(async (req, res) => {
+  const c = readDeviceCredentials(req);
+  let finalQrKey = req.body.qr_key;
+
+  if (finalQrKey && /^[a-zA-Z0-9]+$/.test(finalQrKey)) {
+    const admin = createServiceClient();
+    const { data: device } = await admin.from("devices").select("school_id").eq("id", c.deviceId).maybeSingle();
+    if (device?.school_id) {
+      const { data: student } = await admin.from("students")
+        .select("id")
+        .eq("school_id", device.school_id)
+        .or(`nisn.eq.${finalQrKey},student_number.eq.${finalQrKey}`)
+        .eq("is_active", true)
+        .is("deleted_at", null)
+        .maybeSingle();
+
+      if (student) {
+        const { data: card } = await admin.from("student_cards")
+          .select("qr_key")
+          .eq("school_id", device.school_id)
+          .eq("student_id", student.id)
+          .in("production_status", ["READY_TO_WRITE", "WRITING"])
+          .eq("status", "BLOCKED")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (card) {
+          finalQrKey = card.qr_key;
+        }
+      }
+    }
+  }
+
+  const { data, error } = await createPublicClient().rpc("claim_card_write_job", {
+    target_device_id: c.deviceId,
+    device_secret: c.secret,
+    p_qr: finalQrKey,
+    p_uid: req.body.card_uid,
+    p_lease_seconds: req.body.lease_seconds
+  });
+  if (error) throw fromDatabaseError(error);
+  sendData(res, data);
+}));
+
+cardWriterDeviceRouter.post("/jobs/complete", validate({ body: completeCardWriteJobSchema }), asyncHandler(async (req, res) => {
+  const c = readDeviceCredentials(req);
+  let finalObservedQr = req.body.observed_qr;
+
+  if (finalObservedQr && /^[a-zA-Z0-9]+$/.test(finalObservedQr)) {
+    const admin = createServiceClient();
+    const { data: device } = await admin.from("devices").select("school_id").eq("id", c.deviceId).maybeSingle();
+    if (device?.school_id) {
+      const { data: student } = await admin.from("students")
+        .select("id")
+        .eq("school_id", device.school_id)
+        .or(`nisn.eq.${finalObservedQr},student_number.eq.${finalObservedQr}`)
+        .eq("is_active", true)
+        .is("deleted_at", null)
+        .maybeSingle();
+
+      if (student) {
+        const { data: card } = await admin.from("student_cards")
+          .select("qr_key")
+          .eq("school_id", device.school_id)
+          .eq("student_id", student.id)
+          .in("production_status", ["READY_TO_WRITE", "WRITING", "VERIFIED"])
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (card) {
+          finalObservedQr = card.qr_key;
+        }
+      }
+    }
+  }
+
+  const { data, error } = await createPublicClient().rpc("complete_card_write_job", {
+    target_device_id: c.deviceId,
+    device_secret: c.secret,
+    p_job_id: req.body.job_id,
+    p_lease_token: req.body.lease_token,
+    p_observed_uid: req.body.observed_uid,
+    p_observed_rfid: req.body.observed_rfid,
+    p_observed_qr: finalObservedQr,
+    p_retryable: req.body.retryable,
+    p_error_code: req.body.error_code
+  });
+  if (error) throw fromDatabaseError(error);
+  sendData(res, data);
+}));
+
+export const cardWriterRouter = Router();
+const fields = "id,school_id,card_id,status,attempt_count,max_attempts,leased_by_device_id,lease_expires_at,last_error_code,created_at,updated_at,completed_at";
+
+cardWriterRouter.get("/jobs", requirePermission("card.write"), validate({ query: paginationSchema }), asyncHandler(async (req, res) => {
+  const page = req.query.page as unknown as number, size = req.query.page_size as unknown as number;
+  const { data, error, count } = await req.auth!.client.from("card_write_jobs").select(fields, { count: "exact" }).eq("school_id", req.tenant!.schoolId).order("created_at", { ascending: false }).range((page - 1) * size, page * size - 1);
+  if (error) throw fromDatabaseError(error);
+  sendData(res, data ?? [], 200, { page, page_size: size, total: count ?? 0 });
+}));
+
+cardWriterRouter.post("/jobs", (_req, _res, next) => next(new ApiError(409, "CONFLICT", "Create and release a printed card batch through platform production")));
+cardWriterRouter.post("/jobs/:id/cancel", (_req, _res, next) => next(new ApiError(409, "CONFLICT", "Cancel the production job with a reason through platform production")));
