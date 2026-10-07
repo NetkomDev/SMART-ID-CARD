@@ -165,7 +165,7 @@ export async function mountPlatformPage(path:string,schools:School[],shell:Shell
 async function production(root:HTMLElement,content:HTMLElement,schools:School[],alive:()=>boolean){
  content.innerHTML=`<div class="sa-tabs"><button data-tab="new">Buat batch</button><button data-tab="batches">Cetak & QC</button><button data-tab="jobs">Antrean penulisan</button><button data-tab="cards">Lifecycle kartu</button></div><div data-production></div>`;
  const body=content.querySelector<HTMLElement>('[data-production]')!;let tabEpoch=0;
- async function open(tab:string){const epoch=++tabEpoch;const current=()=>alive()&&epoch===tabEpoch;body.innerHTML='Memuat…';feedback(root,'');content.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach(b=>b.dataset.active=String(b.dataset.tab===tab));
+ async function open(tab:string){const epoch=++tabEpoch;const current=()=>alive()&&epoch===tabEpoch;body.innerHTML='Memuat…';feedback(root,'');try{location.hash=tab;}catch(_e){}content.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach(b=>b.dataset.active=String(b.dataset.tab===tab));
  if(tab==='new'){
  if(!schools.length){body.textContent='Daftarkan sekolah terlebih dahulu.';return;}
  body.innerHTML=`<div data-school-banner style="margin-bottom:1rem"></div><div style="margin-bottom:1rem;color:#64748b">Pilih maksimal 200 siswa untuk diproduksi. Siswa yang belum memiliki foto resmi dari orang tua atau sudah mempunyai kartu aktif ditahan dari antrean cetak.</div><form class="sa-form" data-filter><label>Sekolah<select name="school">${schoolOptions(schools)}</select></label><label>Kelas & tahun ajaran<select name="class"><option value="">Semua kelas</option></select></label><label>Status foto<select name="photo_status"><option value="">Semua status foto</option><option value="COMPLETE">Siap Cetak (Foto Lengkap ✓)</option><option value="MISSING">Menunggu Foto (Belum Unggah ⚠️)</option></select></label><label>Cari nama<input name="search" maxlength="100" placeholder="Ketik nama siswa..."></label><button class="button secondary">Cari</button></form><div data-candidates></div><div class="sa-actions"><span data-selected style="font-weight:600"></span><button class="button primary" data-create disabled>Buat batch & QR</button></div>`;
@@ -311,6 +311,7 @@ async function production(root:HTMLElement,content:HTMLElement,schools:School[],
         if (!fd) return;
         await api(`/platform/production/batches/${id}/action`, { method: 'POST', body: JSON.stringify({ event_id: crypto.randomUUID(), action, reason: fd.get('reason') }) });
         if (isCancel) {
+          location.hash = 'batches';
           location.reload();
           return;
         } else {
@@ -320,7 +321,7 @@ async function production(root:HTMLElement,content:HTMLElement,schools:School[],
     );
     feedback(root, '');
   }
- content.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach(b=>b.onclick=()=>void open(b.dataset.tab!).catch(e=>feedback(root,e)));await open('new');
+ content.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach(b=>b.onclick=()=>void open(b.dataset.tab!).catch(e=>feedback(root,e)));const initialTab=location.hash.replace('#','');await open(['new','batches','jobs','cards'].includes(initialTab)?initialTab:'new');
 }
 function generateCode128Svg(text: string): string {
   const PATTERNS = [
