@@ -49,7 +49,7 @@ el("btn-cancel-login-scan").addEventListener("click", async () => {
 el("form-login").addEventListener("submit", (e) => { e.preventDefault(); void init(); });
 
 type View = "login" | "scan" | "input" | "success" | "ranking";
-type Student = { id: string; full_name: string; nisn?: string | null; student_number: string };
+type Student = { id: string; full_name: string; nisn?: string | null; student_number: string; photo_url?: string | null };
 type RankedStudent = { student_id: string; full_name: string; class_name: string; total_kg: number };
 type Dashboard = {
   school_id: string;
@@ -75,8 +75,12 @@ function rememberPending() {
 function showStudent(selected: Student) {
   student = selected;
   el("input-student-name").textContent = student.full_name;
-  el("input-student-nisn").textContent = `${portal.context!.school_name} · ${className} · ${student.nisn || student.student_number}`;
-  el("student-avatar").textContent = student.full_name.split(/\s+/).slice(0, 2).map(n => n[0]).join("").toUpperCase();
+  const avatarEl = el("student-avatar");
+  if (student.photo_url) {
+    avatarEl.innerHTML = `<img src="${esc(student.photo_url)}" alt="${esc(student.full_name)}" class="student-photo-img" />`;
+  } else {
+    avatarEl.innerHTML = `<div class="avatar-fallback" title="${esc(student.full_name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke-linecap="round"/><circle cx="12" cy="7" r="4"/></svg></div>`;
+  }
 }
 
 function triggerCameraFlash() {
