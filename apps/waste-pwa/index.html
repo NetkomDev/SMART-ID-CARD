@@ -77,27 +77,45 @@
 
     <section id="view-input" style="display:none">
       <div class="modal-content-wrap deposit-sheet">
-        <header class="deposit-topbar">
-          <button id="btn-cancel-input" type="button" class="deposit-back" aria-label="Ganti siswa"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Ganti</span></button>
-          <strong>Setoran Sampah</strong>
-          <span class="deposit-topbar-spacer" aria-hidden="true"></span>
-        </header>
-
-        <div class="student-card deposit-student">
+        <header class="student-card deposit-student">
           <div class="student-avatar" id="student-avatar" aria-hidden="true"></div>
           <div class="student-details">
             <h2 id="input-student-name"></h2>
             <span class="status-chip">✓ Identitas terverifikasi</span>
           </div>
-        </div>
+          <button id="btn-cancel-input" type="button" class="deposit-back" aria-label="Ganti siswa">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>Ganti</span>
+          </button>
+        </header>
 
         <form id="form-input" class="deposit-form">
           <div class="deposit-body">
             <fieldset class="deposit-section">
               <legend class="deposit-label">Jenis Sampah</legend>
               <div class="type-options">
-                <label><input type="radio" name="waste_type" value="ORGANIC" checked><span><i aria-hidden="true">❧</i>Organik</span></label>
-                <label><input type="radio" name="waste_type" value="INORGANIC"><span><i aria-hidden="true">♻</i>Anorganik</span></label>
+                <label>
+                  <input type="radio" name="waste_type" value="ORGANIC" checked>
+                  <span>
+                    <svg class="type-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.4 19 2c1 2 2 4.1 1.4 9-1 8-7 9-8.4 9z"/>
+                      <path d="M11 20v-9"/>
+                    </svg>
+                    Organik
+                  </span>
+                </label>
+                <label>
+                  <input type="radio" name="waste_type" value="INORGANIC">
+                  <span>
+                    <svg class="type-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <polyline points="7 11 2 11 4.5 6.5"/>
+                      <path d="M4.5 6.5A11 11 0 0 1 12 3a11 11 0 0 1 9.5 5.5L19 11"/>
+                      <polyline points="17 13 22 13 19.5 17.5"/>
+                      <path d="M19.5 17.5A11 11 0 0 1 12 21a11 11 0 0 1-9.5-5.5L5 13"/>
+                    </svg>
+                    Anorganik
+                  </span>
+                </label>
               </div>
             </fieldset>
 
@@ -120,7 +138,7 @@
           </div>
 
           <div class="deposit-footer">
-            <div class="deposit-staff"><span>Petugas</span><strong id="staff-label">Piket Sampah</strong></div>
+            <div class="deposit-staff"><span>Petugas Piket</span><strong id="staff-label">Piket Sampah</strong></div>
             <p id="input-error" class="error" role="alert"></p>
             <button type="submit" id="btn-save">Simpan Setoran <span aria-hidden="true">→</span></button>
           </div>

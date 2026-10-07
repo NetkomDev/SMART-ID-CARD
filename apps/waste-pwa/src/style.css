@@ -178,57 +178,12 @@ body{background:radial-gradient(ellipse at 0 15%,#dcf5e7,transparent 50%),radial
   }
 }
 
-/* Topbar */
-.deposit-topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 4px 0 10px;
-  border-bottom: 1px solid #dceee3;
-  flex-shrink: 0;
-  margin-bottom: 10px;
-}
-
-.deposit-back {
-  background: #e2f2e7;
-  color: #076340;
-  border: 1px solid #c5e4d2;
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-weight: 700;
-  font-size: 0.82rem;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  transition: background 0.15s ease, transform 0.1s ease;
-}
-
-.deposit-back svg {
-  width: 18px;
-  height: 18px;
-}
-
-.deposit-back:hover {
-  background: #d3eadb;
-}
-
-.deposit-topbar strong {
-  font-size: 1.1rem;
-  font-weight: 850;
-  color: #075b3d;
-  letter-spacing: -0.02em;
-}
-
-.deposit-topbar-spacer {
-  width: 70px;
-}
-
-/* Student Banner / Card */
+/* Student Banner / Card (Serves as Main Header) */
 .deposit-student {
   display: flex;
   align-items: center;
-  gap: 16px;
+  justify-content: space-between;
+  gap: 14px;
   background: linear-gradient(135deg, #ffffff 0%, #f0faf3 100%);
   border: 2px solid #ffffff;
   box-shadow: 0 8px 24px rgba(7, 99, 64, 0.08), 0 0 0 1px #d2e9db;
@@ -237,12 +192,13 @@ body{background:radial-gradient(ellipse at 0 15%,#dcf5e7,transparent 50%),radial
   margin-bottom: 12px;
   flex-shrink: 0;
   position: relative;
-  overflow: hidden;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .deposit-student .student-avatar {
-  width: 88px;
-  height: 110px;
+  width: 80px;
+  height: 100px;
   border-radius: 16px;
   background: linear-gradient(135deg, #dcf5e7, #bde6cd);
   border: 3px solid #ffffff;
@@ -272,8 +228,8 @@ body{background:radial-gradient(ellipse at 0 15%,#dcf5e7,transparent 50%),radial
 }
 
 .deposit-student .avatar-fallback svg {
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
 }
 
 .deposit-student .student-details {
@@ -282,12 +238,12 @@ body{background:radial-gradient(ellipse at 0 15%,#dcf5e7,transparent 50%),radial
 }
 
 .deposit-student .student-details h2 {
-  font-size: clamp(1.4rem, 5.2vw, 2.1rem);
+  font-size: clamp(1.25rem, 4.8vw, 1.85rem);
   font-weight: 850;
   color: #075b3d;
   letter-spacing: -0.04em;
   line-height: 1.12;
-  margin: 0 0 8px;
+  margin: 0 0 6px;
   word-break: break-word;
 }
 
@@ -297,11 +253,43 @@ body{background:radial-gradient(ellipse at 0 15%,#dcf5e7,transparent 50%),radial
   gap: 5px;
   background: #d7f5dd;
   color: #08712f;
-  padding: 4px 12px;
+  padding: 4px 10px;
   border-radius: 20px;
-  font-size: 0.74rem;
+  font-size: 0.72rem;
   font-weight: 750;
   white-space: nowrap;
+}
+
+.deposit-student .deposit-back {
+  align-self: flex-start;
+  margin-left: auto;
+  flex-shrink: 0;
+  background: #e2f2e7;
+  color: #076340;
+  border: 1px solid #c5e4d2;
+  padding: 7px 14px;
+  border-radius: 20px;
+  font-weight: 750;
+  font-size: 0.82rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: background 0.15s ease, transform 0.1s ease;
+  box-shadow: 0 2px 6px rgba(7, 99, 64, 0.06);
+}
+
+.deposit-student .deposit-back svg {
+  width: 16px;
+  height: 16px;
+}
+
+.deposit-student .deposit-back:hover {
+  background: #d3eadb;
+}
+
+.deposit-student .deposit-back:active {
+  transform: scale(0.95);
 }
 
 /* Form & Body */
@@ -368,22 +356,27 @@ fieldset.deposit-section {
 
 .type-options span {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  min-height: 54px;
+  gap: 6px;
+  min-height: 72px;
   border: 1px solid #d4e8dc;
-  border-radius: 14px;
-  background: #f7faf8;
+  border-radius: 16px;
+  background: #ffffff;
   color: #4b675b;
   font-size: 0.95rem;
   font-weight: 750;
   transition: all 0.2s ease;
 }
 
-.type-options i {
-  font-style: normal;
-  font-size: 1.4rem;
+.type-options .type-icon {
+  width: 26px;
+  height: 26px;
+  stroke-width: 2.2;
+  color: #527566;
+  transition: color 0.2s ease, transform 0.2s ease;
+  flex-shrink: 0;
 }
 
 .type-options input:checked + span {
@@ -393,12 +386,16 @@ fieldset.deposit-section {
   box-shadow: 0 4px 12px rgba(54, 184, 99, 0.15), inset 0 0 0 1px #36b863;
 }
 
+.type-options input:checked + span .type-icon {
+  color: #08763b;
+  transform: scale(1.1);
+}
+
 .type-options input:checked + span:after {
   content: '✓';
   position: absolute;
   right: 10px;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 10px;
   background: #13af56;
   color: white;
   border-radius: 50%;
@@ -535,14 +532,25 @@ fieldset.deposit-section {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 0.78rem;
+  padding: 10px 16px;
+  background: #ffffff;
+  border: 1px solid #dceee3;
+  border-radius: 14px;
+  font-size: 0.85rem;
   color: #527566;
-  padding: 0 4px;
+  margin-bottom: 4px;
+  box-shadow: 0 2px 8px rgba(7, 99, 64, 0.04);
+}
+
+.deposit-staff span {
+  font-weight: 600;
+  color: #527566;
 }
 
 .deposit-staff strong {
   color: #075b3d;
-  font-weight: 750;
+  font-weight: 800;
+  font-size: 0.88rem;
 }
 
 #btn-save {
