@@ -2694,7 +2694,7 @@ async function pwaPortalsPage() {
           const url = new URL(base); url.hash = new URLSearchParams({ token: result.data.token }).toString();
           // @ts-ignore
           const QRCode = (await import("qrcode/lib/browser.js")).default;
-          const dataUrl = await QRCode.toDataURL(url.toString(), { width: 320, margin: 3, errorCorrectionLevel: "M" });
+          const dataUrl = await QRCode.toDataURL(url.toString(), { width: 320, margin: 4, errorCorrectionLevel: "M" });
           await loadAccess();
           if (revision !== current || state.school?.id !== schoolId) return;
           container.innerHTML = `<div class="qr-print-wrapper"><img src="${dataUrl}" width="135" height="135" alt="QR akses ${d.name}"/><div class="qr-label"><strong>${escapeHtml(state.school!.name)}</strong><p>${escapeHtml(d.name)}${d.key === "waste" ? " (" + escapeHtml(label) + ")" : ""}</p></div><div class="qr-print-instructions"><strong style="font-size:0.9rem; color:#0f172a; display:block; margin-bottom:0.4rem; text-align:left;">Panduan Akses Portal:</strong><ol style="margin:0; padding-left:1.2rem; font-size:0.85rem; color:#334155; line-height:1.6; text-align:left;"><li>Pindai Kode QR di atas menggunakan kamera smartphone.</li><li>Buka tautan portal yang muncul di layar.</li><li>Simpan aplikasi ke Layar Utama (Add to Home Screen) untuk akses cepat tanpa kata sandi.</li></ol></div></div>`;
