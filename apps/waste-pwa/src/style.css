@@ -197,25 +197,28 @@ body{background:radial-gradient(ellipse at 0 15%,#dcf5e7,transparent 50%),radial
 }
 
 .deposit-student .student-avatar {
-  width: 80px;
-  height: 100px;
+  width: 90px;
+  height: 110px;
   border-radius: 16px;
-  background: linear-gradient(135deg, #dcf5e7, #bde6cd);
   border: 3px solid #ffffff;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
-  display: grid;
-  place-items: center;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
   flex-shrink: 0;
   position: relative;
   overflow: hidden;
+  padding: 0 !important;
+  background: #dcf5e7;
+  display: block !important;
 }
 
 .deposit-student .student-photo-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: 13px;
-  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  display: block !important;
+  border-radius: 12px !important;
 }
 
 .deposit-student .avatar-fallback {

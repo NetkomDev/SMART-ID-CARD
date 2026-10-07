@@ -91,13 +91,13 @@
 
         <form id="form-input" class="deposit-form">
           <div class="deposit-body">
-            <fieldset class="deposit-section">
-              <legend class="deposit-label">Jenis Sampah</legend>
+            <div class="deposit-section">
+              <span class="deposit-label">Jenis Sampah</span>
               <div class="type-options">
                 <label>
                   <input type="radio" name="waste_type" value="ORGANIC" checked>
                   <span>
-                    <svg class="type-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <svg class="type-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                       <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.4 19 2c1 2 2 4.1 1.4 9-1 8-7 9-8.4 9z"/>
                       <path d="M11 20v-9"/>
                     </svg>
@@ -107,17 +107,19 @@
                 <label>
                   <input type="radio" name="waste_type" value="INORGANIC">
                   <span>
-                    <svg class="type-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      <polyline points="7 11 2 11 4.5 6.5"/>
-                      <path d="M4.5 6.5A11 11 0 0 1 12 3a11 11 0 0 1 9.5 5.5L19 11"/>
-                      <polyline points="17 13 22 13 19.5 17.5"/>
-                      <path d="M19.5 17.5A11 11 0 0 1 12 21a11 11 0 0 1-9.5-5.5L5 13"/>
+                    <svg class="type-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M7 19H4.815a1.83 1.83 0 0 1-1.57-.881 1.785 1.785 0 0 1-.004-1.784L5.5 12"/>
+                      <path d="M11 19h8.2a1.8 1.8 0 0 0 1.6-1 1.8 1.8 0 0 0 0-1.8L18.5 12"/>
+                      <path d="M12 4.5l4.5 7.8a1.8 1.8 0 0 1-.2 2.2l-2.3 2.5"/>
+                      <polyline points="7 14 3.5 14 5.5 10.5"/>
+                      <polyline points="17 10 20.5 10 18.5 13.5"/>
+                      <polyline points="14 4.5 12 1 10 4.5"/>
                     </svg>
                     Anorganik
                   </span>
                 </label>
               </div>
-            </fieldset>
+            </div>
 
             <div class="deposit-section">
               <label class="deposit-label" for="weight-input">Berat Setoran</label>

@@ -376,6 +376,7 @@ async function saveDeposit(e: SubmitEvent) {
   pending ??= { event_id: crypto.randomUUID(), class_id: classId, student_id: student.id, organic_kg: measurement.organic_kg, inorganic_kg: measurement.inorganic_kg, source: measurement.source };
   rememberPending();
   saving = true; lockForm(true); el<HTMLButtonElement>("btn-save").disabled = true;
+  showLoadingOverlay(true);
   el("input-error").textContent = "Menyimpan setoran…";
   try {
     const saved = await portal.request<{ total_kg: number; points_earned: number | null }>("/waste/transactions", { method: "POST", body: JSON.stringify(pending) });
@@ -385,7 +386,7 @@ async function saveDeposit(e: SubmitEvent) {
     // Keep the same event and payload after an ambiguous network/server failure.
     if (error instanceof PortalError && error.status >= 400 && error.status < 500 && error.status !== 409) { pending = null; rememberPending(); lockForm(false); }
     el("input-error").textContent = `${message(error)}${pending ? " Tekan Simpan Setoran untuk mengecek atau mengulang setoran yang sama tanpa menggandakan data." : ""}`;
-  } finally { saving = false; el<HTMLButtonElement>("btn-save").disabled = false; }
+  } finally { saving = false; showLoadingOverlay(false); el<HTMLButtonElement>("btn-save").disabled = false; }
 }
 loginForm.addEventListener("submit", e => { e.preventDefault(); void init(); });
 el("form-scan").addEventListener("submit", e => { e.preventDefault(); void resolveStudent(); });
