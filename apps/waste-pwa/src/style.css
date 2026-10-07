@@ -37,11 +37,18 @@ body{background:radial-gradient(ellipse at 0 15%,#dcf5e7,transparent 50%),radial
 .waste-header .page-title{min-width:0;border-left:1px solid #cce2d4;padding-left:24px}
 .waste-header .page-title h1{font-size:1.65rem;line-height:1.2;letter-spacing:-.035em}
 .waste-header .page-title span{display:block;font-size:.8rem;margin-top:4px}
+/* ==========================================================================
+   PETUNJUK PENGATURAN POSISI (NAIK/TURUN) & UKURAN KONTAINER PWA SAMPAH
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. HEADER SEKOLAH & KELAS (Bagian Atas Halaman)
+   -------------------------------------------------------------------------- */
 #workspace-nav {
   display: block !important;
   border: none !important;
   padding: 0 !important;
-  margin: 0 0 4px !important;
+  margin: 0 0 4px !important; /* PETUNJUK: Ubah angka 4px untuk menambah/mengurangi jarak ke bawah */
 }
 
 .school-header-row {
@@ -49,8 +56,8 @@ body{background:radial-gradient(ellipse at 0 15%,#dcf5e7,transparent 50%),radial
   align-items: center !important;
   justify-content: space-between !important;
   width: 100% !important;
-  padding: 2px 0 4px !important;
-  margin: 0 0 4px !important;
+  padding: 4px 0 4px !important; /* PETUNJUK: 2px (atas), 4px (bawah) -> geser naik/turun posisi header */
+  margin: 0 0 4px !important;    /* PETUNJUK: Jarak luar bawah ke scanner */
   border: none !important;
 }
 
@@ -58,7 +65,7 @@ body{background:radial-gradient(ellipse at 0 15%,#dcf5e7,transparent 50%),radial
   display: flex !important;
   align-items: center !important;
   gap: 8px !important;
-  font-size: 0.92rem !important;
+  font-size: 0.92rem !important; /* PETUNJUK: Ukuran teks nama sekolah */
   font-weight: 750 !important;
   color: #075b3d !important;
 }
@@ -66,31 +73,33 @@ body{background:radial-gradient(ellipse at 0 15%,#dcf5e7,transparent 50%),radial
 #class-name-label {
   display: inline-flex !important;
   align-items: center !important;
-  padding: 4px 12px !important;
+  padding: 4px 12px !important; /* PETUNJUK: Ukuran dalam badge Kelas (4px tinggi, 12px lebar) */
   border: 1px solid #d3e7da !important;
   border-radius: 20px !important;
   background: #ffffff !important;
   color: #436653 !important;
-  font-size: 0.78rem !important;
+  font-size: 0.78rem !important; /* PETUNJUK: Ukuran teks badge Kelas */
   font-weight: 700 !important;
   box-shadow: 0 2px 6px rgba(7, 99, 64, 0.04) !important;
   margin: 0 !important;
   max-width: none !important;
 }
 
-/* Compact Klasemen button at bottom of Scan page */
+/* --------------------------------------------------------------------------
+   2. TOMBOL KLASEMEN DI HALAMAN SCAN (Bagian Bawah)
+   -------------------------------------------------------------------------- */
 #view-scan .nav-actions {
   display: block !important;
   width: 100% !important;
   padding: 0 !important;
   background: transparent !important;
-  margin-top: 10px !important;
+  margin-top: 10px !important; /* PETUNJUK: Jarak dari kolom NISN ke tombol Klasemen (naik/turun) */
 }
 
 #view-scan .nav-actions button#btn-ranking {
   width: 100% !important;
-  min-height: 42px !important;
-  height: 42px !important;
+  min-height: 20px !important; /* PETUNJUK: Tinggi tombol Klasemen */
+  height: 40px !important;     /* PETUNJUK: Ubah angka ini untuk memperbesar/memperkecil tinggi tombol */
   padding: 6px 16px !important;
   background: #e3eee6 !important;
   color: #076340 !important;
@@ -110,17 +119,19 @@ body{background:radial-gradient(ellipse at 0 15%,#dcf5e7,transparent 50%),radial
   background: #d5e6da !important;
 }
 
-/* Floating Action Button (FAB) on Klasemen page */
+/* --------------------------------------------------------------------------
+   3. TOMBOL FLOATING "SETORAN" (Di Halaman Klasemen / Ranking)
+   -------------------------------------------------------------------------- */
 .btn-floating-deposit {
   position: fixed !important;
-  bottom: 24px !important;
-  right: 20px !important;
+  bottom: 24px !important; /* PETUNJUK: Jarak dari dasar layar bawah (Ubah 24px untuk naik/turun) */
+  right: 20px !important;  /* PETUNJUK: Jarak dari tepi kanan layar (Ubah 20px untuk geser kiri/kanan) */
   z-index: 9999 !important;
   background: linear-gradient(115deg, #0a7950, #075236) !important;
   color: #ffffff !important;
   border: none !important;
-  border-radius: 30px !important;
-  padding: 10px 20px !important;
+  border-radius: 30px !important; /* PETUNJUK: Bentuk oval / kapsul membulat */
+  padding: 10px 20px !important;  /* PETUNJUK: Ukuran dalam tombol (10px tinggi, 20px lebar) */
   font-size: 0.92rem !important;
   font-weight: 800 !important;
   display: inline-flex !important;
