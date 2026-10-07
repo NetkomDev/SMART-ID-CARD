@@ -27,7 +27,7 @@
 
     <section id="panel" class="library-content" hidden>
       <div class="intro-row">
-        <div><small>LAYANAN PERPUSTAKAAN</small><h1>Pindai QR Siswa</h1><p>Arahkan kamera ke QR kartu pelajar atau gunakan reader kartu sekolah.</p></div>
+        <div><small>LAYANAN PERPUSTAKAAN</small></div>
         <span class="live-pill"><i></i> Siap</span>
       </div>
 
@@ -54,8 +54,14 @@
         
         <div class="scan-divider"><span>atau masukkan manual / tap card reader</span></div>
         <form id="scan">
-          <label for="card" class="sr-only">QR atau UID kartu siswa</label>
-          <div class="scan-input-wrap"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h4M7 13h7"/></svg><input type="text" id="card" placeholder="Pindai QR atau baca UID kartu" autocomplete="off" required minlength="4" maxlength="64"></div>
+          <label for="card" class="sr-only">NISN siswa</label>
+          <div class="scan-input-wrap">
+            <div class="input-icon-wrap">
+              <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h4M7 13h7"/></svg>
+              <input type="text" id="card" placeholder="Masukkan NISN lengkap" autocomplete="off" required minlength="4" maxlength="64">
+            </div>
+            <button type="submit" class="btn-search">Cari siswa</button>
+          </div>
         </form>
       </div>
 

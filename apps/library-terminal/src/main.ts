@@ -14,45 +14,7 @@ const studentName = document.querySelector<HTMLElement>("#student-name")!;
 const visitTime = document.querySelector<HTMLElement>("#visit-time")!;
 const todayVisits = document.querySelector<HTMLElement>("#today-visits")!;
 const activeClasses = document.querySelector<HTMLElement>("#active-classes")!;
-const gate = document.createElement("section");
-gate.id = "gate"; gate.className = "portal-gate";
-gate.innerHTML = gateIntro("Selamat datang di perpustakaan", "Catat kunjungan siswa dengan QR kartu atau reader kartu sekolah.");
-const message = document.createElement("p");
-message.style.fontWeight = "600";
-const retry = document.createElement("button"); retry.textContent = "Coba lagi";
-const scanBtn = document.createElement("button"); scanBtn.textContent = "Pindai QR Akses"; scanBtn.style.marginTop = "1rem"; scanBtn.style.width = "100%";
-const scannerContainer = document.createElement("div"); scannerContainer.style.display = "none"; scannerContainer.style.marginTop = "1rem";
-const readerDiv = document.createElement("div"); readerDiv.id = "login-qr-reader";
-const cancelBtn = document.createElement("button"); cancelBtn.textContent = "Batal Scan"; cancelBtn.className = "btn-secondary"; cancelBtn.style.marginTop = "0.5rem"; cancelBtn.style.width = "100%";
-scannerContainer.append(readerDiv, cancelBtn);
-gate.append(message, retry, scannerContainer, scanBtn); gate.insertAdjacentHTML("beforeend", gateHelp); document.querySelector("header")!.after(gate);
 
-let loginScanner: any = null;
-scanBtn.onclick = async () => {
-  scanBtn.style.display = "none"; retry.style.display = "none"; scannerContainer.style.display = "block";
-  try {
-    if (!loginScanner) {
-      const { Html5Qrcode } = await import("html5-qrcode");
-      loginScanner = new Html5Qrcode("login-qr-reader");
-    }
-    await loginScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, (decoded: string) => {
-      try {
-        const url = new URL(decoded);
-        if (url.hash.includes("token=") || url.searchParams.has("token")) {
-          void loginScanner?.stop().catch(() => {});
-          window.location.href = decoded;
-        }
-      } catch {}
-    }, () => undefined);
-  } catch {
-    scannerContainer.style.display = "none"; scanBtn.style.display = "block";
-    message.textContent = "Kamera tidak dapat diakses.";
-  }
-};
-cancelBtn.onclick = async () => {
-  if (loginScanner) { try { await loginScanner.stop(); } catch {} }
-  scannerContainer.style.display = "none"; scanBtn.style.display = "block"; retry.style.display = "inline-block";
-};
 const panel = document.getElementById("panel")!;
 const queueKey = () => `aksis.library.queue.${portal.context?.id ?? "none"}`;
 function queue(key = queueKey()): Visit[] {
@@ -142,6 +104,15 @@ async function startCameraScanner() {
     document.getElementById("qr-reader")!.style.display = "block";
     const config = { fps: 10, qrbox: { width: 250, height: 250 } };
     const onScanSuccess = async (decodedText: string) => {
+      try {
+        const url = new URL(decodedText);
+        if (url.hash.includes("token=") || url.searchParams.has("token")) {
+          await stopCameraScanner();
+          window.location.href = decodedText;
+          return;
+        }
+      } catch {}
+
       card.value = decodedText;
       await stopCameraScanner();
       form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
@@ -170,27 +141,22 @@ document.getElementById("btn-toggle-camera")!.addEventListener("click", () => {
 });
 
 async function start() {
-  panel.hidden = true; gate.hidden = false;
-  message.textContent = "Membuka akses sekolah…"; retry.disabled = true;
+  panel.hidden = false;
   try {
     if (!await portal.start()) {
-      message.textContent = "Pindai QR Akses dari admin sekolah untuk masuk.";
-      scanBtn.style.display = "block"; retry.style.display = "none";
+      status.value = "Silakan pindai QR login dari admin sekolah untuk mulai menggunakan terminal.";
+      void startCameraScanner();
       return;
     }
-    gate.hidden = true; panel.hidden = false;
     const libSchool = document.querySelector("#library-school");
     if (libSchool) libSchool.textContent = portal.context!.school_name;
     queued.textContent = String(queue().length); offerInstall(); card.focus();
     void loadDailySummary();
     if (queue().length) void sync().catch(showError);
   } catch (error) {
-    message.textContent = error instanceof Error ? error.message : "Belum dapat terhubung.";
-    scanBtn.style.display = "block"; retry.style.display = "inline-block";
+    status.value = error instanceof Error ? error.message : "Belum dapat terhubung.";
+    status.className = "error";
   }
-  finally { retry.disabled = false; }
 }
-
-retry.onclick = () => void start();
 
 void start();
