@@ -488,7 +488,7 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  margin-left: 0.5mm;  /* <-- GESER NISN KIRI/KANAN (Positif = Ke Kanan, Negatif = Ke Kiri) */
+  margin-left: 0.7mm;  /* <-- GESER NISN KIRI/KANAN (Positif = Ke Kanan, Negatif = Ke Kiri) */
   margin-top: 4mm;  /* <-- GESER NISN ATAS/BAWAH (Negatif = NAIK) */
   width: 25mm;
 }
@@ -498,7 +498,7 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  margin-left: 2.8mm; /* <-- GESER KELAS KIRI/KANAN (Positif = Ke Kanan, Negatif = Ke Kiri) */
+  margin-left: 2.85mm; /* <-- GESER KELAS KIRI/KANAN (Positif = Ke Kanan, Negatif = Ke Kiri) */
   margin-top: 4mm;  /* <-- GESER KELAS ATAS/BAWAH (Negatif = NAIK) */
   flex: 1;
 }
