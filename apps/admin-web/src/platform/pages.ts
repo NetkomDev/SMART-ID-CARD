@@ -307,7 +307,11 @@ async function production(root:HTMLElement,content:HTMLElement,schools:School[],
         const fd = await dialog(dialogTitle, reasonField + (!isCancel ? '<label><input type="checkbox" required> ' + dialogPrompt + '</label>' : ''), isCancel ? 'Batalkan Batch' : 'Simpan');
         if (!fd) return;
         await api(`/platform/production/batches/${id}/action`, { method: 'POST', body: JSON.stringify({ event_id: crypto.randomUUID(), action, reason: fd.get('reason') }) });
-        await batch(id);
+        if (isCancel) {
+          await open('batches');
+        } else {
+          await batch(id);
+        }
       })
     );
     feedback(root, '');
