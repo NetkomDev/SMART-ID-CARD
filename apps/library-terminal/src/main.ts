@@ -97,7 +97,7 @@ form.onsubmit = async event => {
   const uid = card.value.trim();
   if (!uid) return;
   await processVisit(uid, false);
-  card.value = ""; card.focus();
+  card.value = "";
 };
 const showError = (error: unknown) => {
   status.value = error instanceof Error ? error.message : "Sinkronisasi tertunda";
@@ -203,7 +203,7 @@ async function start() {
     }
     const libSchool = document.querySelector("#library-school");
     if (libSchool) libSchool.textContent = portal.context!.school_name;
-    queued.textContent = String(queue().length); offerInstall(); card.focus();
+    queued.textContent = String(queue().length); offerInstall();
     void loadDailySummary();
     if (queue().length) void sync().catch(showError);
   } catch (error) {
