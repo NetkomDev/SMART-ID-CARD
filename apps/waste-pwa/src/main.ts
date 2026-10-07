@@ -75,9 +75,9 @@ function rememberPending() {
 }
 function rememberActiveSession() {
   try {
-    if (student && view === "input") {
+    if (student && (view === "input" || view === "login")) {
       sessionStorage.setItem(activeSessionKey(), JSON.stringify({ student, view: "input" }));
-    } else {
+    } else if (view === "scan" || view === "success") {
       sessionStorage.removeItem(activeSessionKey());
     }
   } catch { /* Storage fallback */ }
@@ -257,10 +257,9 @@ async function loadDashboard() {
     if (requestId !== dashboardRequest) return;
     clearDailySummary();
     if (error instanceof PortalError && (error.status === 401 || error.status === 403)) {
-      switchView("login");
-      el("login-error").textContent = message(error);
-      el("btn-login-retry").style.display = "block";
-      el("btn-start-login-scan").style.display = "block";
+      switchView("scan");
+      el("scan-error").style.display = "block";
+      el("scan-error").textContent = message(error);
       return;
     }
     const text = `Data belum diperbarui. ${message(error)}`;
@@ -273,12 +272,24 @@ async function loadDashboard() {
 }
 async function init() {
   clearDailySummary();
-  switchView("login"); el("login-error").textContent = "Membuka akses sekolah…";
+  let initialRestored = false;
+  try {
+    const activeSaved = JSON.parse(sessionStorage.getItem(activeSessionKey()) ?? "null") as { student: Student; view: View } | null;
+    if (activeSaved?.student?.id && activeSaved.view === "input") {
+      showStudent(activeSaved.student);
+      switchView("input");
+      updateMeasurement();
+      initialRestored = true;
+    }
+  } catch { /* Ignore */ }
+
+  if (!initialRestored) {
+    switchView("scan");
+  }
+
   try {
     if (!await portal.start()) {
-      el("login-error").textContent = "Pindai QR Akses dari admin sekolah untuk masuk.";
-      el("btn-start-login-scan").style.display = "block";
-      el("btn-login-retry").style.display = "none";
+      if (!initialRestored) switchView("scan");
       return;
     }
     classId = portal.context!.metadata.class_id ?? "";
@@ -290,7 +301,7 @@ async function init() {
     el("school-name").textContent = portal.context!.school_name;
     el("today-scope").textContent = `Semua kelas di ${portal.context!.school_name}`;
     el("staff-label").textContent = `Piket ${className}`;
-    switchView("scan");
+
     try {
       const saved = JSON.parse(sessionStorage.getItem(pendingKey()) ?? "null") as { pending: PendingDeposit; student: Student } | null;
       if (saved?.pending.class_id === classId && saved.student.id === saved.pending.student_id) {
@@ -300,20 +311,20 @@ async function init() {
         document.querySelector<HTMLInputElement>(`input[value="${pending.organic_kg > 0 ? "ORGANIC" : "INORGANIC"}"]`)!.checked = true;
         lockForm(true); switchView("input"); updateMeasurement();
         el("input-error").textContent = "Ada setoran yang belum terkonfirmasi. Tekan Simpan Setoran untuk memeriksa atau mengulang tanpa menggandakan data.";
-      } else {
+      } else if (!initialRestored) {
         const activeSaved = JSON.parse(sessionStorage.getItem(activeSessionKey()) ?? "null") as { student: Student; view: View } | null;
         if (activeSaved?.student?.id && activeSaved.view === "input") {
           showStudent(activeSaved.student);
           switchView("input");
           updateMeasurement();
+        } else {
+          switchView("scan");
         }
       }
     } catch { /* Ignore malformed browser storage. */ }
     void loadDashboard(); offerInstall();
   } catch (error) {
-    el("login-error").textContent = message(error);
-    el("btn-login-retry").style.display = "block";
-    el("btn-start-login-scan").style.display = "block";
+    if (!initialRestored) switchView("scan");
   }
 }
 async function resolveStudent(scannedText?: string) {
