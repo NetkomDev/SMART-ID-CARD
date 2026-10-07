@@ -213,6 +213,8 @@ async function production(root:HTMLElement,content:HTMLElement,schools:School[],
  }
   async function batch(id: string) {
     const batchEpoch = ++tabEpoch;
+    try { location.hash = 'batches'; } catch (_e) {}
+    content.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach(b => b.dataset.active = String(b.dataset.tab === 'batches'));
     const { data: cards } = await api<Row[]>(`/platform/production/batches/${id}`);
     if (!alive() || tabEpoch !== batchEpoch) return;
     if (!cards || !cards.length) {
