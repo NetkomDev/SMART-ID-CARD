@@ -60,6 +60,7 @@ libraryRouter.post("/visits", requirePermission("library.visit"), validate({ bod
       .or(`nisn.eq.${finalCardUid},student_number.eq.${finalCardUid}`)
       .eq("is_active", true)
       .is("deleted_at", null)
+      .limit(1)
       .maybeSingle();
 
     if (student) {
