@@ -396,7 +396,8 @@ async function selectEkskul(id: string, name: string) {
     }
 
     currentSessionId = todaySession.id;
-    document.getElementById("enrollment-prompt")!.style.display = "none";
+    document.getElementById("enrollment-overlay")!.style.display = "none";
+    document.getElementById("error-overlay")!.style.display = "none";
     switchView("scan");
     void loadSessionSummary();
   } catch (err: any) {
@@ -427,7 +428,8 @@ document.getElementById("form-scan")!.addEventListener("submit", async (e) => {
   submitting = true;
 
   errorEl.textContent = "Mencari siswa...";
-  document.getElementById("enrollment-prompt")!.style.display = "none";
+  document.getElementById("enrollment-overlay")!.style.display = "none";
+  document.getElementById("error-overlay")!.style.display = "none";
   const toast = document.getElementById("processing-toast")!;
   toast.style.display = "flex";
 
@@ -550,7 +552,7 @@ document.getElementById("btn-confirm-enroll")!.addEventListener("click", async (
 
   } catch (err: any) {
     errorEl.textContent = "Gagal: " + err.message;
-    document.getElementById("enrollment-prompt")!.style.display = "block";
+    document.getElementById("enrollment-overlay")!.style.display = "flex";
     document.getElementById("processing-toast")!.style.display = "none";
   } finally { submitting = false; }
 });
