@@ -182,8 +182,20 @@ async function processVisit(uid: string, isFromCamera: boolean = false) {
 
   } catch (error) {
     if (isFromCamera) showLoadingOverlay(false);
-    if (error instanceof PortalError && error.status < 500) { status.value = error.message; return; }
-    save([...queue(key), visit], key); status.value = "Koneksi tertunda — kunjungan tersimpan di perangkat";
+    
+    if (error instanceof PortalError && error.status < 500) {
+      if (error.status === 400 || error.status === 404) {
+        document.getElementById("error-overlay-msg")!.textContent = error.message;
+        document.getElementById("error-overlay")!.style.display = "flex";
+        if (navigator.vibrate) navigator.vibrate([100, 50, 100]); // Error haptic pattern
+      } else {
+        status.value = error.message;
+      }
+      return;
+    }
+    
+    save([...queue(key), visit], key); 
+    status.value = "Koneksi tertunda — kunjungan tersimpan di perangkat";
   }
 }
 
@@ -369,8 +381,9 @@ async function startCameraScanner() {
         lastScannedText = decodedText;
         lastScannedTime = now;
         
-        // Prevent scanning if success overlay or loading is visible
+        // Prevent scanning if success overlay, loading, or error overlay is visible
         if (document.getElementById("view-success")?.style.display === "flex" || 
+            document.getElementById("error-overlay")?.style.display === "flex" ||
             document.getElementById("loading-overlay")?.style.display === "flex") {
           return;
         }
