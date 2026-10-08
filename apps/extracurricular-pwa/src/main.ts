@@ -239,7 +239,9 @@ function switchView(viewName: keyof typeof views) {
   }
 }
 
-document.getElementById("btn-next-scan")?.addEventListener("click", () => switchView("scan"));
+document.getElementById("btn-next-scan")?.addEventListener("click", () => {
+  document.getElementById("success-overlay")!.style.display = "none";
+});
 
 let globalAudioCtx: AudioContext | null = null;
 function initAudio() {
@@ -427,6 +429,8 @@ document.getElementById("form-scan")!.addEventListener("submit", async (e) => {
 
   errorEl.textContent = "Mencari siswa...";
   document.getElementById("enrollment-prompt")!.style.display = "none";
+  const toast = document.getElementById("processing-toast")!;
+  toast.style.display = "flex";
 
   try {
     const students = /^[a-f0-9]{48}$/.test(query)
@@ -459,11 +463,16 @@ document.getElementById("form-scan")!.addEventListener("submit", async (e) => {
       
       document.getElementById("success-student-name")!.textContent = student.full_name;
       document.getElementById("success-time")!.textContent = new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit" }).format(new Date());
-      switchView("success");
+      
+      const overlay = document.getElementById("success-overlay")!;
+      overlay.style.display = "flex";
+      toast.style.display = "none";
       void loadSessionSummary();
       
       if (scanTimeout) clearTimeout(scanTimeout);
-      scanTimeout = window.setTimeout(() => switchView("scan"), 5000);
+      scanTimeout = window.setTimeout(() => {
+        overlay.style.display = "none";
+      }, 2000);
       
     } catch (err: any) {
       // If error is FK violation or related to membership, trigger Fast Enrollment
@@ -474,9 +483,13 @@ document.getElementById("form-scan")!.addEventListener("submit", async (e) => {
         throw err;
       }
     }
+    }
   } catch (err: any) {
     errorEl.textContent = err.message;
-  } finally { submitting = false; }
+  } finally { 
+    submitting = false; 
+    toast.style.display = "none";
+  }
 });
 
 document.getElementById("btn-cancel-enroll")!.addEventListener("click", () => {
@@ -491,6 +504,8 @@ document.getElementById("btn-confirm-enroll")!.addEventListener("click", async (
   try {
     document.getElementById("enrollment-prompt")!.style.display = "none";
     errorEl.textContent = "Mendaftarkan siswa...";
+    const toast = document.getElementById("processing-toast")!;
+    toast.style.display = "flex";
 
     // Fast Enroll
     await request(`/extracurriculars/${currentEkskulId}/members/fast-enroll`, {
@@ -521,15 +536,21 @@ document.getElementById("btn-confirm-enroll")!.addEventListener("click", async (
     document.getElementById("success-student-name")!.textContent = pendingStudent.full_name;
     document.getElementById("success-time")!.textContent = new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit" }).format(new Date());
     
-    switchView("success");
+    
+    const overlay = document.getElementById("success-overlay")!;
+    overlay.style.display = "flex";
+    toast.style.display = "none";
     void loadSessionSummary();
 
     if (scanTimeout) clearTimeout(scanTimeout);
-    scanTimeout = window.setTimeout(() => switchView("scan"), 5000);
+    scanTimeout = window.setTimeout(() => {
+      overlay.style.display = "none";
+    }, 2000);
 
   } catch (err: any) {
     errorEl.textContent = "Gagal: " + err.message;
     document.getElementById("enrollment-prompt")!.style.display = "block";
+    document.getElementById("processing-toast")!.style.display = "none";
   } finally { submitting = false; }
 });
 

@@ -152,3 +152,17 @@ header>button{position:absolute;right:max(76px,calc((100% - 530px)/2));min-heigh
 
 .attendance-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
 .attendance-item:last-child { border-bottom: none; }
+
+#success-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(242, 249, 245, 0.95);
+  backdrop-filter: blur(8px);
+  z-index: 2000;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 24px;
+}
+
+.spinner-icon { animation: spin 1s linear infinite; }
+@keyframes spin { 100% { transform: rotate(360deg); } }
