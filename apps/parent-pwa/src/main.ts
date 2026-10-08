@@ -1304,12 +1304,12 @@ async function linkView() {
 
         <label style="display: block; margin-bottom: 14px;">
           NISN Siswa
-          <input name="nisn" required maxlength="50" style="margin-top: 6px;" placeholder="10 digit NISN" />
+          <input type="tel" inputmode="numeric" pattern="[0-9]*" name="nisn" required maxlength="50" style="margin-top: 6px;" placeholder="10 digit NISN" />
         </label>
 
         <label style="display: block; margin-bottom: 20px;">
           Tanggal Lahir Siswa
-          <input type="date" name="dob" required style="margin-top: 6px;" />
+          <input type="date" name="dob" inputmode="numeric" required style="margin-top: 6px;" />
         </label>
 
         <button style="width: 100%;">Verifikasi & Hubungkan</button>
