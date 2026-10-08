@@ -484,6 +484,9 @@ document.getElementById("form-scan")!.addEventListener("submit", async (e) => {
     }
   } catch (err: any) {
     errorEl.textContent = err.message;
+    const errorMsgEl = document.getElementById("error-overlay-msg");
+    if (errorMsgEl) errorMsgEl.textContent = err.message;
+    document.getElementById("error-overlay")!.style.display = "flex";
   } finally { 
     submitting = false; 
     toast.style.display = "none";
