@@ -427,10 +427,54 @@ document.getElementById("form-scan")!.addEventListener("submit", async (e) => {
   if (!query || submitting || !currentSessionId) return;
   submitting = true;
 
-  errorEl.textContent = "Mencari siswa...";
+  errorEl.textContent = "";
   document.getElementById("enrollment-overlay")!.style.display = "none";
   document.getElementById("error-overlay")!.style.display = "none";
   const toast = document.getElementById("processing-toast")!;
+
+  // 1. FAST PATH: Check Local Cache (Optimistic UI)
+  const cacheKey = `ekskul_cache_${currentEkskulId}_${query}`;
+  const cachedStr = localStorage.getItem(cacheKey);
+  if (cachedStr) {
+    try {
+      const student = JSON.parse(cachedStr);
+      pendingStudent = student;
+      input.value = "";
+      
+      // Instantly show success UI
+      const avatarEl = document.getElementById("student-avatar");
+      if (avatarEl) {
+        if (student.photo_url) {
+          avatarEl.innerHTML = `<div style="flex: 1; align-self: stretch; width: 100%; height: 100%; background-image: url('${student.photo_url}'); background-size: cover; background-position: center; background-repeat: no-repeat; border-radius: 13px;"></div>`;
+        } else {
+          avatarEl.innerHTML = `<div class="avatar-fallback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke-linecap="round"/><circle cx="12" cy="7" r="4"/></svg></div>`;
+        }
+      }
+      
+      document.getElementById("success-student-name")!.textContent = student.full_name;
+      document.getElementById("success-time")!.textContent = new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit" }).format(new Date());
+      if (navigator.vibrate) navigator.vibrate(50);
+      
+      const overlay = document.getElementById("success-overlay")!;
+      overlay.style.display = "flex";
+      if (scanTimeout) clearTimeout(scanTimeout);
+      scanTimeout = window.setTimeout(() => overlay.style.display = "none", 5000);
+      
+      // Fire background request silently
+      request(`/extracurriculars/${currentEkskulId}/sessions/${currentSessionId}/attendance`, {
+        method: "POST", body: JSON.stringify({ student_id: student.id, status: "PRESENT" })
+      }).then(() => {
+        void loadSessionSummary();
+      }).catch(err => console.error("Background sync failed:", err));
+      
+      submitting = false;
+      return; // DONE! Lightning fast.
+    } catch (e) {
+      // If JSON parse fails, ignore and fallback to slow path
+    }
+  }
+
+  // 2. SLOW PATH: Network Request
   toast.style.display = "flex";
 
   try {
@@ -451,7 +495,10 @@ document.getElementById("form-scan")!.addEventListener("submit", async (e) => {
           student_id: student.id, status: "PRESENT"
         })
       });
-      // Success
+      // Cache for future fast-scans
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(student));
+      } catch (e) { /* ignore */ }
       
       const avatarEl = document.getElementById("student-avatar");
       if (avatarEl) {
@@ -476,6 +523,7 @@ document.getElementById("form-scan")!.addEventListener("submit", async (e) => {
       scanTimeout = window.setTimeout(() => {
         overlay.style.display = "none";
       }, 5000);
+      
       
     } catch (err: any) {
       // If error is FK violation or related to membership, trigger Fast Enrollment
