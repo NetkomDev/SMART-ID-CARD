@@ -454,7 +454,7 @@ document.getElementById("form-scan")!.addEventListener("submit", async (e) => {
       const avatarEl = document.getElementById("student-avatar");
       if (avatarEl) {
         if (student.photo_url) {
-          avatarEl.innerHTML = `<img src="${student.photo_url}" alt="Photo" class="student-photo-img" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 13px;" />`;
+          avatarEl.innerHTML = `<img src="${student.photo_url}" alt="Photo" class="student-photo-img" style="position: absolute !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; width: 100% !important; height: 100% !important; object-fit: cover !important; border-radius: 12px !important; margin: 0 !important; padding: 0 !important; box-sizing: border-box !important;" />`;
         } else {
           avatarEl.innerHTML = `<div class="avatar-fallback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke-linecap="round"/><circle cx="12" cy="7" r="4"/></svg></div>`;
         }
@@ -525,7 +525,7 @@ document.getElementById("btn-confirm-enroll")!.addEventListener("click", async (
     const avatarEl = document.getElementById("student-avatar");
     if (avatarEl) {
       if (pendingStudent.photo_url) {
-        avatarEl.innerHTML = `<img src="${pendingStudent.photo_url}" alt="Photo" class="student-photo-img" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 13px;" />`;
+        avatarEl.innerHTML = `<img src="${pendingStudent.photo_url}" alt="Photo" class="student-photo-img" style="position: absolute !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; width: 100% !important; height: 100% !important; object-fit: cover !important; border-radius: 12px !important; margin: 0 !important; padding: 0 !important; box-sizing: border-box !important;" />`;
       } else {
         avatarEl.innerHTML = `<div class="avatar-fallback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke-linecap="round"/><circle cx="12" cy="7" r="4"/></svg></div>`;
       }
