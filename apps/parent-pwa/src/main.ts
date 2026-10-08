@@ -1482,7 +1482,10 @@ async function start() {
     if (hasCachedData) {
       void dashboard(); // Render instantly (0ms)
       portal.start().then(ok => {
-        if (ok) void fetchDashboardData(selectedChildId);
+        if (ok) {
+          void fetchDashboardData(selectedChildId);
+          offerInstall();
+        }
         else loginView("Akses kadaluarsa. Pindai QR kembali.", true);
       }).catch(() => {});
       return;
@@ -1496,8 +1499,8 @@ async function start() {
       loginView("Pindai QR Akses dari admin sekolah untuk masuk.", false);
       return;
     }
-    const hasChildren = await dashboard();
-    if (hasChildren) offerInstall();
+    offerInstall();
+    await dashboard();
   } catch (error) {
     loginView(error instanceof Error ? error.message : "Belum dapat terhubung.", true);
   }
