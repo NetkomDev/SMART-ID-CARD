@@ -358,6 +358,9 @@ async function selectEkskul(id: string, name: string) {
   newUrl.searchParams.set("ekskulId", id);
   window.history.replaceState(null, "", newUrl.toString());
 
+  // Tampilkan popup instalasi (kini menggunakan nama umum "Ekstrakurikuler")
+  offerInstall();
+
   // Auto-setup today's session
   try {
     const todayStr = new Date().toLocaleDateString("id-ID", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
