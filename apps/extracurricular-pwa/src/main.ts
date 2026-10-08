@@ -8,15 +8,16 @@ const portal = new PortalSession("TEACHER", import.meta.env.VITE_API_BASE_URL ??
 setupInstallPrompt("Ekstrakurikuler", import.meta.env.BASE_URL, import.meta.env.PROD);
 
 const entry = document.getElementById("view-login")!;
-entry.classList.add('portal-gate');
 const accessForm = document.getElementById('form-login')!;
-entry.innerHTML = gateIntro('Kegiatan & presensi', 'Kelola kehadiran kegiatan siswa melalui akses yang diberikan Admin Sekolah.');
-entry.append(accessForm); entry.insertAdjacentHTML('beforeend', gateHelp);
+// Hapus gateIntro agar tidak muncul halaman "Portal Sekolah..."
+// entry.innerHTML = gateIntro('Kegiatan & presensi', 'Kelola kehadiran kegiatan siswa melalui akses yang diberikan Admin Sekolah.');
+// entry.append(accessForm); entry.insertAdjacentHTML('beforeend', gateHelp);
 const views = {
   login: document.getElementById("view-login")!,
   dashboard: document.getElementById("view-dashboard")!,
   scan: document.getElementById("view-scan")!,
-  success: document.getElementById("view-success")!
+  success: document.getElementById("view-success")!,
+  attendance: document.getElementById("view-attendance")!
 };
 
 let scanTimeout: number | undefined;
@@ -75,12 +76,104 @@ document.getElementById("btn-cancel-login-scan")?.addEventListener("click", asyn
 
 let html5QrCode: any = null;
 let isScanning = false;
+let currentZoom = 1;
+let initialTouchDistance = 0;
+let initialZoomOnTouch = 1;
+
+function getActiveCameraTrack(): MediaStreamTrack | null {
+  const videoEl = document.querySelector<HTMLVideoElement>("#qr-reader video");
+  if (!videoEl || !videoEl.srcObject) return null;
+  const stream = videoEl.srcObject as MediaStream;
+  const tracks = stream.getVideoTracks();
+  return tracks[0] ?? null;
+}
+
+async function setCameraZoom(zoomLevel: number) {
+  currentZoom = Math.max(1, Math.min(5, zoomLevel));
+  const track = getActiveCameraTrack();
+  if (track) {
+    try {
+      const caps = (track.getCapabilities ? track.getCapabilities() : {}) as any;
+      if (caps.zoom) {
+        const min = caps.zoom.min || 1;
+        const max = caps.zoom.max || 5;
+        const targetZoom = Math.max(min, Math.min(max, currentZoom));
+        await track.applyConstraints({ advanced: [{ zoom: targetZoom } as any] });
+      }
+    } catch { /* Hardware zoom fallback to CSS scale below */ }
+  }
+
+  const qrContainer = document.getElementById("qr-reader");
+  if (qrContainer) {
+    const mediaEls = qrContainer.querySelectorAll<HTMLVideoElement | HTMLCanvasElement>("video, canvas");
+    mediaEls.forEach(media => {
+      media.style.transform = currentZoom > 1 ? `scale(${currentZoom.toFixed(2)})` : "none";
+      media.style.transformOrigin = "center center";
+      media.style.transition = "transform 0.12s ease-out";
+    });
+  }
+
+  const zoomBox = document.getElementById("zoom-controls");
+  if (zoomBox) {
+    zoomBox.querySelectorAll<HTMLButtonElement>(".zoom-btn").forEach(btn => {
+      const val = Number(btn.getAttribute("data-zoom"));
+      btn.classList.toggle("active", Math.abs(val - currentZoom) < 0.3);
+    });
+  }
+}
+
+function setupScannerPinchZoom() {
+  const stage = document.querySelector(".scanner-card");
+  if (!stage) return;
+
+  const handleTouchStart = (e: TouchEvent) => {
+    const target = e.target as HTMLElement | null;
+    const isInside = target && (stage.contains(target) || !!target.closest(".scanner-card, #qr-reader"));
+    if (isInside && e.touches.length === 2 && isScanning) {
+      if (e.cancelable) e.preventDefault();
+      const t1 = e.touches[0]!;
+      const t2 = e.touches[1]!;
+      initialTouchDistance = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      initialZoomOnTouch = currentZoom;
+    }
+  };
+
+  const handleTouchMove = (e: TouchEvent) => {
+    if (e.touches.length === 2 && isScanning && initialTouchDistance > 0) {
+      if (e.cancelable) e.preventDefault();
+      const t1 = e.touches[0]!;
+      const t2 = e.touches[1]!;
+      const currentDistance = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      const zoomFactor = currentDistance / initialTouchDistance;
+      const newZoom = initialZoomOnTouch * zoomFactor;
+      void setCameraZoom(newZoom);
+    }
+  };
+
+  const handleTouchEnd = () => { initialTouchDistance = 0; };
+
+  document.addEventListener("touchstart", handleTouchStart, { passive: false });
+  document.addEventListener("touchmove", handleTouchMove, { passive: false });
+  document.addEventListener("touchend", handleTouchEnd, { passive: true });
+  document.addEventListener("touchcancel", handleTouchEnd, { passive: true });
+}
+
+document.querySelectorAll<HTMLButtonElement>(".zoom-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const zoomVal = Number(btn.getAttribute("data-zoom")) || 1;
+    void setCameraZoom(zoomVal);
+  });
+});
+
+setupScannerPinchZoom();
 
 async function stopCameraScanner() {
   if (html5QrCode && isScanning) {
     try { await html5QrCode.stop(); } catch (e) {}
     isScanning = false;
+    currentZoom = 1;
     document.getElementById("qr-reader")!.style.display = "none";
+    document.getElementById("zoom-controls")!.style.display = "none";
     const ph = document.getElementById("scanner-placeholder");
     if (ph) ph.style.display = "block";
     document.getElementById("btn-toggle-camera")!.textContent = "Buka Kamera Scanner";
@@ -98,6 +191,14 @@ async function startCameraScanner() {
     document.getElementById("qr-reader")!.style.display = "block";
     const config = { fps: 10, qrbox: { width: 250, height: 250 } };
     const onScanSuccess = async (decodedText: string) => {
+      triggerHapticFeedback();
+      const flash = document.getElementById("camera-shutter-flash");
+      if (flash) {
+        flash.classList.remove("flash-active");
+        void flash.offsetWidth;
+        flash.classList.add("flash-active");
+      }
+      
       const input = document.getElementById("scan-input") as HTMLInputElement;
       input.value = decodedText;
       await stopCameraScanner();
@@ -112,6 +213,8 @@ async function startCameraScanner() {
 
     isScanning = true;
     document.getElementById("btn-toggle-camera")!.textContent = "Tutup Kamera";
+    document.getElementById("zoom-controls")!.style.display = "flex";
+    void setCameraZoom(1);
   } catch (err: any) {
     document.getElementById("scan-error")!.textContent = !window.isSecureContext
       ? "Kamera diblokir browser karena diakses via HTTP (bukan localhost/HTTPS)."
@@ -139,11 +242,50 @@ function switchView(viewName: keyof typeof views) {
 
 document.getElementById("btn-next-scan")?.addEventListener("click", () => switchView("scan"));
 
+let globalAudioCtx: AudioContext | null = null;
+function initAudio() {
+  if (!globalAudioCtx) {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (AudioCtx) globalAudioCtx = new AudioCtx();
+  }
+  if (globalAudioCtx && globalAudioCtx.state === "suspended") {
+    void globalAudioCtx.resume();
+  }
+}
+document.addEventListener("pointerdown", initAudio, { once: true, passive: true });
+document.addEventListener("touchstart", initAudio, { once: true, passive: true });
+document.addEventListener("keydown", initAudio, { once: true, passive: true });
+
+function triggerHapticFeedback() {
+  if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+    try {
+      navigator.vibrate(200);
+    } catch {}
+  }
+  try {
+    if (globalAudioCtx) {
+      if (globalAudioCtx.state === "suspended") {
+        void globalAudioCtx.resume();
+      }
+      const osc = globalAudioCtx.createOscillator();
+      const gain = globalAudioCtx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(960, globalAudioCtx.currentTime);
+      gain.gain.setValueAtTime(0.2, globalAudioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, globalAudioCtx.currentTime + 0.15);
+      osc.connect(gain);
+      gain.connect(globalAudioCtx.destination);
+      osc.start();
+      osc.stop(globalAudioCtx.currentTime + 0.15);
+    }
+  } catch {}
+}
+
 const request = <T>(path: string, init: RequestInit = {}) => portal.request<T>(path, init);
 async function init() {
-  switchView("login");
   try {
     if (!await portal.start()) {
+      switchView("login");
       document.getElementById("login-error")!.textContent = "Pindai QR Akses dari admin sekolah untuk masuk.";
       document.getElementById("btn-start-login-scan")!.style.display = "block";
       document.getElementById("btn-login-retry")!.style.display = "none";
@@ -186,12 +328,17 @@ async function loadDashboard() {
       article.append(code, name, button); container.append(article);
     }
 
-    // Auto-select if URL parameter exists
+    // Auto-select if URL parameter exists, or if there's only 1 activity, or just auto-select the first one to skip dashboard
     const urlParams = new URLSearchParams(window.location.search);
     const ekskulParam = urlParams.get("ekskulId");
     if (ekskulParam) {
       const match = activities.find(a => a.id === ekskulParam);
-      if (match) selectEkskul(match.id, match.name);
+      if (match) return selectEkskul(match.id, match.name);
+    }
+    
+    // Bypass dashboard: automatically select the first extracurricular if available
+    if (activities.length > 0) {
+      return selectEkskul(activities[0].id, activities[0].name);
     }
   } catch (err: any) { container.textContent = err.message; throw err; }
 }
@@ -384,6 +531,115 @@ document.getElementById("btn-confirm-enroll")!.addEventListener("click", async (
   } catch (err: any) {
     errorEl.textContent = "Gagal: " + err.message;
     document.getElementById("enrollment-prompt")!.style.display = "block";
+  } finally { submitting = false; }
+});
+
+async function loadAttendanceList() {
+  if (!currentEkskulId || !currentSessionId) return;
+  const container = document.getElementById("attendance-list-container")!;
+  container.innerHTML = `<p style="color:#66877a; font-size:0.85rem; text-align:center; padding: 20px 0;">Memuat data kehadiran...</p>`;
+  try {
+    const list = await request<Array<{
+      id: string; student_id: string; status: string; notes?: string; recorded_at: string;
+      students: { full_name: string; student_number: string }
+    }>>(`/extracurriculars/${currentEkskulId}/sessions/${currentSessionId}/attendance`);
+    
+    if (list.length === 0) {
+      container.innerHTML = `<p style="color:#66877a; font-size:0.85rem; text-align:center; padding: 20px 0;">Belum ada siswa yang hadir atau izin.</p>`;
+      return;
+    }
+
+    container.innerHTML = list.map(item => {
+      const time = new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit" }).format(new Date(item.recorded_at));
+      const isHadir = item.status === "PRESENT";
+      const icon = isHadir 
+        ? `<div style="background:#e7f7ed; color:#27a36c; width:32px; height:32px; border-radius:50%; display:grid; place-items:center; flex:none;"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></div>`
+        : `<div style="background:#fff4e5; color:#e0840b; width:32px; height:32px; border-radius:50%; display:grid; place-items:center; flex:none;"><svg viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" fill="none"/><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg></div>`;
+      
+      const statusText = isHadir ? "Hadir" : `Izin${item.notes ? ` (${item.notes})` : ""}`;
+      
+      return `
+        <div class="attendance-item">
+          <div style="display:flex; align-items:center; gap:10px;">
+            ${icon}
+            <div>
+              <div style="font-size:0.9rem; font-weight:600; color:#0e402a;">${item.students.full_name}</div>
+              <div style="font-size:0.75rem; color:#66877a;">${item.students.student_number || "-"} • ${statusText}</div>
+            </div>
+          </div>
+          <div style="font-size:0.8rem; color:#66877a; font-weight:500;">${time}</div>
+        </div>
+      `;
+    }).join("");
+  } catch (err: any) {
+    container.innerHTML = `<p style="color:#d32f2f; font-size:0.85rem; text-align:center; padding: 20px 0;">Gagal memuat data: ${err.message}</p>`;
+  }
+}
+
+document.getElementById("btn-lihat-kehadiran")?.addEventListener("click", () => {
+  document.getElementById("attendance-ekskul-title")!.textContent = document.getElementById("scan-ekskul-title")!.textContent;
+  document.getElementById("attendance-session-date")!.textContent = new Intl.DateTimeFormat("id-ID", { dateStyle: "long" }).format(new Date());
+  switchView("attendance");
+  document.getElementById("izin-prompt")!.style.display = "none";
+  void loadAttendanceList();
+});
+
+document.getElementById("btn-input-izin")?.addEventListener("click", () => {
+  document.getElementById("izin-prompt")!.style.display = "block";
+  document.getElementById("izin-error")!.textContent = "";
+  (document.getElementById("input-izin-nisn") as HTMLInputElement).focus();
+});
+
+document.getElementById("btn-cancel-izin")?.addEventListener("click", () => {
+  document.getElementById("izin-prompt")!.style.display = "none";
+});
+
+document.getElementById("form-izin")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (submitting) return;
+  const nisnInput = document.getElementById("input-izin-nisn") as HTMLInputElement;
+  const notesInput = document.getElementById("input-izin-keterangan") as HTMLInputElement;
+  const errorEl = document.getElementById("izin-error")!;
+  const query = nisnInput.value.trim();
+  const notes = notesInput.value.trim();
+  
+  if (!query || !notes) return;
+  submitting = true;
+  errorEl.textContent = "Menyimpan data...";
+  
+  try {
+    const students = await request<Array<{id:string;full_name:string}>>(`/students?search=${encodeURIComponent(query)}`);
+    if (students.length !== 1) throw new Error(students.length ? "Masukkan NIS/NISN lengkap agar siswa tidak tertukar." : "Siswa tidak ditemukan.");
+    const student = students[0]!;
+    
+    // First fast-enroll the student to ensure they can be marked absent/excused
+    try {
+      await request(`/extracurriculars/${currentEkskulId}/members/fast-enroll`, {
+        method: "POST", body: JSON.stringify({
+          student_id: student.id, idempotency_key: crypto.randomUUID(), confirmed: true
+        })
+      });
+    } catch {
+      // Ignore if already active member
+    }
+    
+    // Record attendance as EXCUSED
+    await request(`/extracurriculars/${currentEkskulId}/sessions/${currentSessionId}/attendance`, {
+      method: "POST", body: JSON.stringify({
+        student_id: student.id, status: "EXCUSED", notes
+      })
+    });
+    
+    // Reset and reload
+    nisnInput.value = "";
+    notesInput.value = "";
+    errorEl.textContent = "";
+    document.getElementById("izin-prompt")!.style.display = "none";
+    
+    void loadSessionSummary();
+    void loadAttendanceList();
+  } catch (err: any) {
+    errorEl.textContent = err.message;
   } finally { submitting = false; }
 });
 

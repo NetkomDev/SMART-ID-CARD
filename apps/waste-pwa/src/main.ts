@@ -94,6 +94,20 @@ function showStudent(selected: Student) {
   rememberActiveSession();
 }
 
+let globalAudioCtx: AudioContext | null = null;
+function initAudio() {
+  if (!globalAudioCtx) {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (AudioCtx) globalAudioCtx = new AudioCtx();
+  }
+  if (globalAudioCtx && globalAudioCtx.state === "suspended") {
+    void globalAudioCtx.resume();
+  }
+}
+document.addEventListener("pointerdown", initAudio, { once: true, passive: true });
+document.addEventListener("touchstart", initAudio, { once: true, passive: true });
+document.addEventListener("keydown", initAudio, { once: true, passive: true });
+
 function triggerHapticFeedback() {
   if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
     try {
@@ -101,22 +115,20 @@ function triggerHapticFeedback() {
     } catch { /* Ignore vibration block */ }
   }
   try {
-    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-    if (AudioCtx) {
-      const ctx = new AudioCtx();
-      if (ctx.state === "suspended") {
-        void ctx.resume();
+    if (globalAudioCtx) {
+      if (globalAudioCtx.state === "suspended") {
+        void globalAudioCtx.resume();
       }
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
+      const osc = globalAudioCtx.createOscillator();
+      const gain = globalAudioCtx.createGain();
       osc.type = "sine";
-      osc.frequency.setValueAtTime(960, ctx.currentTime);
-      gain.gain.setValueAtTime(0.2, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+      osc.frequency.setValueAtTime(960, globalAudioCtx.currentTime);
+      gain.gain.setValueAtTime(0.2, globalAudioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, globalAudioCtx.currentTime + 0.15);
       osc.connect(gain);
-      gain.connect(ctx.destination);
+      gain.connect(globalAudioCtx.destination);
       osc.start();
-      osc.stop(ctx.currentTime + 0.15);
+      osc.stop(globalAudioCtx.currentTime + 0.15);
     }
   } catch { /* Audio fallback */ }
 }

@@ -135,6 +135,20 @@ const showError = (error: unknown) => {
   status.className = "error";
 };
 
+let globalAudioCtx: AudioContext | null = null;
+function initAudio() {
+  if (!globalAudioCtx) {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (AudioCtx) globalAudioCtx = new AudioCtx();
+  }
+  if (globalAudioCtx && globalAudioCtx.state === "suspended") {
+    void globalAudioCtx.resume();
+  }
+}
+document.addEventListener("pointerdown", initAudio, { once: true, passive: true });
+document.addEventListener("touchstart", initAudio, { once: true, passive: true });
+document.addEventListener("keydown", initAudio, { once: true, passive: true });
+
 function triggerHapticFeedback() {
   if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
     try {
@@ -142,22 +156,20 @@ function triggerHapticFeedback() {
     } catch {}
   }
   try {
-    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-    if (AudioCtx) {
-      const ctx = new AudioCtx();
-      if (ctx.state === "suspended") {
-        void ctx.resume();
+    if (globalAudioCtx) {
+      if (globalAudioCtx.state === "suspended") {
+        void globalAudioCtx.resume();
       }
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
+      const osc = globalAudioCtx.createOscillator();
+      const gain = globalAudioCtx.createGain();
       osc.type = "sine";
-      osc.frequency.setValueAtTime(960, ctx.currentTime);
-      gain.gain.setValueAtTime(0.2, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+      osc.frequency.setValueAtTime(960, globalAudioCtx.currentTime);
+      gain.gain.setValueAtTime(0.2, globalAudioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, globalAudioCtx.currentTime + 0.15);
       osc.connect(gain);
-      gain.connect(ctx.destination);
+      gain.connect(globalAudioCtx.destination);
       osc.start();
-      osc.stop(ctx.currentTime + 0.15);
+      osc.stop(globalAudioCtx.currentTime + 0.15);
     }
   } catch {}
 }
@@ -167,12 +179,104 @@ window.addEventListener("online", () => { if (portal.connected) void sync().catc
 
 let html5QrCode: any = null;
 let isScanning = false;
+let currentZoom = 1;
+let initialTouchDistance = 0;
+let initialZoomOnTouch = 1;
+
+function getActiveCameraTrack(): MediaStreamTrack | null {
+  const videoEl = document.querySelector<HTMLVideoElement>("#qr-reader video");
+  if (!videoEl || !videoEl.srcObject) return null;
+  const stream = videoEl.srcObject as MediaStream;
+  const tracks = stream.getVideoTracks();
+  return tracks[0] ?? null;
+}
+
+async function setCameraZoom(zoomLevel: number) {
+  currentZoom = Math.max(1, Math.min(5, zoomLevel));
+  const track = getActiveCameraTrack();
+  if (track) {
+    try {
+      const caps = (track.getCapabilities ? track.getCapabilities() : {}) as any;
+      if (caps.zoom) {
+        const min = caps.zoom.min || 1;
+        const max = caps.zoom.max || 5;
+        const targetZoom = Math.max(min, Math.min(max, currentZoom));
+        await track.applyConstraints({ advanced: [{ zoom: targetZoom } as any] });
+      }
+    } catch { /* Hardware zoom fallback to CSS scale below */ }
+  }
+
+  const qrContainer = document.getElementById("qr-reader");
+  if (qrContainer) {
+    const mediaEls = qrContainer.querySelectorAll<HTMLVideoElement | HTMLCanvasElement>("video, canvas");
+    mediaEls.forEach(media => {
+      media.style.transform = currentZoom > 1 ? `scale(${currentZoom.toFixed(2)})` : "none";
+      media.style.transformOrigin = "center center";
+      media.style.transition = "transform 0.12s ease-out";
+    });
+  }
+
+  const zoomBox = document.getElementById("zoom-controls");
+  if (zoomBox) {
+    zoomBox.querySelectorAll<HTMLButtonElement>(".zoom-btn").forEach(btn => {
+      const val = Number(btn.getAttribute("data-zoom"));
+      btn.classList.toggle("active", Math.abs(val - currentZoom) < 0.3);
+    });
+  }
+}
+
+function setupScannerPinchZoom() {
+  const stage = document.querySelector(".scanner-stage");
+  if (!stage) return;
+
+  const handleTouchStart = (e: TouchEvent) => {
+    const target = e.target as HTMLElement | null;
+    const isInside = target && (stage.contains(target) || !!target.closest(".scanner-stage, #qr-reader"));
+    if (isInside && e.touches.length === 2 && isScanning) {
+      if (e.cancelable) e.preventDefault();
+      const t1 = e.touches[0]!;
+      const t2 = e.touches[1]!;
+      initialTouchDistance = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      initialZoomOnTouch = currentZoom;
+    }
+  };
+
+  const handleTouchMove = (e: TouchEvent) => {
+    if (e.touches.length === 2 && isScanning && initialTouchDistance > 0) {
+      if (e.cancelable) e.preventDefault();
+      const t1 = e.touches[0]!;
+      const t2 = e.touches[1]!;
+      const currentDistance = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      const zoomFactor = currentDistance / initialTouchDistance;
+      const newZoom = initialZoomOnTouch * zoomFactor;
+      void setCameraZoom(newZoom);
+    }
+  };
+
+  const handleTouchEnd = () => { initialTouchDistance = 0; };
+
+  document.addEventListener("touchstart", handleTouchStart, { passive: false });
+  document.addEventListener("touchmove", handleTouchMove, { passive: false });
+  document.addEventListener("touchend", handleTouchEnd, { passive: true });
+  document.addEventListener("touchcancel", handleTouchEnd, { passive: true });
+}
+
+document.querySelectorAll<HTMLButtonElement>(".zoom-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const zoomVal = Number(btn.getAttribute("data-zoom")) || 1;
+    void setCameraZoom(zoomVal);
+  });
+});
+
+setupScannerPinchZoom();
 
 async function stopCameraScanner() {
   if (html5QrCode && isScanning) {
     try { await html5QrCode.stop(); } catch (e) {}
     isScanning = false;
+    currentZoom = 1;
     document.getElementById("qr-reader")!.style.display = "none";
+    document.getElementById("zoom-controls")!.style.display = "none";
     const ph = document.getElementById("scanner-placeholder");
     if (ph) ph.style.display = "block";
     document.getElementById("btn-toggle-camera")!.textContent = "Buka Kamera Scanner";
@@ -210,6 +314,8 @@ async function startCameraScanner() {
 
     isScanning = true;
     document.getElementById("btn-toggle-camera")!.textContent = "Tutup Kamera";
+    document.getElementById("zoom-controls")!.style.display = "flex";
+    void setCameraZoom(1);
   } catch (err) {
     status.value = "Kamera tidak dapat diakses atau tidak ditemukan.";
     status.className = "error";
