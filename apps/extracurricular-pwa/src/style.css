@@ -62,8 +62,9 @@ header>button{position:absolute;right:max(76px,calc((100% - 530px)/2));min-heigh
   background: linear-gradient(135deg, #d9eee1, #bde6cd);
   color: #076340;
   border: 3px solid #fff;
-  display: grid;
-  place-items: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
   flex-shrink: 0;
   box-shadow: 0 6px 16px rgba(0,0,0,0.08);
   position: relative;
