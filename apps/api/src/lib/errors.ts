@@ -128,5 +128,6 @@ export function fromDatabaseError(error: PostgrestError): ApiError {
   if (error.code === "22023" || error.code === "P0001") {
     return new ApiError(422, "VALIDATION_ERROR", error.message || "Data input tidak valid.");
   }
-  return new ApiError(500, "DATABASE_ERROR", `Kendala database: ${error.message || "Operasi gagal"}${error.details ? ` (${error.details})` : ""}`);
+  // Hide raw technical errors from the end user, but provide a friendly generic message
+  return new ApiError(500, "DATABASE_ERROR", "Terjadi kendala pada sistem. Mohon coba beberapa saat lagi atau hubungi admin sekolah.");
 }
