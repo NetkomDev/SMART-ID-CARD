@@ -61,11 +61,12 @@ function showLoadingOverlay(show: boolean) {
 
 let scanTimeout: number | undefined;
 function switchView(view: "scan" | "success") {
-  document.getElementById("view-scan")!.style.display = view === "scan" ? "block" : "none";
-  document.getElementById("view-success")!.style.display = view === "success" ? "block" : "none";
   if (view === "scan") {
+    document.getElementById("view-success")!.style.display = "none";
     document.getElementById("card")?.focus();
     if (scanTimeout) { clearTimeout(scanTimeout); scanTimeout = undefined; }
+  } else if (view === "success") {
+    document.getElementById("view-success")!.style.display = "flex";
   }
 }
 document.getElementById("btn-next-scan")?.addEventListener("click", () => switchView("scan"));
@@ -89,7 +90,6 @@ async function processVisit(uid: string, isFromCamera: boolean = false) {
           void flash.offsetWidth;
           flash.classList.add("flash-active");
         }
-        await stopCameraScanner();
       }
       
       document.getElementById("success-student-name")!.textContent = cached.student_name ?? "Siswa";
@@ -138,7 +138,6 @@ async function processVisit(uid: string, isFromCamera: boolean = false) {
       void flash.offsetWidth;
       flash.classList.add("flash-active");
     }
-    await stopCameraScanner();
     showLoadingOverlay(true);
   }
 
@@ -358,7 +357,24 @@ async function startCameraScanner() {
     if (ph) ph.style.display = "none";
     document.getElementById("qr-reader")!.style.display = "block";
     const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+      let lastScannedText = "";
+      let lastScannedTime = 0;
+      
       const onScanSuccess = async (decodedText: string) => {
+        // Prevent rapid duplicate scans of the same code within 5 seconds
+        const now = Date.now();
+        if (decodedText === lastScannedText && (now - lastScannedTime) < 5000) {
+          return;
+        }
+        lastScannedText = decodedText;
+        lastScannedTime = now;
+        
+        // Prevent scanning if success overlay or loading is visible
+        if (document.getElementById("view-success")?.style.display === "flex" || 
+            document.getElementById("loading-overlay")?.style.display === "flex") {
+          return;
+        }
+
         try {
           const url = new URL(decodedText);
           if (url.hash.includes("token=") || url.searchParams.has("token")) {
