@@ -454,7 +454,7 @@ document.getElementById("form-scan")!.addEventListener("submit", async (e) => {
       const avatarEl = document.getElementById("student-avatar");
       if (avatarEl) {
         if (student.photo_url) {
-          avatarEl.innerHTML = `<img src="${student.photo_url}" alt="Photo" class="student-photo-img" style="width: 100% !important; height: 100% !important; object-fit: cover !important; display: block !important; border-radius: 13px !important; margin: 0 !important; padding: 0 !important;" />`;
+          avatarEl.innerHTML = `<div style="flex: 1; align-self: stretch; width: 100%; height: 100%; background-image: url('${student.photo_url}'); background-size: cover; background-position: center; background-repeat: no-repeat; border-radius: 13px;"></div>`;
         } else {
           avatarEl.innerHTML = `<div class="avatar-fallback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke-linecap="round"/><circle cx="12" cy="7" r="4"/></svg></div>`;
         }
@@ -525,7 +525,7 @@ document.getElementById("btn-confirm-enroll")!.addEventListener("click", async (
     const avatarEl = document.getElementById("student-avatar");
     if (avatarEl) {
       if (pendingStudent.photo_url) {
-        avatarEl.innerHTML = `<img src="${pendingStudent.photo_url}" alt="Photo" class="student-photo-img" style="width: 100% !important; height: 100% !important; object-fit: cover !important; display: block !important; border-radius: 13px !important; margin: 0 !important; padding: 0 !important;" />`;
+        avatarEl.innerHTML = `<div style="flex: 1; align-self: stretch; width: 100%; height: 100%; background-image: url('${pendingStudent.photo_url}'); background-size: cover; background-position: center; background-repeat: no-repeat; border-radius: 13px;"></div>`;
       } else {
         avatarEl.innerHTML = `<div class="avatar-fallback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke-linecap="round"/><circle cx="12" cy="7" r="4"/></svg></div>`;
       }
