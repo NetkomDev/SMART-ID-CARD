@@ -72,8 +72,64 @@ document.getElementById("btn-next-scan")?.addEventListener("click", () => switch
 
 async function processVisit(uid: string, isFromCamera: boolean = false) {
   const key = queueKey();
+  const cacheKey = `library_cache_${portal.context?.id ?? "none"}_${uid}`;
   const visit: Visit = { event_id: crypto.randomUUID(), card_uid: uid, occurred_at: new Date().toISOString(), local_sequence: Date.now(), metadata: { terminal: "library-pwa" } };
   
+  // 1. FAST PATH (Optimistic UI)
+  const cachedStr = localStorage.getItem(cacheKey);
+  if (cachedStr) {
+    try {
+      const cached = JSON.parse(cachedStr);
+      
+      if (isFromCamera) {
+        triggerHapticFeedback();
+        const flash = document.getElementById("camera-shutter-flash");
+        if (flash) {
+          flash.classList.remove("flash-active");
+          void flash.offsetWidth;
+          flash.classList.add("flash-active");
+        }
+        await stopCameraScanner();
+      }
+      
+      document.getElementById("success-student-name")!.textContent = cached.student_name ?? "Siswa";
+      document.getElementById("success-student-class")!.textContent = cached.class_name ?? "—";
+      document.getElementById("success-visit-time")!.textContent = `Tercatat pukul ${new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit" }).format(new Date())}`;
+      
+      const dupEl = document.getElementById("duplicate-warning");
+      if (dupEl) dupEl.style.display = "none";
+
+      const avatarEl = document.getElementById("student-avatar");
+      if (avatarEl) {
+        if (cached.photo_url) {
+          avatarEl.innerHTML = `<div style="width:100%;height:100%;border-radius:50%;background-image:url('${cached.photo_url}');background-size:cover;background-position:center;"></div>`;
+        } else {
+          avatarEl.innerHTML = `<div class="avatar-fallback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke-linecap="round"/><circle cx="12" cy="7" r="4"/></svg></div>`;
+        }
+      }
+      
+      switchView("success");
+      if (!isFromCamera) triggerHapticFeedback();
+      if (scanTimeout) clearTimeout(scanTimeout);
+      scanTimeout = window.setTimeout(() => switchView("scan"), 5000);
+      
+      // Fire background request silently
+      portal.request<{duplicate?:boolean}>("/library/visits", { method: "POST", body: JSON.stringify(visit) })
+        .then((res) => {
+          if (res.duplicate && dupEl) dupEl.style.display = "block";
+          void loadDailySummary();
+        })
+        .catch(err => {
+          if (err instanceof PortalError && err.status < 500) return;
+          save([...queue(key), visit], key);
+          status.value = "Koneksi tertunda — kunjungan tersimpan di perangkat";
+        });
+        
+      return; // Fast path done
+    } catch (e) {}
+  }
+
+  // 2. SLOW PATH (Network)
   if (isFromCamera) {
     triggerHapticFeedback();
     const flash = document.getElementById("camera-shutter-flash");
@@ -90,6 +146,15 @@ async function processVisit(uid: string, isFromCamera: boolean = false) {
     const result = await portal.request<{student_name?:string;class_name?:string;duplicate?:boolean;photo_url?:string}>("/library/visits", { method: "POST", body: JSON.stringify(visit) });
     if (isFromCamera) showLoadingOverlay(false);
     
+    // Save to Cache
+    try {
+      localStorage.setItem(cacheKey, JSON.stringify({
+        student_name: result.student_name,
+        class_name: result.class_name,
+        photo_url: result.photo_url
+      }));
+    } catch (e) {}
+    
     document.getElementById("success-student-name")!.textContent = result.student_name ?? "Siswa";
     document.getElementById("success-student-class")!.textContent = result.class_name ?? "—";
     
@@ -102,7 +167,7 @@ async function processVisit(uid: string, isFromCamera: boolean = false) {
     const avatarEl = document.getElementById("student-avatar");
     if (avatarEl) {
       if (result.photo_url) {
-        avatarEl.innerHTML = `<img src="${escapePortal(result.photo_url)}" alt="Photo" class="student-photo-img" />`;
+        avatarEl.innerHTML = `<div style="width:100%;height:100%;border-radius:50%;background-image:url('${result.photo_url}');background-size:cover;background-position:center;"></div>`;
       } else {
         avatarEl.innerHTML = `<div class="avatar-fallback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke-linecap="round"/><circle cx="12" cy="7" r="4"/></svg></div>`;
       }
