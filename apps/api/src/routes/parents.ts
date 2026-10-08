@@ -42,10 +42,14 @@ router.post("/link", requireAuth, validate({ body: claimParentLinkSchema }), asy
     formattedDob = `${y}-${m!.padStart(2, "0")}-${d!.padStart(2, "0")}`;
   }
 
+  const deviceId = req.headers["x-device-id"] as string;
+  if (!deviceId) throw new ApiError(400, "VALIDATION_ERROR", "Missing X-Device-Id header");
+
   const { data, error } = await req.auth!.client.rpc("link_student_to_parent_portal", {
     p_nisn: nisn.trim(),
     p_dob: formattedDob,
-    p_parent_name: (full_name ?? "").trim()
+    p_parent_name: (full_name ?? "").trim(),
+    p_device_id: deviceId
   });
 
   if (error) throw fromDatabaseError(error);
@@ -63,7 +67,10 @@ router.get("/profile", requireAuth, asyncHandler(async (req, res) => {
 }));
 
 router.get("/children", requireAuth, asyncHandler(async (req, res) => {
-  const { data, error } = await req.auth!.client.rpc("get_parent_children");
+  const deviceId = req.headers["x-device-id"] as string;
+  if (!deviceId) throw new ApiError(400, "VALIDATION_ERROR", "Missing X-Device-Id header");
+
+  const { data, error } = await req.auth!.client.rpc("get_parent_children", { p_device_id: deviceId });
   if (error) throw fromDatabaseError(error);
   sendData(res, data ?? []);
 }));

@@ -79,6 +79,15 @@ export class PortalSession {
     headers.set("authorization", `Bearer ${saved.session.access_token}`);
     headers.set("x-school-id", saved.portal.school_id);
     if (init.body) headers.set("content-type", "application/json");
+
+    if (typeof localStorage !== "undefined") {
+      let deviceId = localStorage.getItem("portal_device_id");
+      if (!deviceId) {
+        deviceId = (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : Math.random().toString(36).substring(2) + Date.now().toString(36);
+        localStorage.setItem("portal_device_id", deviceId);
+      }
+      headers.set("x-device-id", deviceId);
+    }
     const response = await fetch(`${this.base}${path}`, { ...init, headers });
     if (response.status === 401) {
       const body = await response.clone().json().catch(() => null);
