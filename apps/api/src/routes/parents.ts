@@ -76,7 +76,10 @@ router.get("/children", requireAuth, asyncHandler(async (req, res) => {
 }));
 
 router.get("/children/:id/today", requireAuth, validate({ params: idParamsSchema }), asyncHandler(async (req, res) => {
-  const { data, error } = await req.auth!.client.rpc("get_parent_child_today", { target_student_id: req.params.id });
+  const deviceId = req.headers["x-device-id"] as string;
+  if (!deviceId) throw new ApiError(400, "VALIDATION_ERROR", "Missing X-Device-Id header");
+
+  const { data, error } = await req.auth!.client.rpc("get_parent_child_today", { target_student_id: req.params.id, p_device_id: deviceId });
   if (error?.code === "AP002") throw new ApiError(404, "CHILD_NOT_LINKED", "Child relationship was not found");
   if (error) throw fromDatabaseError(error);
   sendData(res, data);
