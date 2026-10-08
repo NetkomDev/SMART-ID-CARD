@@ -471,7 +471,7 @@ document.getElementById("form-scan")!.addEventListener("submit", async (e) => {
       if (scanTimeout) clearTimeout(scanTimeout);
       scanTimeout = window.setTimeout(() => {
         overlay.style.display = "none";
-      }, 2000);
+      }, 5000);
       
     } catch (err: any) {
       // If error is FK violation or related to membership, trigger Fast Enrollment
@@ -543,7 +543,7 @@ document.getElementById("btn-confirm-enroll")!.addEventListener("click", async (
     if (scanTimeout) clearTimeout(scanTimeout);
     scanTimeout = window.setTimeout(() => {
       overlay.style.display = "none";
-    }, 2000);
+    }, 5000);
 
   } catch (err: any) {
     errorEl.textContent = "Gagal: " + err.message;

@@ -161,8 +161,8 @@ header>button{position:absolute;right:max(76px,calc((100% - 530px)/2));min-heigh
 
 #success-overlay {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(3px);
+  background: transparent;
+  backdrop-filter: none;
   z-index: 2000;
   flex-direction: column;
   justify-content: center;
