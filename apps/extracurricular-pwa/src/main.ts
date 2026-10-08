@@ -291,7 +291,10 @@ async function init() {
       document.getElementById("btn-login-retry")!.style.display = "none";
       return;
     }
-    schoolLabel(portal.context!.school_name);
+    const schoolDisplay = document.getElementById("school-name-display");
+    if (schoolDisplay) {
+      schoolDisplay.textContent = portal.context!.school_name;
+    }
     await loadDashboard();
   } catch (error) {
     switchView("login");
