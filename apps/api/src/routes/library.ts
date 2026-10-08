@@ -67,8 +67,8 @@ libraryRouter.post("/visits", requirePermission("library.visit"), validate({ bod
         .select("qr_key")
         .eq("school_id", req.tenant!.schoolId)
         .eq("student_id", student.id)
-        .eq("status", "ACTIVE")
-        .in("production_status", ["VERIFIED", "LEGACY"])
+        .order("created_at", { ascending: false })
+        .limit(1)
         .maybeSingle();
 
       if (card) {

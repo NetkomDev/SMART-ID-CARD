@@ -26,3 +26,61 @@ body::before{display:none}
 .portal-gate{border-color:#dcebe3!important;background:#fff!important}.gate-mark{background:#e4f4ea!important;color:#126442!important;border-color:#cde7d7!important}
 @media(max-width:420px){.portal-header{padding-left:16px;padding-right:16px}.portal-brand img{width:46px;height:46px!important}.portal-brand b{font-size:1.28rem}.book-mark{width:42px;height:42px}.library-content{padding:18px 12px 28px!important}.scanner-card,.service-card{padding:15px;border-radius:18px}.visit-stats{gap:5px}.visit-stats>div{padding:12px 3px}.visit-stats strong{font-size:1.3rem}}
 @media(min-width:760px){.library-shell{margin:24px auto;border-radius:30px;min-height:calc(100dvh - 48px);overflow:hidden}.portal-header{border-radius:0 0 28px 28px}}
+
+/* Camera Flash Effect */
+.camera-shutter-flash {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: white;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 100;
+}
+.camera-shutter-flash.flash-active {
+  animation: shutter-flash 0.5s ease-out;
+}
+@keyframes shutter-flash {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Loading Overlay Toast */
+.loading-overlay-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  backdrop-filter: blur(2px);
+}
+.loading-toast-card {
+  background: white;
+  padding: 18px 24px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  color: #103e33;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.toast-spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid #dcebe3;
+  border-top-color: #2ca46d;
+  border-radius: 50%;
+  animation: toast-spin 1s linear infinite;
+}
+@keyframes toast-spin {
+  to { transform: rotate(360deg); }
+}
