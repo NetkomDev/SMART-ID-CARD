@@ -540,7 +540,7 @@ async function loadAttendanceList() {
   try {
     const list = await request<Array<{
       id: string; student_id: string; status: string; notes?: string; recorded_at: string;
-      students: { full_name: string; student_number: string }
+      extracurricular_members: { students: { full_name: string; student_number: string } }
     }>>(`/extracurriculars/${currentEkskulId}/sessions/${currentSessionId}/attendance`);
     
     if (list.length === 0) {
@@ -562,8 +562,8 @@ async function loadAttendanceList() {
           <div style="display:flex; align-items:center; gap:10px;">
             ${icon}
             <div>
-              <div style="font-size:0.9rem; font-weight:600; color:#0e402a;">${item.students.full_name}</div>
-              <div style="font-size:0.75rem; color:#66877a;">${item.students.student_number || "-"} • ${statusText}</div>
+              <div style="font-size:0.9rem; font-weight:600; color:#0e402a;">${item.extracurricular_members?.students?.full_name ?? "-"}</div>
+              <div style="font-size:0.75rem; color:#66877a;">${item.extracurricular_members?.students?.student_number || "-"} • ${statusText}</div>
             </div>
           </div>
           <div style="font-size:0.8rem; color:#66877a; font-weight:500;">${time}</div>

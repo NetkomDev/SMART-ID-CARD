@@ -107,7 +107,7 @@ router.get("/:id/sessions/:sessionId/summary", requirePermission("extracurricula
 
 router.get("/:id/sessions/:sessionId/attendance", requirePermission("extracurricular.read"), validate({ params: sessionParamsSchema }), asyncHandler(async (req, res) => {
   const { data, error } = await req.auth!.client.from("extracurricular_attendance")
-    .select("id,student_id,status,notes,recorded_at,students(full_name,student_number)")
+    .select("id,student_id,status,notes,recorded_at,extracurricular_members(students(full_name,student_number))")
     .eq("school_id", req.tenant!.schoolId).eq("extracurricular_id", req.params.id).eq("session_id", req.params.sessionId)
     .order("recorded_at", { ascending: false });
   if (error) throw fromDatabaseError(error);
