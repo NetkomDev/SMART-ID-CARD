@@ -483,7 +483,6 @@ document.getElementById("form-scan")!.addEventListener("submit", async (e) => {
         throw err;
       }
     }
-    }
   } catch (err: any) {
     errorEl.textContent = err.message;
   } finally { 
