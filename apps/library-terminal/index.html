@@ -26,12 +26,13 @@
     </header>
 
     <section id="panel" class="library-content" hidden>
-      <div class="intro-row">
-        <div><small>LAYANAN PERPUSTAKAAN</small></div>
-        <span class="live-pill"><i></i> Siap</span>
-      </div>
+      <div id="view-scan">
+        <div class="intro-row">
+          <div><small>LAYANAN PERPUSTAKAAN</small></div>
+          <span class="live-pill"><i></i> Siap</span>
+        </div>
 
-      <div class="scanner-stage">
+        <div class="scanner-stage">
         <div class="scanner-heading">
           <div>
             <strong>Scan QR Siswa</strong>
@@ -66,16 +67,10 @@
         </div>
       </form>
 
-      <output id="status" aria-live="polite">Siap memindai</output>
+      <output id="status" aria-live="polite" style="display:none">Siap memindai</output>
+      
       <section id="student-result" class="student-result" hidden>
-        <div class="result-header">
-           <div class="result-check"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></div>
-           <div><span class="welcome-text">Selamat datang!</span><strong id="student-name">Siswa</strong></div>
-        </div>
-        <div class="result-details">
-           <div class="detail-item"><span>Kelas</span><strong id="student-class">—</strong></div>
-           <div class="detail-item"><span>Waktu Kunjungan</span><strong id="visit-time">Hari ini</strong></div>
-        </div>
+        <!-- Old small card removed visually, we will use view-success instead, but keep id for JS compatibility temporarily if needed -->
       </section>
 
       <section class="service-card">
@@ -87,8 +82,33 @@
         </div>
       </section>
 
-      <div class="sync-banner"><span class="round-icon"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span><div><strong>Data kunjungan tersimpan</strong><span>Sistem akan menyinkronkan data secara otomatis.</span></div></div>
-      <div class="actions-row"><button id="sync">Sinkronkan sekarang</button></div>
+        <div class="sync-banner"><span class="round-icon"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span><div><strong>Data kunjungan tersimpan</strong><span>Sistem akan menyinkronkan data secara otomatis.</span></div></div>
+        <div class="actions-row"><button id="sync">Sinkronkan sekarang</button></div>
+      </div>
+    </section>
+
+    <section id="view-success" style="display:none">
+      <div class="modal-content-wrap library-sheet">
+        <header class="student-card library-student">
+          <div class="student-avatar" id="student-avatar" aria-hidden="true"></div>
+          <div class="student-details">
+            <h2 id="success-student-name">Siswa</h2>
+            <span class="status-chip">✓ Kunjungan tercatat</span>
+          </div>
+        </header>
+
+        <div class="library-body">
+          <div class="library-section">
+            <div class="detail-item"><span>Kelas</span><strong id="success-student-class">—</strong></div>
+            <div class="detail-item"><span>Waktu Kunjungan</span><strong id="success-visit-time">Hari ini</strong></div>
+            <div id="duplicate-warning" class="duplicate-warning" style="display:none;">Kunjungan ini sudah tercatat sebelumnya.</div>
+          </div>
+          
+          <div class="library-footer">
+            <button type="button" id="btn-next-scan" class="btn-next-scan">Kembali Memindai <span aria-hidden="true">→</span></button>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- Loading Toast Overlay ("Memproses...") -->

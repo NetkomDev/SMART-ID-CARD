@@ -15,12 +15,15 @@ entry.append(accessForm); entry.insertAdjacentHTML('beforeend', gateHelp);
 const views = {
   login: document.getElementById("view-login")!,
   dashboard: document.getElementById("view-dashboard")!,
-  scan: document.getElementById("view-scan")!
+  scan: document.getElementById("view-scan")!,
+  success: document.getElementById("view-success")!
 };
+
+let scanTimeout: number | undefined;
 
 let currentEkskulId = "";
 let currentSessionId = "";
-let pendingStudentId = "";
+let pendingStudent: { id: string; full_name: string; photo_url?: string | null } | null = null;
 let enrollmentKey = "";
 let selecting = false, submitting = false;
 type SessionSummary = { total: number; present: number; excused: number; absent: number };
@@ -128,8 +131,13 @@ function switchView(viewName: keyof typeof views) {
   if (viewName !== "scan") { stopCameraScanner(); }
   Object.values(views).forEach(v => v.style.display = "none");
   views[viewName].style.display = "block";
-  if (viewName === "scan") setTimeout(() => document.getElementById("scan-input")?.focus(), 100);
+  if (viewName === "scan") {
+    if (scanTimeout) { clearTimeout(scanTimeout); scanTimeout = undefined; }
+    setTimeout(() => document.getElementById("scan-input")?.focus(), 100);
+  }
 }
+
+document.getElementById("btn-next-scan")?.addEventListener("click", () => switchView("scan"));
 
 const request = <T>(path: string, init: RequestInit = {}) => portal.request<T>(path, init);
 async function init() {
@@ -242,7 +250,6 @@ async function selectEkskul(id: string, name: string) {
 
     currentSessionId = todaySession.id;
     document.getElementById("enrollment-prompt")!.style.display = "none";
-    document.getElementById("success-prompt")!.style.display = "none";
     switchView("scan");
     void loadSessionSummary();
   } catch (err: any) {
@@ -274,15 +281,14 @@ document.getElementById("form-scan")!.addEventListener("submit", async (e) => {
 
   errorEl.textContent = "Mencari siswa...";
   document.getElementById("enrollment-prompt")!.style.display = "none";
-  document.getElementById("success-prompt")!.style.display = "none";
 
   try {
     const students = /^[a-f0-9]{48}$/.test(query)
-      ? [await request<{id:string;full_name:string}>("/cards/resolve", {method:"POST",body:JSON.stringify({qr_key:query})})]
-      : await request<Array<{id:string;full_name:string}>>(`/students?search=${encodeURIComponent(query)}`);
+      ? [await request<{id:string;full_name:string;photo_url?:string}>("/cards/resolve", {method:"POST",body:JSON.stringify({qr_key:query})})]
+      : await request<Array<{id:string;full_name:string;photo_url?:string}>>(`/students?search=${encodeURIComponent(query)}`);
     if (students.length !== 1) throw new Error(students.length ? "Masukkan NIS/NISN lengkap agar siswa tidak tertukar." : "Siswa tidak ditemukan.");
     const student = students[0]!;
-    pendingStudentId = student.id;
+    pendingStudent = student;
     enrollmentKey = crypto.randomUUID();
     input.value = "";
     errorEl.textContent = "";
@@ -295,9 +301,24 @@ document.getElementById("form-scan")!.addEventListener("submit", async (e) => {
         })
       });
       // Success
-      document.getElementById("success-student-name")!.textContent = `${student.full_name} - Hadir`;
-      document.getElementById("success-prompt")!.style.display = "flex";
+      
+      const avatarEl = document.getElementById("student-avatar");
+      if (avatarEl) {
+        if (student.photo_url) {
+          avatarEl.innerHTML = `<img src="${student.photo_url}" alt="Photo" class="student-photo-img" />`;
+        } else {
+          avatarEl.innerHTML = `<div class="avatar-fallback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke-linecap="round"/><circle cx="12" cy="7" r="4"/></svg></div>`;
+        }
+      }
+      
+      document.getElementById("success-student-name")!.textContent = student.full_name;
+      document.getElementById("success-time")!.textContent = new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit" }).format(new Date());
+      switchView("success");
       void loadSessionSummary();
+      
+      if (scanTimeout) clearTimeout(scanTimeout);
+      scanTimeout = window.setTimeout(() => switchView("scan"), 5000);
+      
     } catch (err: any) {
       // If error is FK violation or related to membership, trigger Fast Enrollment
       if (err instanceof PortalError && err.code === "EXTRACURRICULAR_MEMBER_REQUIRED") {
@@ -318,7 +339,7 @@ document.getElementById("btn-cancel-enroll")!.addEventListener("click", () => {
 });
 
 document.getElementById("btn-confirm-enroll")!.addEventListener("click", async () => {
-  if (submitting || !pendingStudentId || !enrollmentKey) return;
+  if (submitting || !pendingStudent || !enrollmentKey) return;
   submitting = true;
   const errorEl = document.getElementById("scan-error")!;
   try {
@@ -328,7 +349,7 @@ document.getElementById("btn-confirm-enroll")!.addEventListener("click", async (
     // Fast Enroll
     await request(`/extracurriculars/${currentEkskulId}/members/fast-enroll`, {
       method: "POST", body: JSON.stringify({
-        student_id: pendingStudentId, idempotency_key: enrollmentKey, confirmed: true
+        student_id: pendingStudent.id, idempotency_key: enrollmentKey, confirmed: true
       })
     });
 
@@ -336,14 +357,29 @@ document.getElementById("btn-confirm-enroll")!.addEventListener("click", async (
     errorEl.textContent = "Mencatat presensi...";
     await request(`/extracurriculars/${currentEkskulId}/sessions/${currentSessionId}/attendance`, {
       method: "POST", body: JSON.stringify({
-        student_id: pendingStudentId, status: "PRESENT"
+        student_id: pendingStudent.id, status: "PRESENT"
       })
     });
 
     errorEl.textContent = "";
-    document.getElementById("success-student-name")!.textContent = `Siswa Berhasil Didaftarkan & Hadir`;
-    document.getElementById("success-prompt")!.style.display = "flex";
+    
+    const avatarEl = document.getElementById("student-avatar");
+    if (avatarEl) {
+      if (pendingStudent.photo_url) {
+        avatarEl.innerHTML = `<img src="${pendingStudent.photo_url}" alt="Photo" class="student-photo-img" />`;
+      } else {
+        avatarEl.innerHTML = `<div class="avatar-fallback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke-linecap="round"/><circle cx="12" cy="7" r="4"/></svg></div>`;
+      }
+    }
+    
+    document.getElementById("success-student-name")!.textContent = pendingStudent.full_name;
+    document.getElementById("success-time")!.textContent = new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit" }).format(new Date());
+    
+    switchView("success");
     void loadSessionSummary();
+
+    if (scanTimeout) clearTimeout(scanTimeout);
+    scanTimeout = window.setTimeout(() => switchView("scan"), 5000);
 
   } catch (err: any) {
     errorEl.textContent = "Gagal: " + err.message;

@@ -59,6 +59,17 @@ function showLoadingOverlay(show: boolean) {
   if (overlay) overlay.style.display = show ? "flex" : "none";
 }
 
+let scanTimeout: number | undefined;
+function switchView(view: "scan" | "success") {
+  document.getElementById("view-scan")!.style.display = view === "scan" ? "block" : "none";
+  document.getElementById("view-success")!.style.display = view === "success" ? "block" : "none";
+  if (view === "scan") {
+    document.getElementById("card")?.focus();
+    if (scanTimeout) { clearTimeout(scanTimeout); scanTimeout = undefined; }
+  }
+}
+document.getElementById("btn-next-scan")?.addEventListener("click", () => switchView("scan"));
+
 async function processVisit(uid: string, isFromCamera: boolean = false) {
   const key = queueKey();
   const visit: Visit = { event_id: crypto.randomUUID(), card_uid: uid, occurred_at: new Date().toISOString(), local_sequence: Date.now(), metadata: { terminal: "library-pwa" } };
@@ -76,18 +87,35 @@ async function processVisit(uid: string, isFromCamera: boolean = false) {
   }
 
   try {
-    const result = await portal.request<{student_name?:string;class_name?:string;duplicate?:boolean}>("/library/visits", { method: "POST", body: JSON.stringify(visit) });
+    const result = await portal.request<{student_name?:string;class_name?:string;duplicate?:boolean;photo_url?:string}>("/library/visits", { method: "POST", body: JSON.stringify(visit) });
     if (isFromCamera) showLoadingOverlay(false);
     
-    status.value = result.student_name ? `Kunjungan tercatat: ${result.student_name}` : "Kunjungan tercatat";
-    studentName.textContent = result.student_name ?? "Siswa";
-    const studentClassEl = document.getElementById("student-class");
-    if (studentClassEl) studentClassEl.textContent = result.class_name ?? "—";
+    document.getElementById("success-student-name")!.textContent = result.student_name ?? "Siswa";
+    document.getElementById("success-student-class")!.textContent = result.class_name ?? "—";
     
-    visitTime.textContent = `${result.duplicate ? "Sudah tercatat" : "Tercatat"} pukul ${new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit" }).format(new Date())}`;
-    studentResult.hidden = false;
+    const visitTimeText = `${result.duplicate ? "Sudah tercatat" : "Tercatat"} pukul ${new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit" }).format(new Date())}`;
+    document.getElementById("success-visit-time")!.textContent = visitTimeText;
+    
+    const dupEl = document.getElementById("duplicate-warning");
+    if (dupEl) dupEl.style.display = result.duplicate ? "block" : "none";
+
+    const avatarEl = document.getElementById("student-avatar");
+    if (avatarEl) {
+      if (result.photo_url) {
+        avatarEl.innerHTML = `<img src="${escapePortal(result.photo_url)}" alt="Photo" class="student-photo-img" />`;
+      } else {
+        avatarEl.innerHTML = `<div class="avatar-fallback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke-linecap="round"/><circle cx="12" cy="7" r="4"/></svg></div>`;
+      }
+    }
+    
+    switchView("success");
     void loadDailySummary();
     if (!isFromCamera) triggerHapticFeedback();
+    
+    // Auto-return to scan after 5 seconds
+    if (scanTimeout) clearTimeout(scanTimeout);
+    scanTimeout = window.setTimeout(() => switchView("scan"), 5000);
+
   } catch (error) {
     if (isFromCamera) showLoadingOverlay(false);
     if (error instanceof PortalError && error.status < 500) { status.value = error.message; return; }

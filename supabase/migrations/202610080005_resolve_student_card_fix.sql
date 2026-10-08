@@ -19,7 +19,7 @@ begin
  if not found or s.id is null then return null; end if;
 
  select cl.name into class_name from public.student_class_history h join public.classes cl on cl.id=h.class_id where h.student_id=s.id and h.is_current order by h.start_date desc limit 1;
- return jsonb_build_object('id',s.id,'full_name',s.full_name,'student_number',s.student_number,'nisn',s.nisn,'class_name',class_name);
+ return jsonb_build_object('id',s.id,'full_name',s.full_name,'student_number',s.student_number,'nisn',s.nisn,'class_name',class_name,'photo_url',s.photo_url);
 end$$;
 
 commit;

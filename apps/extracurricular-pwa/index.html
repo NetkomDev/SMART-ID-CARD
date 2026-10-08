@@ -93,8 +93,31 @@
           <button id="btn-confirm-enroll">Daftarkan & Hadirkan</button>
           <button id="btn-cancel-enroll" class="btn-secondary">Batal</button>
         </div>
-        <output id="success-prompt" style="display:none"><span class="success-check">✓</span><span><small>Presensi berhasil</small><strong id="success-student-name">Siswa - Hadir</strong></span></output>
+        
         <div class="motivation-card"><span>★</span><div><strong>Terus kembangkan bakat siswa!</strong><p>Kehadiran yang konsisten membantu setiap siswa bertumbuh.</p></div></div>
+      </section>
+
+      <section id="view-success" style="display:none">
+        <div class="modal-content-wrap ekskul-sheet">
+          <header class="student-card ekskul-student">
+            <div class="student-avatar" id="student-avatar" aria-hidden="true"></div>
+            <div class="student-details">
+              <h2 id="success-student-name">Siswa</h2>
+              <span class="status-chip">✓ Presensi berhasil</span>
+            </div>
+          </header>
+
+          <div class="ekskul-body">
+            <div class="ekskul-section">
+              <div class="detail-item"><span>Status Kehadiran</span><strong id="success-status">Hadir</strong></div>
+              <div class="detail-item"><span>Waktu Tercatat</span><strong id="success-time">Hari ini</strong></div>
+            </div>
+            
+            <div class="ekskul-footer">
+              <button type="button" id="btn-next-scan" class="btn-next-scan">Kembali Memindai <span aria-hidden="true">→</span></button>
+            </div>
+          </div>
+        </div>
       </section>
     </main>
   </div>
