@@ -122,12 +122,7 @@
         <!-- background color dan margin dapat diubah sesuai selera -->
         <button type="button" class="camera-button" id="btn-lihat-kehadiran" style="margin-bottom: 24px; background: #1a4231; color: white; border-color: #1a4231; margin-top: 20px;">Lihat Data Kehadiran</button>
 
-        <div id="enrollment-prompt" style="display:none">
-          <h3>Belum Terdaftar</h3>
-          <p>Siswa <strong id="unregistered-student-name"></strong> belum terdaftar di kegiatan ini.</p>
-          <button id="btn-confirm-enroll">Daftarkan & Hadirkan</button>
-          <button id="btn-cancel-enroll" class="btn-secondary">Batal</button>
-        </div>
+
       </section>
 
       <section id="view-attendance" style="display:none">
@@ -183,6 +178,17 @@
             </div>
           </div>
         </div>
+        </div>
+      </div>
+
+      <!-- CUSTOMIZATION AREA: Popup Belum Terdaftar -->
+      <!-- Tampilan melayang transparan di atas halaman scanner -->
+      <div id="enrollment-overlay" style="display:none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: transparent; z-index: 2000; flex-direction: column; justify-content: center; align-items: center; padding: 24px;">
+        <div id="enrollment-prompt" style="display:block; width: 100%; max-width: 360px; background: #fffaf0; border: 1px solid #f4d6b4; box-shadow: 0 12px 40px rgba(0,0,0,0.15); border-radius: 24px; padding: 20px; animation: slide-up 0.3s cubic-bezier(0.1, 0.9, 0.2, 1);">
+          <h3 style="color: #8c5000; margin: 0 0 6px; font-size: 1.05rem;">Belum Terdaftar</h3>
+          <p style="color: #6a4210; font-size: 0.85rem; margin-bottom: 16px;">Siswa <strong id="unregistered-student-name"></strong> belum terdaftar di kegiatan ini.</p>
+          <button id="btn-confirm-enroll" class="btn-search" style="width: 100%; min-height: 44px; background: #926615; color: white;">Daftarkan & Hadirkan</button>
+          <button id="btn-cancel-enroll" class="btn-secondary" style="width: 100%; min-height: 44px; margin-top: 8px;">Batal</button>
         </div>
       </div>
     </main>
