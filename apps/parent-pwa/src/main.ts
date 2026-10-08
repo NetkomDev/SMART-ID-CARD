@@ -13,6 +13,7 @@ type Child = {
   student_number: string;
   class_name?: string | null;
   relationship: string;
+  photo_url?: string | null;
 };
 
 type ParentTodayData = {
@@ -746,7 +747,7 @@ function renderDashboardUI(children: Child[], selected: Child, data: ParentToday
     first_name: selected.full_name.split(/\s+/)[0] ?? "Siswa",
     school_name: selected.school_name,
     class_name: selected.class_name ?? "Belum ada kelas",
-    photo_url: null
+    photo_url: selected.photo_url ?? null
   };
 
   const attendance = data.attendance ?? calculateAttendanceFallback(data.events, data.timezone);
