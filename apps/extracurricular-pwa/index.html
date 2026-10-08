@@ -55,8 +55,14 @@
 
         <div class="activity-hero" style="margin-bottom: 20px;">
           <span class="hero-icon"><svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6 5.6 18.4"/><circle cx="12" cy="12" r="9"/></svg></span>
-          <div style="flex: 1;"><small id="session-date-label">HARI INI</small><h1 id="scan-ekskul-title">Nama Ekskul</h1><p>Presensi siswa</p></div>
-          <span class="session-pill" style="align-self: center; justify-self: end;">Sesi aktif</span>
+          <div style="flex: 1;">
+            <small id="session-date-label">HARI INI</small>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <h1 id="scan-ekskul-title" style="margin:0;">Nama Ekskul</h1>
+              <span class="session-pill">Sesi aktif</span>
+            </div>
+            <p>Presensi siswa</p>
+          </div>
         </div>
 
         <div class="scanner-stage">
@@ -93,7 +99,7 @@
           <div class="scan-input-wrap">
             <div class="input-icon-wrap">
               <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h4M7 13h7"/></svg>
-              <input aria-label="QR kartu atau nomor siswa" type="text" id="scan-input" placeholder="Masukkan NISN lengkap" autocomplete="off" required minlength="4" maxlength="64">
+              <input aria-label="QR kartu atau nomor siswa" type="tel" id="scan-input" placeholder="Masukkan NISN lengkap" autocomplete="off" required minlength="4" maxlength="64">
             </div>
             <button type="submit" class="btn-search">Cari siswa</button>
           </div>

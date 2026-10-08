@@ -236,7 +236,6 @@ function switchView(viewName: keyof typeof views) {
   views[viewName].style.display = "block";
   if (viewName === "scan") {
     if (scanTimeout) { clearTimeout(scanTimeout); scanTimeout = undefined; }
-    setTimeout(() => document.getElementById("scan-input")?.focus(), 100);
   }
 }
 
@@ -482,7 +481,7 @@ document.getElementById("form-scan")!.addEventListener("submit", async (e) => {
 
 document.getElementById("btn-cancel-enroll")!.addEventListener("click", () => {
   document.getElementById("enrollment-prompt")!.style.display = "none";
-  document.getElementById("scan-input")?.focus();
+  // document.getElementById("scan-input")?.focus();
 });
 
 document.getElementById("btn-confirm-enroll")!.addEventListener("click", async () => {
