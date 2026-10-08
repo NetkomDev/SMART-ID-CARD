@@ -16,7 +16,6 @@ const views = {
   login: document.getElementById("view-login")!,
   dashboard: document.getElementById("view-dashboard")!,
   scan: document.getElementById("view-scan")!,
-  success: document.getElementById("view-success")!,
   attendance: document.getElementById("view-attendance")!
 };
 
