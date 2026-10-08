@@ -1197,16 +1197,16 @@ function renderTimelineEvents(events: ParentTodayData["events"], timezone: strin
         let title = "Aktivitas", desc = ev.extra_info || "", icon = "✓", color = "#146c43";
         if (ev.type === "attendance.check_in") { title = "Tiba di sekolah"; desc = ev.is_late ? "Tercatat terlambat" : "Terverifikasi gerbang sekolah"; icon = "🏢"; }
         else if (ev.type === "attendance.check_out") { title = "Pulang dari sekolah"; desc = "Terverifikasi gerbang sekolah"; icon = "🏠"; }
-        else if (ev.type === "waste.transaction") { title = "Bank Sampah"; icon = "♻"; color = "#214b38"; }
-        else if (ev.type === "library.visit") { title = "Perpustakaan"; icon = "📚"; color = "#0f5132"; }
-        else if (ev.type === "extracurricular.attendance") { title = "Ekstrakurikuler"; icon = "🏅"; color = "#243b67"; }
+        else if (ev.type === "waste.transaction") { title = ev.extra_info || "Setoran Bank Sampah"; desc = ""; icon = "♻"; color = "#214b38"; }
+        else if (ev.type === "library.visit") { title = ev.extra_info || "Kunjungan Perpustakaan"; desc = ""; icon = "📚"; color = "#0f5132"; }
+        else if (ev.type === "extracurricular.attendance") { title = (ev.extra_info || "").replace(/^Kehadiran Ekskul\s+/i, ""); desc = ""; icon = "🏅"; color = "#243b67"; }
         return `
           <article style="display: grid; grid-template-columns: 50px 12px 1fr 25px; gap: 12px; padding: 14px 0; border-bottom: 1px solid #edf1f4;">
             <time style="font-size: 0.8rem; font-weight: 700; color: #5b796d;">${new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: timezone || "Asia/Makassar" }).format(new Date(ev.occurred_at))}</time>
             <i style="width: 8px; height: 8px; border-radius: 50%; background: ${color}; margin-top: 6px;"></i>
-            <div>
-              <strong style="color: ${color}; font-size: 0.92rem;">${title}</strong>
-              <p style="font-size: 0.82rem; margin: 2px 0 0; color: #5b796d;">${esc(desc)}</p>
+            <div style="align-self: center;">
+              <strong style="color: ${color}; font-size: 0.92rem;">${esc(title)}</strong>
+              ${desc ? `<p style="font-size: 0.82rem; margin: 2px 0 0; color: #5b796d;">${esc(desc)}</p>` : ""}
             </div>
             <b style="color: ${color}">${icon}</b>
           </article>
