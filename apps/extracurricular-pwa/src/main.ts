@@ -465,6 +465,8 @@ document.getElementById("form-scan")!.addEventListener("submit", async (e) => {
       document.getElementById("success-student-name")!.textContent = student.full_name;
       document.getElementById("success-time")!.textContent = new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit" }).format(new Date());
       
+      if (navigator.vibrate) navigator.vibrate(50);
+      
       const overlay = document.getElementById("success-overlay")!;
       overlay.style.display = "flex";
       toast.style.display = "none";
@@ -478,6 +480,7 @@ document.getElementById("form-scan")!.addEventListener("submit", async (e) => {
     } catch (err: any) {
       // If error is FK violation or related to membership, trigger Fast Enrollment
       if (err instanceof PortalError && err.code === "EXTRACURRICULAR_MEMBER_REQUIRED") {
+        if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
         document.getElementById("unregistered-student-name")!.textContent = student.full_name;
         document.getElementById("enrollment-overlay")!.style.display = "flex";
       } else {
