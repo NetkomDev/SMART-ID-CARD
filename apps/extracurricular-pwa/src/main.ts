@@ -349,6 +349,7 @@ async function loadDashboard() {
 async function selectEkskul(id: string, name: string) {
   if (selecting || submitting) return;
   selecting = true;
+  document.getElementById("processing-toast")!.style.display = "flex";
   currentSessionId = "";
   currentEkskulId = id;
   document.getElementById("scan-ekskul-title")!.textContent = name;
@@ -387,7 +388,10 @@ async function selectEkskul(id: string, name: string) {
   } catch (err: any) {
     alert("Gagal memuat atau membuat sesi: " + err.message);
     switchView("dashboard");
-  } finally { selecting = false; }
+  } finally { 
+    selecting = false; 
+    document.getElementById("processing-toast")!.style.display = "none";
+  }
 }
 
 document.querySelectorAll(".back-btn").forEach(btn => btn.addEventListener("click", (e) => {
