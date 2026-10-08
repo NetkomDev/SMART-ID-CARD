@@ -186,20 +186,25 @@
   
       <!-- CUSTOMIZATION AREA: Popup Belum Terdaftar -->
       <!-- Tampilan melayang transparan di atas halaman scanner -->
-      <div id="enrollment-overlay" style="display:none; position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; background: transparent !important; z-index: 2000 !important; flex-direction: column !important; justify-content: center !important; align-items: center !important; padding: 24px !important;">
-        <div id="enrollment-prompt" style="display:block; width: 100%; max-width: 360px; background: #fffaf0; border: 1px solid #f4d6b4; box-shadow: 0 12px 40px rgba(0,0,0,0.15); border-radius: 24px; padding: 20px; animation: slide-up 0.3s cubic-bezier(0.1, 0.9, 0.2, 1);">
-          <h3 style="color: #8c5000; margin: 0 0 6px; font-size: 1.05rem;">Belum Terdaftar</h3>
-          <p style="color: #6a4210; font-size: 0.85rem; margin-bottom: 16px;">Siswa <strong id="unregistered-student-name"></strong> belum terdaftar di kegiatan ini.</p>
-          <button id="btn-confirm-enroll" class="btn-search" style="width: 100%; min-height: 44px; background: #926615; color: white;">Daftarkan & Hadirkan</button>
-          <button id="btn-cancel-enroll" class="btn-secondary" style="width: 100%; min-height: 44px; margin-top: 8px;">Batal</button>
+      <div id="enrollment-overlay" style="display:none; position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; background: rgba(0,0,0,0.6) !important; backdrop-filter: blur(5px) !important; -webkit-backdrop-filter: blur(5px) !important; z-index: 2000 !important; flex-direction: column !important; justify-content: center !important; align-items: center !important; padding: 24px !important;">
+        <div id="enrollment-prompt" style="display:block; width: 100%; max-width: 340px; background: #ffffff; box-shadow: 0 20px 60px rgba(0,0,0,0.4); border-radius: 28px; padding: 28px 24px; animation: slide-up 0.4s cubic-bezier(0.1, 0.9, 0.2, 1); text-align: center;">
+          <div style="width: 64px; height: 64px; background: #fff3e0; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#f57c00" stroke-width="2.5" style="width:32px; height:32px; stroke-linecap:round; stroke-linejoin:round;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+          </div>
+          <h3 style="color: #e65100; margin: 0 0 8px; font-size: 1.25rem; font-weight: 700;">Belum Terdaftar</h3>
+          <p style="color: #5d4037; font-size: 0.9rem; margin-bottom: 24px; line-height: 1.4;">Siswa <strong id="unregistered-student-name" style="color: #3e2723;"></strong> ditemukan, namun belum terdaftar di kegiatan ini.</p>
+          <button id="btn-confirm-enroll" class="btn-search" style="width: 100%; min-height: 48px; background: linear-gradient(135deg, #fb8c00, #f57c00); color: white; border-radius: 14px; font-size: 0.95rem; box-shadow: 0 6px 16px rgba(245, 124, 0, 0.3); border: none; font-weight: 700;">Daftarkan & Hadirkan</button>
+          <button id="btn-cancel-enroll" class="btn-secondary" style="width: 100%; min-height: 48px; margin-top: 10px; border-radius: 14px; border: none; background: #f5f5f5; color: #757575; font-size: 0.95rem; font-weight: 600;">Batal</button>
         </div>
       </div>
-      <div id="error-overlay" style="display:none; position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; background: transparent !important; z-index: 2000 !important; flex-direction: column !important; justify-content: center !important; align-items: center !important; padding: 24px !important;">
-        <div id="error-prompt" style="width: 100%; max-width: 360px; background: #fffafa; border: 1px solid #f4b4b4; box-shadow: 0 12px 40px rgba(0,0,0,0.15); border-radius: 24px; padding: 20px; animation: slide-up 0.3s cubic-bezier(0.1, 0.9, 0.2, 1); text-align: center;">
-          <svg viewBox="0 0 24 24" fill="none" stroke="#d32f2f" stroke-width="2" style="width:48px; height:48px; margin:0 auto 12px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          <h3 style="color: #c62828; margin: 0 0 6px; font-size: 1.05rem;">Scan Gagal</h3>
-          <p id="error-overlay-msg" style="color: #8c3232; font-size: 0.85rem; margin-bottom: 20px;">Siswa tidak ditemukan.</p>
-          <button type="button" onclick="document.getElementById('error-overlay').style.display='none';" class="btn-secondary" style="width: 100%; min-height: 44px; color:#d32f2f; border-color:#f4b4b4; background:#fff;">Tutup</button>
+      <div id="error-overlay" style="display:none; position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; background: rgba(0,0,0,0.6) !important; backdrop-filter: blur(5px) !important; -webkit-backdrop-filter: blur(5px) !important; z-index: 2000 !important; flex-direction: column !important; justify-content: center !important; align-items: center !important; padding: 24px !important;">
+        <div id="error-prompt" style="width: 100%; max-width: 340px; background: #ffffff; box-shadow: 0 20px 60px rgba(0,0,0,0.4); border-radius: 28px; padding: 28px 24px; animation: slide-up 0.4s cubic-bezier(0.1, 0.9, 0.2, 1); text-align: center;">
+          <div style="width: 64px; height: 64px; background: #ffebee; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#d32f2f" stroke-width="2.5" style="width:32px; height:32px; stroke-linecap:round; stroke-linejoin:round;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          </div>
+          <h3 style="color: #c62828; margin: 0 0 8px; font-size: 1.25rem; font-weight: 700;">Scan Gagal</h3>
+          <p id="error-overlay-msg" style="color: #7f0000; font-size: 0.9rem; margin-bottom: 24px; line-height: 1.4;">Siswa tidak ditemukan.</p>
+          <button type="button" onclick="document.getElementById('error-overlay').style.display='none';" class="btn-secondary" style="width: 100%; min-height: 48px; border-radius: 14px; background: #ffebee; color:#d32f2f; border:none; font-size: 0.95rem; font-weight: 700;">Tutup</button>
         </div>
       </div>
       
