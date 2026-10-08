@@ -562,27 +562,26 @@ function openAbsencePermitModal(
 function loginView(message = "Pindai QR dari admin sekolah untuk membuka aktivitas anak Anda.", isError = false) {
   viewRevision++;
   dashboardVisible = false;
-  root.innerHTML = `
-    <main class="login">
-      <header>
-        <div class="brand">
-          <img src="${import.meta.env.BASE_URL}logo.png" alt="AKSIS Logo">
-          <b>AKSIS · Keluarga</b>
-        </div>
-      </header>
-      <section class="portal-gate">
-        ${gateIntro('Dekat dengan hari anak Anda', 'Ikuti kehadiran dan aktivitas anak melalui informasi terverifikasi dari sekolah.')}
-        <p role="status">${esc(message)}</p>
-        <button id="retry-portal" style="${isError ? '' : 'display:none;'}">Coba lagi</button>
-        <div id="login-scanner-container" style="display:none; margin-top: 1rem;">
+  activeTab = "home";
+  root.innerHTML = parentLayout(`
+    <div class="parent-content">
+      <section class="student-profile-card" style="flex-direction: column; text-align: center; padding: 32px 20px;">
+        <div class="avatar-fallback" style="margin: 0 auto 12px; width: 64px; height: 64px; font-size: 1.5rem;">🔒</div>
+        <h2 style="font-size: 1.3rem;">Portal Akses Terbatas</h2>
+        <p style="font-size: 0.88rem; color: var(--parent-text-muted); margin: 6px 0 18px;">
+          Pindai QR Akses dari admin sekolah untuk masuk dan memantau aktivitas anak Anda.
+        </p>
+        <p role="status" style="font-size: 0.85rem; color: #b91c1c; margin-bottom: 1rem;">${esc(message)}</p>
+        <button id="retry-portal" style="${isError ? '' : 'display:none;'} width: 100%; margin-bottom: 0.5rem;">Coba lagi</button>
+        <div id="login-scanner-container" style="display:none; margin-top: 1rem; text-align: left;">
           <div id="login-qr-reader"></div>
           <button type="button" id="cancel-scan-btn" class="btn-secondary" style="margin-top:0.5rem; width:100%;">Batal Scan</button>
         </div>
-        <button id="start-scan-btn" style="margin-top: 1rem; width:100%;">Pindai QR Akses</button>
-        ${gateHelp}
+        <button id="start-scan-btn" style="width: 100%;">Pindai QR Akses</button>
       </section>
-    </main>
-  `;
+    </div>
+  `, "home");
+
 
   document.getElementById("retry-portal")?.addEventListener("click", () => void start());
   document.getElementById("start-scan-btn")?.addEventListener("click", async () => {
