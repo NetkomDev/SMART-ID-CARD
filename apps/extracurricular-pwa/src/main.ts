@@ -353,33 +353,10 @@ async function selectEkskul(id: string, name: string) {
   currentEkskulId = id;
   document.getElementById("scan-ekskul-title")!.textContent = name;
 
-  // Set URL and Title for iOS Add to Home Screen
+  // Set URL for iOS Add to Home Screen/bookmarking
   const newUrl = new URL(window.location.href);
   newUrl.searchParams.set("ekskulId", id);
   window.history.replaceState(null, "", newUrl.toString());
-  document.title = name;
-
-  // Generate Dynamic Manifest for Android WebAPK
-  const dynamicManifest = {
-    name: name,
-    short_name: name,
-    start_url: newUrl.pathname + newUrl.search,
-    display: "standalone",
-    theme_color: "#07563f",
-    background_color: "#eff8f3",
-    icons: [
-      { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
-      { src: "/icon-512.png", sizes: "512x512", type: "image/png" },
-      { src: "/maskable-icon-512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" }
-    ]
-  };
-  const stringManifest = JSON.stringify(dynamicManifest);
-  const blob = new Blob([stringManifest], { type: "application/json" });
-  const manifestURL = URL.createObjectURL(blob);
-  document.querySelector("link[rel=manifest]")?.setAttribute("href", manifestURL);
-
-  // Trigger PWA Installation prompt *after* selection
-  offerInstall();
 
   // Auto-setup today's session
   try {
