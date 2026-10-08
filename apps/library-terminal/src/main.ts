@@ -76,11 +76,14 @@ async function processVisit(uid: string, isFromCamera: boolean = false) {
   }
 
   try {
-    const result = await portal.request<{student_name?:string;duplicate?:boolean}>("/library/visits", { method: "POST", body: JSON.stringify(visit) });
+    const result = await portal.request<{student_name?:string;class_name?:string;duplicate?:boolean}>("/library/visits", { method: "POST", body: JSON.stringify(visit) });
     if (isFromCamera) showLoadingOverlay(false);
     
     status.value = result.student_name ? `Kunjungan tercatat: ${result.student_name}` : "Kunjungan tercatat";
     studentName.textContent = result.student_name ?? "Siswa";
+    const studentClassEl = document.getElementById("student-class");
+    if (studentClassEl) studentClassEl.textContent = result.class_name ?? "—";
+    
     visitTime.textContent = `${result.duplicate ? "Sudah tercatat" : "Tercatat"} pukul ${new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit" }).format(new Date())}`;
     studentResult.hidden = false;
     void loadDailySummary();

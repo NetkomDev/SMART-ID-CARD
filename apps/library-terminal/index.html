@@ -68,8 +68,14 @@
 
       <output id="status" aria-live="polite">Siap memindai</output>
       <section id="student-result" class="student-result" hidden>
-        <div class="result-check"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></div>
-        <div><span>Kunjungan berhasil dicatat</span><strong id="student-name">Siswa</strong><small id="visit-time">Hari ini</small></div>
+        <div class="result-header">
+           <div class="result-check"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></div>
+           <div><span class="welcome-text">Selamat datang!</span><strong id="student-name">Siswa</strong></div>
+        </div>
+        <div class="result-details">
+           <div class="detail-item"><span>Kelas</span><strong id="student-class">—</strong></div>
+           <div class="detail-item"><span>Waktu Kunjungan</span><strong id="visit-time">Hari ini</strong></div>
+        </div>
       </section>
 
       <section class="service-card">
