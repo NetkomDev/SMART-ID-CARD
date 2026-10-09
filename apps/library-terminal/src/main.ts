@@ -21,6 +21,43 @@ function queue(key = queueKey()): Visit[] {
   try { return JSON.parse(localStorage.getItem(key) ?? "[]") as Visit[]; } catch { return []; }
 }
 function save(items: Visit[], key = queueKey()) { localStorage.setItem(key, JSON.stringify(items)); queued.textContent = String(items.length); }
+
+const login = document.getElementById("view-login")!;
+const loginForm = document.getElementById("form-login") as HTMLFormElement;
+login.classList.add("portal-gate");
+login.insertAdjacentHTML("afterbegin", gateIntro("Layanan Perpustakaan", "Akses layanan perpustakaan sekolah melalui akses resmi dari admin."));
+loginForm.insertAdjacentHTML("beforeend", gateHelp);
+
+let loginScanner: any = null;
+document.getElementById("btn-start-login-scan")!.addEventListener("click", async () => {
+  document.getElementById("btn-start-login-scan")!.style.display = "none";
+  document.getElementById("login-scanner-container")!.style.display = "block";
+  try {
+    if (!loginScanner) {
+      const { Html5Qrcode } = await import("html5-qrcode");
+      loginScanner = new Html5Qrcode("login-qr-reader");
+    }
+    await loginScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: (w: number, h: number) => ({ width: Math.min(250, w * .8, h * .8), height: Math.min(250, w * .8, h * .8) }) }, (decoded: string) => {
+      try {
+        const url = new URL(decoded);
+        if (url.hash.includes("token=") || url.searchParams.has("token")) {
+          void loginScanner?.stop().catch(() => {});
+          window.location.href = decoded;
+        }
+      } catch { /* ignore invalid URLs */ }
+    }, () => undefined);
+  } catch (error) {
+    document.getElementById("login-error")!.textContent = "Kamera tidak dapat diakses untuk memindai QR.";
+    document.getElementById("login-scanner-container")!.style.display = "none";
+    document.getElementById("btn-start-login-scan")!.style.display = "block";
+  }
+});
+document.getElementById("btn-cancel-login-scan")!.addEventListener("click", async () => {
+  if (loginScanner) { try { await loginScanner.stop(); } catch {} }
+  document.getElementById("login-scanner-container")!.style.display = "none";
+  document.getElementById("btn-start-login-scan")!.style.display = "block";
+});
+
 let syncing: Promise<void> | null = null;
 type LibrarySummary = { class_id: string | null; class_name: string; total: number };
 const dayRange = () => {
@@ -63,7 +100,9 @@ let scanTimeout: number | undefined;
 function switchView(view: "scan" | "success") {
   if (view === "scan") {
     document.getElementById("view-success")!.style.display = "none";
-    document.getElementById("card")?.focus();
+    if (!isScanning) {
+      document.getElementById("card")?.focus();
+    }
     if (scanTimeout) { clearTimeout(scanTimeout); scanTimeout = undefined; }
   } else if (view === "success") {
     document.getElementById("view-success")!.style.display = "flex";
@@ -102,7 +141,7 @@ async function processVisit(uid: string, isFromCamera: boolean = false) {
       const avatarEl = document.getElementById("student-avatar");
       if (avatarEl) {
         if (cached.photo_url) {
-          avatarEl.innerHTML = `<div style="width:100%;height:100%;border-radius:50%;background-image:url('${cached.photo_url}');background-size:cover;background-position:center;"></div>`;
+          avatarEl.innerHTML = `<div style="width:100%;height:100%;background-image:url('${cached.photo_url}');background-size:cover;background-position:center;"></div>`;
         } else {
           avatarEl.innerHTML = `<div class="avatar-fallback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke-linecap="round"/><circle cx="12" cy="7" r="4"/></svg></div>`;
         }
@@ -166,7 +205,7 @@ async function processVisit(uid: string, isFromCamera: boolean = false) {
     const avatarEl = document.getElementById("student-avatar");
     if (avatarEl) {
       if (result.photo_url) {
-        avatarEl.innerHTML = `<div style="width:100%;height:100%;border-radius:50%;background-image:url('${result.photo_url}');background-size:cover;background-position:center;"></div>`;
+        avatarEl.innerHTML = `<div style="width:100%;height:100%;background-image:url('${result.photo_url}');background-size:cover;background-position:center;"></div>`;
       } else {
         avatarEl.innerHTML = `<div class="avatar-fallback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke-linecap="round"/><circle cx="12" cy="7" r="4"/></svg></div>`;
       }
@@ -425,21 +464,23 @@ document.getElementById("btn-toggle-camera")!.addEventListener("click", () => {
 });
 
 async function start() {
-  panel.hidden = false;
   try {
     if (!await portal.start()) {
-      status.value = "Silakan pindai QR login dari admin sekolah untuk mulai menggunakan terminal.";
-      void startCameraScanner();
+      panel.hidden = true;
+      login.style.display = "block";
       return;
     }
+    panel.hidden = false;
+    login.style.display = "none";
     const libSchool = document.querySelector("#library-school");
     if (libSchool) libSchool.textContent = portal.context!.school_name;
     queued.textContent = String(queue().length); offerInstall();
     void loadDailySummary();
     if (queue().length) void sync().catch(showError);
   } catch (error) {
-    status.value = error instanceof Error ? error.message : "Belum dapat terhubung.";
-    status.className = "error";
+    panel.hidden = true;
+    login.style.display = "block";
+    document.getElementById("login-error")!.textContent = error instanceof Error ? error.message : "Belum dapat terhubung.";
   }
 }
 

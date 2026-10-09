@@ -327,7 +327,7 @@ async function loadDashboard() {
       const code = document.createElement("small"); code.textContent = item.code;
       const name = document.createElement("h2"); name.textContent = item.name;
       const button = document.createElement("button"); button.textContent = "Pilih Kegiatan";
-      button.onclick = () => selectEkskul(item.id, item.name);
+      button.onclick = () => { triggerHapticFeedback(); selectEkskul(item.id, item.name); };
       article.append(code, name, button); container.append(article);
     }
 
@@ -339,8 +339,8 @@ async function loadDashboard() {
       if (match) return selectEkskul(match.id, match.name);
     }
     
-    // Bypass dashboard: automatically select the first extracurricular if available
-    if (activities.length > 0) {
+    // Bypass dashboard: automatically select if there's exactly 1 activity
+    if (activities.length === 1) {
       return selectEkskul(activities[0].id, activities[0].name);
     }
   } catch (err: any) { container.textContent = err.message; throw err; }

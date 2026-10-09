@@ -25,6 +25,17 @@
       <div class="header-right"></div>
     </header>
 
+    <section id="view-login" style="display:none">
+      <form id="form-login">
+        <p id="login-error" role="status"></p>
+        <div id="login-scanner-container" style="display:none; margin-top: 1rem;">
+          <div id="login-qr-reader"></div>
+          <button type="button" id="btn-cancel-login-scan" class="btn-text">Batal Scan</button>
+        </div>
+        <button type="button" id="btn-start-login-scan" style="margin-top: 1rem;">Pindai QR Akses</button>
+      </form>
+    </section>
+
     <section id="panel" class="library-content" hidden>
       <div id="view-scan">
         <div class="intro-row">
@@ -95,7 +106,7 @@
       </div>
     </section>
 
-    <div id="view-success" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:transparent; z-index:2000; justify-content:center; align-items:center;">
+    <div id="view-success" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); backdrop-filter:blur(5px); -webkit-backdrop-filter:blur(5px); z-index:2000; justify-content:center; align-items:center;">
       <div id="success-prompt" style="background:#fff; border-radius:24px; width:300px; padding:24px; box-shadow:0 12px 40px rgba(0,0,0,0.15); text-align:center; animation: slide-up 0.25s cubic-bezier(0.1, 0.9, 0.2, 1); border:1px solid #e3ece7;">
         <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#08CB00" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin:0 auto 12px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
         <h3 style="margin:0 0 4px; font-size:1.2rem; color:#116442;">Kunjungan Tercatat</h3>

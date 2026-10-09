@@ -108,8 +108,16 @@ output:empty{display:none}
 .profile-card dd{margin:0;font-weight:650;overflow-wrap:anywhere}
 dialog{border:1px solid var(--border);border-radius:24px;padding:28px;max-width:420px;width:calc(100% - 40px);color:var(--text);background:var(--surface);box-shadow:0 24px 100px #102f4333}
 dialog::backdrop{background:#102f4366;backdrop-filter:blur(4px)}
-#aksis-install button{margin:8px 0;width:100%}
-#aksis-install p{font-size:.88rem}
+dialog#aksis-install{border:none;border-radius:28px;padding:32px 28px;max-width:440px;width:calc(100% - 40px);color:#103e33;background:linear-gradient(135deg,#fff,#f2f9f6);box-shadow:0 32px 80px rgba(7,91,61,0.25),0 0 0 1px rgba(7,91,61,0.05);animation:install-pop 0.4s cubic-bezier(0.16,1,0.3,1) forwards;text-align:center}
+dialog#aksis-install::before{content:"⬇️";display:block;font-size:3.5rem;margin-bottom:16px;animation:install-bounce 2s infinite ease-in-out}
+dialog#aksis-install h2{font-size:1.65rem;font-weight:850;letter-spacing:-.03em;color:#075b3d;margin:0 0 12px}
+dialog#aksis-install p{font-size:.95rem;color:#4a6659;margin-bottom:24px}
+dialog#aksis-install p:last-of-type{font-size:.8rem!important;color:#6d8c7c}
+#aksis-install-action{background:linear-gradient(115deg,#097951,#065337)!important;color:white!important;border-radius:18px!important;font-size:1.1rem!important;font-weight:750!important;box-shadow:0 8px 24px rgba(9,121,81,0.3)!important;width:100%;margin-bottom:12px;min-height:54px;transition:transform 0.15s}
+#aksis-install-action:active{transform:scale(0.95)}
+#aksis-install .ghost{color:#5d7d6e!important;font-weight:650!important;background:transparent!important;border:none!important}
+@keyframes install-pop{from{opacity:0;transform:scale(0.9) translateY(20px)}to{opacity:1;transform:scale(1) translateY(0)}}
+@keyframes install-bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
 .portal-school{display:block;text-transform:none;letter-spacing:0;font-weight:500;font-size:.72rem;color:#bfd9df;max-width:400px;overflow-wrap:anywhere}
 #enrollment-prompt{background:#fff8e8!important;border:1px solid #e8d6a6!important}
 #enrollment-prompt h3,#enrollment-prompt p{color:#72550d!important}

@@ -429,7 +429,7 @@ async function init() {
 
   try {
     if (!await portal.start()) {
-      if (!initialRestored) switchView("scan");
+      if (!initialRestored) switchView("login");
       return;
     }
     classId = portal.context!.metadata.class_id ?? "";
