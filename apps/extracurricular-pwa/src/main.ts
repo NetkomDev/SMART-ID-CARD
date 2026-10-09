@@ -331,11 +331,18 @@ async function loadDashboard() {
       article.append(code, name, button); container.append(article);
     }
 
-    // Auto-select if URL parameter exists, or if there's only 1 activity, or just auto-select the first one to skip dashboard
+    // Auto-select if URL parameter exists
     const urlParams = new URLSearchParams(window.location.search);
     const ekskulParam = urlParams.get("ekskulId");
     if (ekskulParam) {
       const match = activities.find(a => a.id === ekskulParam);
+      if (match) return selectEkskul(match.id, match.name);
+    }
+    
+    // Auto-select if previously remembered in localStorage
+    const lastEkskulId = localStorage.getItem("aksis_last_ekskul_id");
+    if (lastEkskulId) {
+      const match = activities.find(a => a.id === lastEkskulId);
       if (match) return selectEkskul(match.id, match.name);
     }
     
@@ -358,6 +365,10 @@ async function selectEkskul(id: string, name: string) {
   const newUrl = new URL(window.location.href);
   newUrl.searchParams.set("ekskulId", id);
   window.history.replaceState(null, "", newUrl.toString());
+  
+  // Remember for future visits
+  localStorage.setItem("aksis_last_ekskul_id", id);
+  localStorage.setItem("aksis_last_ekskul_name", name);
 
   // Tampilkan popup instalasi (kini menggunakan nama umum "Ekstrakurikuler")
   offerInstall();
@@ -402,6 +413,9 @@ document.querySelectorAll(".back-btn").forEach(btn => btn.addEventListener("clic
     newUrl.searchParams.delete("ekskulId");
     window.history.replaceState(null, "", newUrl.toString());
     document.title = "AKSIS Ekskul";
+    // Clear remembered activity
+    localStorage.removeItem("aksis_last_ekskul_id");
+    localStorage.removeItem("aksis_last_ekskul_name");
   }
   switchView(target);
 }));
