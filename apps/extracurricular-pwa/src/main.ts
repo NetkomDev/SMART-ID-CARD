@@ -313,10 +313,50 @@ document.getElementById("form-login")!.addEventListener("submit", (e) => {
 // 3. DASHBOARD
 async function loadDashboard() {
   const container = document.getElementById("ekskul-list")!;
-  container.innerHTML = "Memuat data...";
-  switchView("dashboard");
+  
+  const urlParams = new URLSearchParams(window.location.search);
+  const ekskulParam = urlParams.get("ekskulId");
+  const lastEkskulId = localStorage.getItem("aksis_last_ekskul_id");
+  const lastEkskulName = localStorage.getItem("aksis_last_ekskul_name");
+  
+  // Optimistically switch to scan view if we know we are auto-selecting
+  const willAutoSelect = Boolean(ekskulParam || (lastEkskulId && lastEkskulName));
+  
+  if (willAutoSelect) {
+    const targetName = ekskulParam ? "Memuat kegiatan..." : lastEkskulName!;
+    document.getElementById("scan-ekskul-title")!.textContent = targetName;
+    document.getElementById("scan-status")!.textContent = "Menyiapkan sesi presensi...";
+    switchView("scan");
+  } else {
+    switchView("dashboard");
+    container.innerHTML = "Memuat data...";
+  }
+
   try {
     const activities = await request<any[]>("/extracurriculars");
+    
+    // Auto-select if URL parameter exists
+    if (ekskulParam) {
+      const match = activities.find(a => a.id === ekskulParam);
+      if (match) return selectEkskul(match.id, match.name, true);
+    }
+    
+    // Auto-select if previously remembered in localStorage
+    if (lastEkskulId) {
+      const match = activities.find(a => a.id === lastEkskulId);
+      if (match) return selectEkskul(match.id, match.name, true);
+    }
+    
+    // Bypass dashboard: automatically select if there's exactly 1 activity
+    if (activities.length === 1) {
+      return selectEkskul(activities[0].id, activities[0].name, willAutoSelect);
+    }
+
+    // If we get here, auto-selection failed or wasn't applicable. Make sure dashboard is shown.
+    if (willAutoSelect) {
+      switchView("dashboard");
+    }
+
     if (!activities.length) {
       container.innerHTML = "<p>Anda belum ditugaskan ke ekstrakurikuler manapun.</p>";
       return;
@@ -330,36 +370,23 @@ async function loadDashboard() {
       button.onclick = () => { triggerHapticFeedback(); selectEkskul(item.id, item.name); };
       article.append(code, name, button); container.append(article);
     }
-
-    // Auto-select if URL parameter exists
-    const urlParams = new URLSearchParams(window.location.search);
-    const ekskulParam = urlParams.get("ekskulId");
-    if (ekskulParam) {
-      const match = activities.find(a => a.id === ekskulParam);
-      if (match) return selectEkskul(match.id, match.name);
-    }
-    
-    // Auto-select if previously remembered in localStorage
-    const lastEkskulId = localStorage.getItem("aksis_last_ekskul_id");
-    if (lastEkskulId) {
-      const match = activities.find(a => a.id === lastEkskulId);
-      if (match) return selectEkskul(match.id, match.name);
-    }
-    
-    // Bypass dashboard: automatically select if there's exactly 1 activity
-    if (activities.length === 1) {
-      return selectEkskul(activities[0].id, activities[0].name);
-    }
-  } catch (err: any) { container.textContent = err.message; throw err; }
+  } catch (err: any) { 
+    if (willAutoSelect) switchView("dashboard");
+    container.textContent = err.message; 
+    throw err; 
+  }
 }
 
-async function selectEkskul(id: string, name: string) {
+async function selectEkskul(id: string, name: string, isSilent = false) {
   if (selecting || submitting) return;
   selecting = true;
-  document.getElementById("processing-toast")!.style.display = "flex";
+  if (!isSilent) document.getElementById("processing-toast")!.style.display = "flex";
   currentSessionId = "";
   currentEkskulId = id;
   document.getElementById("scan-ekskul-title")!.textContent = name;
+  if (isSilent) {
+    document.getElementById("scan-status")!.textContent = "Menyiapkan sesi presensi...";
+  }
 
   // Set URL for iOS Add to Home Screen/bookmarking
   const newUrl = new URL(window.location.href);
@@ -395,6 +422,7 @@ async function selectEkskul(id: string, name: string) {
     document.getElementById("enrollment-overlay")!.style.display = "none";
     document.getElementById("error-overlay")!.style.display = "none";
     switchView("scan");
+    document.getElementById("scan-status")!.textContent = "Siap memindai identitas siswa";
     void loadSessionSummary();
   } catch (err: any) {
     alert("Gagal memuat atau membuat sesi: " + err.message);
