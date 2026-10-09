@@ -427,6 +427,11 @@ async function init() {
     switchView("scan");
   }
 
+  const schoolEl = document.getElementById("school-name");
+  const classEl = document.getElementById("class-name-label");
+  if (schoolEl) schoolEl.textContent = "Menghubungkan...";
+  if (classEl) classEl.textContent = "Memuat data kelas";
+
   try {
     if (!await portal.start()) {
       if (!initialRestored) switchView("login");
