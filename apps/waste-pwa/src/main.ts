@@ -429,21 +429,18 @@ async function init() {
 
   const schoolEl = document.getElementById("school-name");
   const classEl = document.getElementById("class-name-label");
-  if (schoolEl) schoolEl.textContent = "Menghubungkan...";
-  if (classEl) classEl.textContent = "Memuat data kelas";
 
-  try {
-    if (!await portal.start()) {
-      if (!initialRestored) switchView("login");
-      return;
-    }
+  const isLoginFlow = new URL(window.location.href).searchParams.has("token") || new URL(window.location.href).hash.includes("token");
+
+  const setupUI = async () => {
     classId = portal.context!.metadata.class_id ?? "";
     activePortalId = portal.context!.id;
     if (!classId) throw new Error("QR belum terhubung ke kelas. Hubungi admin sekolah.");
     const cls = await portal.request<{ name: string }>(`/classes/${classId}`);
     className = cls.name;
-    el("class-name-label").textContent = `Kelas ${className.replace(/^(?:kelas\s+)+/i, "").trim()}`;
-    el("school-name").textContent = portal.context!.school_name;
+    try { localStorage.setItem(`aksis.waste.class.${classId}`, className); } catch {}
+    if (classEl) classEl.textContent = `Kelas ${className.replace(/^(?:kelas\s+)+/i, "").trim()}`;
+    if (schoolEl) schoolEl.textContent = portal.context!.school_name;
     el("today-scope").textContent = `Semua kelas di ${portal.context!.school_name}`;
     el("staff-label").textContent = `Piket ${className}`;
 
@@ -466,8 +463,33 @@ async function init() {
           switchView("scan");
         }
       }
-    } catch { /* Ignore malformed browser storage. */ }
+    } catch { /* Ignore */ }
     void loadDashboard(); offerInstall();
+  };
+
+  if (portal.connected && !isLoginFlow) {
+    if (schoolEl) schoolEl.textContent = portal.context!.school_name;
+    const cachedClass = localStorage.getItem(`aksis.waste.class.${portal.context!.metadata.class_id}`);
+    if (classEl && cachedClass) classEl.textContent = `Kelas ${cachedClass.replace(/^(?:kelas\s+)+/i, "").trim()}`;
+
+    try {
+      await Promise.all([portal.start(), setupUI()]);
+      return;
+    } catch (error) {
+      if (!initialRestored) switchView("scan");
+      return;
+    }
+  }
+
+  if (schoolEl) schoolEl.textContent = "Menghubungkan...";
+  if (classEl) classEl.textContent = "Memuat data kelas";
+
+  try {
+    if (!await portal.start()) {
+      if (!initialRestored) switchView("login");
+      return;
+    }
+    await setupUI();
   } catch (error) {
     if (!initialRestored) switchView("scan");
   }

@@ -465,6 +465,26 @@ document.getElementById("btn-toggle-camera")!.addEventListener("click", () => {
 
 async function start() {
   try {
+    const isLoginFlow = new URL(window.location.href).searchParams.has("token") || new URL(window.location.href).hash.includes("token");
+
+    if (portal.connected && !isLoginFlow) {
+      panel.hidden = false;
+      login.style.display = "none";
+      const libSchool = document.querySelector("#library-school");
+      if (libSchool && portal.context) libSchool.textContent = portal.context.school_name;
+      queued.textContent = String(queue().length); 
+      offerInstall();
+      
+      await Promise.all([
+        portal.start(),
+        loadDailySummary()
+      ]);
+      
+      if (libSchool && portal.context) libSchool.textContent = portal.context.school_name;
+      if (queue().length) void sync().catch(showError);
+      return;
+    }
+
     if (!await portal.start()) {
       panel.hidden = true;
       login.style.display = "block";

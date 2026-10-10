@@ -284,6 +284,25 @@ function triggerHapticFeedback() {
 const request = <T>(path: string, init: RequestInit = {}) => portal.request<T>(path, init);
 async function init() {
   try {
+    const isLoginFlow = new URL(window.location.href).searchParams.has("token") || new URL(window.location.href).hash.includes("token");
+
+    if (portal.connected && !isLoginFlow) {
+      const schoolDisplay = document.getElementById("school-name-display");
+      if (schoolDisplay && portal.context) {
+        schoolDisplay.textContent = portal.context.school_name;
+      }
+      
+      await Promise.all([
+        portal.start(),
+        loadDashboard()
+      ]);
+      
+      if (schoolDisplay && portal.context) {
+        schoolDisplay.textContent = portal.context.school_name;
+      }
+      return;
+    }
+
     if (!await portal.start()) {
       switchView("login");
       document.getElementById("login-error")!.textContent = "Pindai QR Akses dari admin sekolah untuk masuk.";
