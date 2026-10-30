@@ -971,23 +971,414 @@
   border-color: rgba(255, 255, 255, 0.2);
 }
 
-/* TV Fullscreen Mode Override */
-body.cc-tv-open { overflow: hidden; }
+/* TV Fullscreen & Multi-Device Single-Screen Mode Override */
+body.cc-tv-open {
+  overflow: hidden !important;
+  height: 100vh;
+  height: 100dvh;
+  margin: 0;
+  padding: 0;
+}
 
 .cc.cc-tv {
   position: fixed;
   inset: 0;
-  z-index: 1000;
+  z-index: 9999;
   width: 100vw;
+  width: 100dvw;
   height: 100vh;
-  overflow: auto;
-  padding: clamp(14px, 1.8vw, 36px);
+  height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
+  overflow: hidden !important; /* Guaranteed no scrollbars on Smart TV, laptop, desktop, or tablet */
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
   background: radial-gradient(ellipse at 50% -10%, #0f2b23 0%, #090e17 70%);
-  gap: 10px;
+  padding: clamp(8px, 1.2vh, 20px) clamp(12px, 1.5vw, 28px);
+  gap: clamp(6px, 0.85vh, 11px);
 }
 
-@media (max-width: 1150px) {
-  .cc-kpis { grid-template-columns: repeat(2, 1fr); }
-  .cc-competition { grid-template-columns: 1fr; }
-  .cc-support-grid { grid-template-columns: 1fr; }
+/* Header in TV mode */
+.cc.cc-tv .cc-header {
+  flex: 0 0 auto;
+  margin-bottom: 0;
+  gap: clamp(8px, 1vw, 16px);
 }
+
+.cc.cc-tv .cc-header h2 {
+  font-size: clamp(16px, 2vh, 22px);
+  margin: 1px 0;
+}
+
+.cc.cc-tv .cc-brand {
+  width: clamp(34px, 4.2vh, 44px);
+  height: clamp(34px, 4.2vh, 44px);
+  padding: 2px;
+  border-radius: 10px;
+}
+
+.cc.cc-tv .cc-eyebrow {
+  font-size: clamp(8px, 0.95vh, 9.5px);
+}
+
+.cc.cc-tv .cc-live-badge {
+  font-size: clamp(7.5px, 0.9vh, 8.5px);
+  padding: 1px 5px;
+}
+
+.cc.cc-tv .cc-identity p {
+  font-size: clamp(10px, 1.1vh, 11.5px);
+}
+
+.cc.cc-tv .cc-time strong {
+  font-size: clamp(17px, 2.2vh, 22px);
+}
+
+.cc.cc-tv .cc-time span {
+  font-size: clamp(8.5px, 1vh, 10px);
+}
+
+.cc.cc-tv .cc-demo-toggle,
+.cc.cc-tv .cc-tv-button {
+  height: clamp(28px, 3.6vh, 34px);
+  padding: 0 clamp(8px, 0.9vw, 12px);
+  font-size: clamp(9.5px, 1.1vh, 11px);
+  border-radius: 8px;
+}
+
+/* KPIs in TV mode */
+.cc.cc-tv .cc-kpis {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(6px, 0.8vw, 12px);
+}
+
+.cc.cc-tv .cc-kpi-card {
+  padding: clamp(5px, 0.8vh, 10px) clamp(8px, 1vw, 14px);
+  border-radius: clamp(10px, 1.2vh, 14px);
+  gap: clamp(6px, 0.8vw, 12px);
+}
+
+.cc.cc-tv .cc-gauge-svg {
+  width: clamp(38px, 4.4vh, 52px);
+  height: clamp(38px, 4.4vh, 52px);
+}
+
+.cc.cc-tv .cc-gauge-center {
+  width: clamp(38px, 4.4vh, 52px);
+  height: clamp(38px, 4.4vh, 52px);
+  left: clamp(8px, 1vw, 14px);
+  top: clamp(5px, 0.8vh, 10px);
+}
+
+.cc.cc-tv .cc-gauge-center svg {
+  width: clamp(12px, 1.4vh, 16px);
+  height: clamp(12px, 1.4vh, 16px);
+}
+
+.cc.cc-tv .cc-gauge-value {
+  font-size: clamp(8px, 0.95vh, 10px);
+}
+
+.cc.cc-tv .cc-kpi-num {
+  font-size: clamp(16px, 2.1vh, 21px);
+  line-height: 1.1;
+  margin: 0;
+}
+
+.cc.cc-tv .cc-kpi-label {
+  font-size: clamp(8.5px, 0.95vh, 10px);
+}
+
+.cc.cc-tv .cc-kpi-note {
+  font-size: clamp(8px, 0.9vh, 9.5px);
+}
+
+/* Competition Section in TV mode */
+.cc.cc-tv .cc-competition {
+  flex: 1 1 0;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1.18fr 1fr 1fr;
+  gap: clamp(6px, 0.8vw, 12px);
+}
+
+.cc.cc-tv .cc-competition .cc-card {
+  padding: clamp(7px, 1.1vh, 13px) clamp(9px, 1vw, 15px);
+  border-radius: clamp(10px, 1.2vh, 14px);
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+}
+
+.cc.cc-tv .cc-card-heading {
+  margin-bottom: clamp(2px, 0.4vh, 6px);
+  gap: 6px;
+}
+
+.cc.cc-tv .cc-card-heading h3 {
+  font-size: clamp(12px, 1.4vh, 14.5px);
+  margin: 0;
+}
+
+.cc.cc-tv .cc-chart-section {
+  padding: 2px 8px 1px;
+  margin-bottom: clamp(2px, 0.4vh, 5px);
+  border-radius: 8px;
+}
+
+.cc.cc-tv .cc-trend-svg {
+  height: clamp(38px, 6.2vh, 80px);
+  width: 100%;
+}
+
+.cc.cc-tv .cc-arrival-heading {
+  margin-top: clamp(2px, 0.4vh, 6px);
+  margin-bottom: clamp(2px, 0.3vh, 4px);
+}
+
+.cc.cc-tv .cc-arrival-heading h3 {
+  font-size: clamp(11.5px, 1.3vh, 13.5px);
+}
+
+.cc.cc-tv .cc-arrival-list {
+  gap: clamp(2px, 0.3vh, 4px);
+}
+
+.cc.cc-tv .cc-arrival-list li {
+  padding: clamp(2px, 0.35vh, 4px) clamp(6px, 0.8vw, 10px);
+  gap: clamp(6px, 0.8vw, 10px);
+  border-radius: 8px;
+}
+
+.cc.cc-tv .cc-arrival-list strong {
+  font-size: clamp(10px, 1.15vh, 11.5px);
+}
+
+.cc.cc-tv .cc-arrival-list li > div > span {
+  font-size: clamp(8px, 0.9vh, 9.5px);
+}
+
+.cc.cc-tv .cc-arrival-list time {
+  font-size: clamp(9px, 1vh, 10.5px);
+}
+
+.cc.cc-tv .cc-place {
+  font-size: clamp(11px, 1.2vh, 13px);
+  width: clamp(18px, 1.8vw, 22px);
+}
+
+.cc.cc-tv .cc-description {
+  margin: 0 0 clamp(2px, 0.3vh, 4px);
+  font-size: clamp(8.5px, 1vh, 10px);
+}
+
+.cc.cc-tv .cc-winner {
+  padding: 1px 0;
+}
+
+.cc.cc-tv .cc-winner > span {
+  font-size: clamp(7.5px, 0.9vh, 8.5px);
+}
+
+.cc.cc-tv .cc-winner > strong {
+  font-size: clamp(12px, 1.5vh, 15px);
+  margin: 1px 0;
+}
+
+.cc.cc-tv .cc-winner p {
+  font-size: clamp(11.5px, 1.4vh, 14.5px);
+  margin: 0;
+}
+
+.cc.cc-tv .cc-winner small {
+  font-size: clamp(8px, 0.9vh, 9.5px);
+}
+
+.cc.cc-tv .cc-podium {
+  height: clamp(50px, 8.5vh, 100px);
+  margin-top: auto;
+  margin-bottom: clamp(2px, 0.4vh, 5px);
+  gap: clamp(4px, 0.6vw, 8px);
+}
+
+.cc.cc-tv .cc-podium-label strong {
+  font-size: clamp(8.5px, 1vh, 10px);
+}
+
+.cc.cc-tv .cc-podium-label span {
+  font-size: clamp(7.5px, 0.9vh, 9px);
+}
+
+.cc.cc-tv .cc-podium-bar b {
+  font-size: clamp(10px, 1.1vh, 12px);
+}
+
+.cc.cc-tv .cc-podium-note,
+.cc.cc-tv .cc-ranking-rule {
+  font-size: clamp(7.5px, 0.9vh, 9px);
+  padding-top: clamp(2px, 0.3vh, 4px);
+}
+
+.cc.cc-tv .cc-library-view {
+  height: 100%;
+  justify-content: space-between;
+  gap: clamp(2px, 0.4vh, 6px);
+  min-height: 0;
+}
+
+.cc.cc-tv .cc-library-donut-container {
+  flex: 1 1 0;
+  min-height: 0;
+  max-height: clamp(70px, 13vh, 150px);
+  padding: clamp(2px, 0.4vh, 5px);
+  border-radius: 10px;
+}
+
+.cc.cc-tv .cc-library-donut-svg {
+  max-height: 100%;
+  height: 100%;
+  width: 100%;
+}
+
+.cc.cc-tv .cc-lowest-section {
+  margin-top: auto;
+  padding-top: clamp(1px, 0.3vh, 3px);
+}
+
+.cc.cc-tv .cc-eyebrow-lowest {
+  font-size: clamp(7.5px, 0.9vh, 8.5px);
+  margin-bottom: 2px;
+}
+
+.cc.cc-tv .cc-lowest-pills {
+  gap: clamp(2px, 0.4vw, 5px);
+}
+
+.cc.cc-tv .cc-lowest-pill {
+  padding: clamp(2px, 0.35vh, 4px) clamp(4px, 0.6vw, 6px);
+  gap: 4px;
+  border-radius: 8px;
+}
+
+.cc.cc-tv .cc-lowest-info strong {
+  font-size: clamp(8px, 1vh, 9.5px);
+}
+
+.cc.cc-tv .cc-lowest-info span {
+  font-size: clamp(7.5px, 0.85vh, 8.5px);
+}
+
+/* Support Matrix in TV mode */
+.cc.cc-tv .cc-support {
+  flex: 0 1 auto;
+  min-height: 0;
+  padding: clamp(6px, 1vh, 11px) clamp(10px, 1vw, 15px);
+  border-radius: clamp(10px, 1.2vh, 14px);
+}
+
+.cc.cc-tv .cc-support-heading {
+  margin-top: 0;
+  margin-bottom: clamp(3px, 0.5vh, 6px);
+}
+
+.cc.cc-tv .cc-support h3 {
+  font-size: clamp(11.5px, 1.35vh, 14px);
+  margin: 0;
+}
+
+.cc.cc-tv .cc-support h3 small {
+  font-size: clamp(8.5px, 1vh, 10.5px);
+}
+
+.cc.cc-tv .cc-support-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(6px, 0.8vw, 12px);
+}
+
+.cc.cc-tv .cc-support h4 {
+  font-size: clamp(9.5px, 1.1vh, 11px);
+  margin: 0 0 clamp(2px, 0.3vh, 3px);
+}
+
+.cc.cc-tv .cc-support-list {
+  margin: 0;
+  padding: 0;
+}
+
+.cc.cc-tv .cc-support-list li {
+  padding: clamp(1.5px, 0.3vh, 3px) clamp(6px, 0.8vw, 8px);
+  margin-bottom: clamp(1.5px, 0.3vh, 3px);
+  border-radius: 6px;
+}
+
+.cc.cc-tv .cc-support-list strong {
+  font-size: clamp(9px, 1.05vh, 10.5px);
+}
+
+.cc.cc-tv .cc-support-list small {
+  font-size: clamp(7.5px, 0.85vh, 8.5px);
+}
+
+.cc.cc-tv .cc-support-list b {
+  font-size: clamp(10px, 1.15vh, 12px);
+}
+
+.cc.cc-tv .cc-support-note {
+  font-size: clamp(7.5px, 0.85vh, 8.5px);
+  margin-top: clamp(2px, 0.3vh, 3px);
+}
+
+/* Footer in TV mode */
+.cc.cc-tv .cc-footer {
+  flex: 0 0 auto;
+  font-size: clamp(8px, 0.9vh, 9.5px);
+  padding-top: clamp(1px, 0.2vh, 2px);
+}
+
+.cc.cc-tv .cc-refresh {
+  padding: clamp(2px, 0.4vh, 4px) clamp(6px, 0.8vw, 10px);
+  font-size: clamp(8px, 0.85vh, 9px);
+  border-radius: 6px;
+}
+
+/* Standard Dashboard Responsive Layout (Outside TV Mode) */
+@media (max-width: 1150px) {
+  body:not(.cc-tv-open) .cc-kpis { grid-template-columns: repeat(2, 1fr); }
+  body:not(.cc-tv-open) .cc-competition { grid-template-columns: 1fr; }
+  body:not(.cc-tv-open) .cc-support-grid { grid-template-columns: 1fr; }
+}
+
+/* Height-adaptive tuning for TV, Surface Pro, Laptops (<= 850px height) */
+@media (max-height: 850px) {
+  .cc.cc-tv {
+    padding: clamp(6px, 1vh, 10px) clamp(10px, 1.2vw, 16px);
+    gap: 5px;
+  }
+  .cc.cc-tv .cc-trend-svg { height: clamp(34px, 5.5vh, 48px); }
+  .cc.cc-tv .cc-podium { height: clamp(48px, 7.5vh, 65px); }
+  .cc.cc-tv .cc-library-donut-container { max-height: clamp(65px, 10vh, 95px); }
+  .cc.cc-tv .cc-support-list li:nth-child(n+3) { display: none; } /* Show top 2 on compact heights */
+}
+
+/* Ultra-compact heights (<= 680px height, e.g. 720p TV with bars or extreme zoom) */
+@media (max-height: 680px) {
+  .cc.cc-tv {
+    padding: 4px 8px;
+    gap: 4px;
+  }
+  .cc.cc-tv .cc-gauge-svg { width: 32px; height: 32px; }
+  .cc.cc-tv .cc-gauge-center { width: 32px; height: 32px; }
+  .cc.cc-tv .cc-trend-svg { height: 28px; }
+  .cc.cc-tv .cc-podium { height: 42px; }
+  .cc.cc-tv .cc-library-donut-container { max-height: 55px; }
+  .cc.cc-tv .cc-support-list li:nth-child(n+2) { display: none; } /* Show top 1 on extreme compact heights */
+  .cc.cc-tv .cc-support-note { display: none; }
+}
+
