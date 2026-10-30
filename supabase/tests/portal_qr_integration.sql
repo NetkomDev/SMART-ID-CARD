@@ -67,12 +67,8 @@ select public.record_portal_library_visit('20000000-0000-4000-8000-000000000001'
 select pg_temp.check_ok((public.record_portal_library_visit('20000000-0000-4000-8000-000000000001','90000000-0000-4000-8000-000000000001','PORTAL-CARD-1',now(),1)->>'duplicate')::boolean,'library retries idempotent');
 select pg_temp.check_ok((select count(*)=1 from public.library_visits),'one human visit without device credential');
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000003',true);
-select public.link_student_to_parent_portal('A1','2010-01-01','Test Parent');
-select pg_temp.check_ok((select count(*)=1 from public.get_parent_children()),'parent sees linked child only');
-select pg_temp.check_ok(jsonb_array_length(public.get_parent_child_today('80000000-0000-4000-8000-000000000001')->'events')=2,'parent timeline includes waste and library');
-do $$ begin
- perform public.get_parent_child_today('80000000-0000-4000-8000-000000000002');
- raise exception 'FAIL: unrelated child accepted'; exception when sqlstate 'AP002' then raise notice 'PASS: unrelated child denied'; end $$;
+select pg_temp.check_ok(not public.can_access_parent_child('80000000-0000-4000-8000-000000000001'),'shared parent QR has no family access');
+select pg_temp.check_ok((select count(*)=0 from public.get_verified_parent_children()),'shared parent QR cannot list children');
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000005',true);
 select pg_temp.check_ok(public.has_school_permission('20000000-0000-4000-8000-000000000001','extracurricular.attendance'),'teacher attendance permission provisioned');
 reset role;

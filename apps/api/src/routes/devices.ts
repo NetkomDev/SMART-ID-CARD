@@ -1,9 +1,10 @@
 import { createHash, randomBytes } from "node:crypto";
+import { z } from "zod";
 import { Router } from "express";
 import { readDeviceCredentials } from "../lib/device-credentials.js";
 import { ApiError, fromDatabaseError } from "../lib/errors.js";
 import { sendData } from "../lib/responses.js";
-import { createPublicClient } from "../lib/supabase.js";
+import { createPublicClient, createServiceClient } from "../lib/supabase.js";
 import { asyncHandler } from "../middleware/async-handler.js";
 import { requireAuth } from "../middleware/auth.js";
 import { requirePermission, requireTenant } from "../middleware/tenant.js";
@@ -12,6 +13,19 @@ import { heartbeatSchema, registerDeviceSchema } from "../schemas/device.js";
 import { paginationSchema } from "../schemas/common.js";
 
 const router = Router();
+
+router.post("/pairing", requireAuth, requireTenant, requirePermission("device.manage"), validate({body:z.object({device_id:z.uuid()}).strict()}), asyncHandler(async (req,res)=>{
+  const token=randomBytes(32).toString("base64url");
+  const {data,error}=await req.auth!.client.rpc("create_device_pairing",{p_device:req.body.device_id,p_hash:createHash("sha256").update(token).digest("hex")});
+  if(error)throw fromDatabaseError(error);
+  res.setHeader("cache-control","no-store");sendData(res,{id:data,token,expires_in_seconds:600},201);
+}));
+router.post("/pairing/exchange",validate({body:z.object({token:z.string().min(40).max(128).regex(/^[A-Za-z0-9_-]+$/)}).strict()}),asyncHandler(async(req,res)=>{
+  const secret=randomBytes(32).toString("base64url");
+  const {data,error}=await createServiceClient().rpc("exchange_device_pairing",{p_hash:createHash("sha256").update(req.body.token).digest("hex"),p_secret_hash:createHash("sha256").update(secret).digest("hex")});
+  if(error)throw fromDatabaseError(error);
+  res.setHeader("cache-control","no-store");sendData(res,{...data,secret},201);
+}));
 
 router.get("/", requireAuth, requireTenant, requirePermission("device.read"),
   validate({ query: paginationSchema }), asyncHandler(async (req, res) => {

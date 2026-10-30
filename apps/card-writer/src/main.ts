@@ -1,3 +1,4 @@
+import { mountDevicePairing } from "../../shared/device-pairing";
 import './style.css';
 import {SerialCardAdapter} from './hardware';
 type Job={id:string;lease_token:string;lease_expires_at:string;student_name:string;expected_uid:string;expected_rfid:string;expected_qr:string};
@@ -69,3 +70,5 @@ document.querySelector<HTMLButtonElement>('#btn-toggle-camera')!.onclick = async
     document.querySelector<HTMLButtonElement>('#btn-toggle-camera')!.textContent = 'Buka Kamera Scanner';
   }
 };
+
+mountDevicePairing((id,credential)=>{device.value=id;secret.value=credential;status.textContent="Station terhubung. Hubungkan perangkat serial untuk verifikasi.";});

@@ -713,6 +713,7 @@ async function studentsPage(): Promise<void> {
                     </td>
                     <td>
                       <div style="display:flex;gap:4px;">
+                        <button class="button secondary btn-parent-invite" data-id="${escapeHtml(item.id)}">Undangan orang tua</button>
                         <button class="button secondary btn-edit-student" data-student='${JSON.stringify(item).replace(/'/g, "&#39;")}' style="padding:0.2rem 0.5rem;font-size:0.75rem;">Edit</button>
                         <button class="button danger btn-delete-student" data-id="${item.id}" data-name="${escapeHtml(item.full_name)}" style="padding:0.2rem 0.5rem;font-size:0.75rem;">Hapus</button>
                       </div>
@@ -724,6 +725,22 @@ async function studentsPage(): Promise<void> {
           </div>
           <div class="table-footer">Menampilkan ${response.data.length} dari ${response.meta?.total ?? response.data.length} data</div>`
         : emptyState("Data belum tersedia", selectedClassId ? "Tidak ada siswa dalam kelas ini." : "Tambahkan data siswa pertama.");
+
+      document.querySelectorAll<HTMLButtonElement>(".btn-parent-invite").forEach(button => {
+        button.onclick = async () => {
+          button.disabled = true;
+          try {
+            const response = await api<{token:string;expires_at:string}>("/parent/link-tokens", {method:"POST",body:JSON.stringify({student_id:button.dataset.id,relationship:"GUARDIAN",expires_in_hours:24})});
+            const dialog = document.createElement("dialog");
+            const title = document.createElement("h2"); title.textContent = "Undangan pribadi orang tua";
+            const note = document.createElement("p"); note.textContent = "Berikan hanya kepada wali yang telah diverifikasi sekolah. Berlaku sekali selama 24 jam. Kode hanya ditampilkan sekarang.";
+            const code = document.createElement("textarea"); code.readOnly = true; code.value = response.data.token;
+            const close = document.createElement("button"); close.textContent = "Tutup"; close.onclick = () => dialog.close();
+            dialog.append(title,note,code,close); document.body.append(dialog); dialog.addEventListener("close",()=>dialog.remove()); dialog.showModal();
+          } catch(error) { toastError(error instanceof Error ? error.message : "Undangan gagal dibuat."); }
+          finally { button.disabled=false; }
+        };
+      });
 
       document.querySelectorAll<HTMLButtonElement>(".btn-edit-student").forEach(btn => {
         btn.onclick = () => {
@@ -1375,7 +1392,7 @@ async function devicesPage(): Promise<void> {
     const summary = summaryRes.data;
     const devices = devicesRes.data;
 
-    const deviceRows = devices.map(item => `<tr><td><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.device_code)} · ${escapeHtml(item.location ?? "—")}</small></td><td>${escapeHtml(item.device_type)}</td><td>${escapeHtml(item.firmware_version ?? "—")}</td><td><span class="status ${item.online ? 'success' : 'error'}">${item.online ? 'ONLINE' : 'OFFLINE'}</span> <span class="status ${item.status === "ACTIVE" ? "success" : item.status === "MAINTENANCE" ? "warning" : "error"}">${escapeHtml(item.status)}</span></td><td>${escapeHtml(item.last_seen_at ? formatTime(item.last_seen_at) : "Belum pernah")}</td></tr>`).join("");
+    const deviceRows = devices.map(item => `<tr><td><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.device_code)} · ${escapeHtml(item.location ?? "—")}</small></td><td>${escapeHtml(item.device_type)}</td><td>${escapeHtml(item.firmware_version ?? "—")}</td><td><span class="status ${item.online ? 'success' : 'error'}">${item.online ? 'ONLINE' : 'OFFLINE'}</span> <span class="status ${item.status === "ACTIVE" ? "success" : item.status === "MAINTENANCE" ? "warning" : "error"}">${escapeHtml(item.status)}</span></td><td>${escapeHtml(item.last_seen_at ? formatTime(item.last_seen_at) : "Belum pernah")} <button class="button secondary" data-pair-device="${escapeHtml(item.id)}">Pairing</button></td></tr>`).join("");
 
     shell(`<section class="stats-grid">
       <article class="stat-card sage"><div><span>Total Perangkat</span><strong>${summary.total} Unit</strong></div><span class="trend">🖥️</span></article>
@@ -1391,6 +1408,15 @@ async function devicesPage(): Promise<void> {
         ${deviceRows ? `<div class="table-wrap"><table><thead><tr><th>Perangkat & Lokasi</th><th>Tipe</th><th>Firmware</th><th>Status</th><th>Terakhir Aktif</th></tr></thead><tbody>${deviceRows}</tbody></table></div>` : emptyState("Data belum tersedia", "Tambahkan perangkat pertama untuk memulai.")}
       </article>
     </section>`, "Perangkat", "Status IoT gate, terminal, LED, dan card station sekolah.");
+    document.querySelectorAll<HTMLButtonElement>("[data-pair-device]").forEach(button=>{
+      button.onclick=async()=>{button.disabled=true;try{
+        const result=await api<{token:string}>("/devices/pairing",{method:"POST",body:JSON.stringify({device_id:button.dataset.pairDevice})});
+        const dialog=document.createElement("dialog");const title=document.createElement("h2");title.textContent="Kode pairing perangkat";
+        const note=document.createElement("p");note.textContent="Berlaku sekali selama 10 menit. Pertukaran kode merotasi kredensial perangkat lama.";
+        const code=document.createElement("textarea");code.readOnly=true;code.value=result.data.token;
+        const close=document.createElement("button");close.textContent="Tutup";close.onclick=()=>dialog.close();dialog.append(title,note,code,close);document.body.append(dialog);dialog.addEventListener("close",()=>dialog.remove());dialog.showModal();
+      }catch(error){toastError(error instanceof Error?error.message:"Pairing gagal dibuat.");}finally{button.disabled=false;}};
+    });
     document.querySelector<HTMLButtonElement>("[data-register-device]")?.addEventListener("click", async () => {
       try { await registerSchoolDevice(state.school!.id); await devicesPage(); }
       catch (error) { const panel=document.querySelector(".content");if(panel)panel.insertAdjacentHTML("afterbegin",errorState(error)); }
@@ -2367,9 +2393,7 @@ async function reportsPage(): Promise<void> {
     shell(`<section class="panel">
       <div class="panel-head">
         <div><h2>Rekapitulasi Kinerja Siswa</h2><p>Data berikut dapat dicetak dan diserahkan ke wali kelas masing-masing.</p></div>
-        <select id="report-period" style="padding:0.5rem;border-radius:0.5rem;border:1px solid var(--line);background:var(--bg);color:var(--text);">
-          <option>September 2026</option><option>Agustus 2026</option><option>Semester Ganjil 2026</option>
-        </select>
+        <input id="report-period" readonly value="${escapeHtml(String((res.meta as any)?.from ?? 'Tahun ajaran aktif'))} – ${escapeHtml(String((res.meta as any)?.to ?? ''))}" aria-label="Periode laporan dari server" />
       </div>
       <div class="table-wrap">
         <table>
@@ -2456,7 +2480,7 @@ async function reportsPage(): Promise<void> {
             </tr>`;
           }).join("");
 
-          const period = (document.getElementById("report-period") as HTMLSelectElement)?.value ?? "";
+          const period = (document.getElementById("report-period") as HTMLInputElement)?.value ?? "";
           const schoolName = state.school?.name ?? "Sekolah";
 
           content.innerHTML = `

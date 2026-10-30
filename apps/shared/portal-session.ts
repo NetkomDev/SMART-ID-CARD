@@ -22,7 +22,12 @@ export class PortalSession {
   get context(): PortalContext | null { return this.saved()?.portal ?? null; }
   get connected(): boolean { return Boolean(this.saved()); }
   private save(value: SavedAccess) { localStorage.setItem(this.key, JSON.stringify(value)); }
-  clear() { localStorage.removeItem(this.key); }
+  clear() {
+    const id = this.saved()?.portal.id;
+    if (id) for (const key of Object.keys(localStorage)) if (key.startsWith(`library_cache_${id}_`)) localStorage.removeItem(key);
+    // Queued transactions remain scoped to the old portal, never reassigned or silently deleted.
+    localStorage.removeItem(this.key);
+  }
   private async parse<T>(response: Response): Promise<T> {
     if (response.status === 204) return undefined as T;
     const body = await response.json().catch(() => null);

@@ -1,9 +1,9 @@
 import { gateIntro, gateHelp } from "../../shared/portal-ui";
 import "./styles.css";
-import { PortalSession } from "../../shared/portal-session";
+import { ParentSession } from "../../shared/parent-session";
 import { setupInstallPrompt, offerInstall } from "../../shared/install-prompt";
 
-const portal = new PortalSession("PARENT", import.meta.env.VITE_API_BASE_URL ?? "/api/v1");
+const portal = new ParentSession( import.meta.env.VITE_API_BASE_URL ?? "/api/v1");
 setupInstallPrompt("Portal Orang Tua", import.meta.env.BASE_URL, import.meta.env.PROD);
 
 type Child = {
@@ -70,20 +70,9 @@ const CACHE_KEYS = {
   TODAY: (studentId: string) => `aksis_parent_today_${studentId}_v3`
 };
 
-function getStoredCache<T>(key: string): T | null {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : null;
-  } catch {
-    return null;
-  }
-}
-
-function setStoredCache<T>(key: string, value: T): void {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {}
-}
+const parentMemoryCache = new Map<string, unknown>();
+function getStoredCache<T>(key: string): T | null { return (parentMemoryCache.get(key) as T) ?? null; }
+function setStoredCache<T>(key: string, value: T): void { parentMemoryCache.set(key, value); }
 
 let loginScanner: any = null;
 let cachedParentName = getStoredCache<string>(CACHE_KEYS.PROFILE_NAME) || "";
@@ -533,7 +522,7 @@ function openAbsencePermitModal(
           permit_date: permitDate,
           reason,
           notes,
-          attachment_url: attachedBase64
+          attachment_url: attachedBase64 ? (await request<{reference:string}>("/parent/attachments", { method: "POST", body: JSON.stringify({student_id: studentId, photo_data: attachedBase64}) })).reference : ""
         })
       });
 
@@ -560,60 +549,28 @@ function openAbsencePermitModal(
   };
 }
 
-function loginView(message = "Pindai QR dari admin sekolah untuk membuka aktivitas anak Anda.", isError = false) {
-  viewRevision++;
-  dashboardVisible = false;
-  activeTab = "home";
-  root.innerHTML = parentLayout(`
-    <div class="parent-content">
-      <section class="student-profile-card" style="flex-direction: column; text-align: center; padding: 32px 20px;">
-        <div class="avatar-fallback" style="margin: 0 auto 12px; width: 64px; height: 64px; font-size: 1.5rem;">🔒</div>
-        <h2 style="font-size: 1.3rem;">Portal Akses Terbatas</h2>
-        <p style="font-size: 0.88rem; color: var(--parent-text-muted); margin: 6px 0 18px;">
-          Pindai QR Akses dari admin sekolah untuk masuk dan memantau aktivitas anak Anda.
-        </p>
-        <p role="status" style="font-size: 0.85rem; color: #b91c1c; margin-bottom: 1rem;">${esc(message)}</p>
-        <button id="retry-portal" style="${isError ? '' : 'display:none;'} width: 100%; margin-bottom: 0.5rem;">Coba lagi</button>
-        <div id="login-scanner-container" style="display:none; margin-top: 1rem; text-align: left;">
-          <div id="login-qr-reader"></div>
-          <button type="button" id="cancel-scan-btn" class="btn-secondary" style="margin-top:0.5rem; width:100%;">Batal Scan</button>
-        </div>
-        <button id="start-scan-btn" style="width: 100%;">Pindai QR Akses</button>
-      </section>
-    </div>
-  `, "home");
-
-
-  document.getElementById("retry-portal")?.addEventListener("click", () => void start());
-  document.getElementById("start-scan-btn")?.addEventListener("click", async () => {
-    document.getElementById("start-scan-btn")!.style.display = "none";
-    document.getElementById("retry-portal")!.style.display = "none";
-    document.getElementById("login-scanner-container")!.style.display = "block";
-    try {
-      if (!loginScanner) {
-        const { Html5Qrcode } = await import("html5-qrcode");
-        loginScanner = new Html5Qrcode("login-qr-reader");
-      }
-      await loginScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, (decoded: string) => {
-        try {
-          const url = new URL(decoded);
-          if (url.hash.includes("token=") || url.searchParams.has("token")) {
-            void loginScanner?.stop().catch(() => {});
-            window.location.href = decoded;
-          }
-        } catch {}
-      }, () => undefined);
-    } catch {
-      document.getElementById("login-scanner-container")!.style.display = "none";
-      document.getElementById("start-scan-btn")!.style.display = "block";
-    }
-  });
-
-  document.getElementById("cancel-scan-btn")?.addEventListener("click", async () => {
-    if (loginScanner) { try { await loginScanner.stop(); } catch {} }
-    document.getElementById("login-scanner-container")!.style.display = "none";
-    document.getElementById("start-scan-btn")!.style.display = "block";
-  });
+function loginView(message = "Masuk dengan akun pribadi. Hubungkan anak memakai undangan dari sekolah.", _isError = false) {
+  viewRevision++; dashboardVisible = false;
+  parentMemoryCache.clear(); cachedChildren = null; cachedParentName = ""; selectedChildId = "";
+  root.innerHTML = `<main class="parent-content"><section class="link-card"><h1>Portal Orang Tua</h1>
+    <p id="auth-message" role="status">${esc(message)}</p>
+    <form id="parent-login"><label>Nama lengkap (untuk pendaftaran)<input name="full_name" maxlength="200" autocomplete="name"></label>
+    <label>Email<input name="email" type="email" autocomplete="email" required></label>
+    <label>Password<input name="password" type="password" minlength="8" maxlength="128" autocomplete="current-password" required></label>
+    <button>Masuk</button><button type="button" id="parent-register">Daftar akun</button><button type="button" id="parent-forgot">Lupa password</button></form>
+    <p>QR sekolah tidak lagi memberikan akses bersama ke data anak. Hubungi sekolah untuk undangan anak.</p></section></main>`;
+  const form = document.querySelector<HTMLFormElement>("#parent-login")!;
+  const status = document.getElementById("auth-message")!;
+  form.onsubmit = async e => { e.preventDefault(); const d = new FormData(form);
+    try { await portal.login(String(d.get("email")), String(d.get("password"))); await dashboard(); }
+    catch (error) { status.textContent = error instanceof Error ? error.message : "Gagal masuk."; }
+  };
+  for (const action of ["register", "forgot"]) document.getElementById(`parent-${action}`)!.onclick = async () => {
+    const d = new FormData(form); const body: Record<string, string> = { email: String(d.get("email") ?? "") };
+    if (action === "register") { body.password = String(d.get("password") ?? ""); body.full_name = String(d.get("full_name") ?? ""); }
+    try { const result = await portal.publicRequest<{message:string}>(action, body); status.textContent = result.message; }
+    catch (error) { status.textContent = error instanceof Error ? error.message : "Permintaan gagal."; }
+  };
 }
 
 function parentLayout(contentHTML: string, tabName: "home" | "add" | "profile" = "home"): string {
@@ -1260,166 +1217,18 @@ function bindGlobalEvents() {
 }
 
 async function linkView() {
-  viewRevision++;
-  dashboardVisible = false;
-  activeTab = "add";
-
-  if (!cachedParentName) {
-    try {
-      const prof = await request<{ full_name: string | null }>("/parent/profile");
-      if (prof?.full_name && prof.full_name !== "Orang Tua") {
-        cachedParentName = prof.full_name;
-        setStoredCache(CACHE_KEYS.PROFILE_NAME, cachedParentName);
-      }
-    } catch {}
-  }
-
-  const needParentNameInput = !cachedParentName || cachedParentName === "Orang Tua";
-
-  root.innerHTML = parentLayout(`
-    <div class="parent-content">
-      <form class="link-card" id="link-form" style="background: white; border-radius: 22px; padding: 24px; border: 1px solid #e1efe8;">
-        <small style="color: var(--parent-green-accent); font-weight: 800; letter-spacing: 0.1em;">TAUTAN AMAN LINTAS SEKOLAH</small>
-        <h2 style="margin: 8px 0 6px; font-size: 1.3rem;">Hubungkan Anak</h2>
-        <p style="font-size: 0.88rem; color: var(--parent-text-muted); margin-bottom: 20px;">
-          ${needParentNameInput
-            ? "Gunakan Nama Anda, NISN, dan Tanggal Lahir anak (SD, SMP, atau SMA) untuk memverifikasi data sekolah."
-            : "Gunakan NISN dan Tanggal Lahir anak (SD, SMP, atau SMA) untuk menghubungkan anak berikutnya."}
-        </p>
-        <div id="error" class="error-msg" style="margin-bottom: 12px;"></div>
-
-        ${needParentNameInput ? `
-          <label style="display: block; margin-bottom: 14px;">
-            Nama Orang Tua / Wali
-            <input name="name" required maxlength="200" style="margin-top: 6px;" placeholder="Nama lengkap Anda" />
-          </label>
-        ` : `
-          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 12px 16px; margin-bottom: 18px; display: flex; align-items: center; justify-content: space-between;">
-            <div>
-              <span style="font-size: 0.75rem; color: #64748b; font-weight: 600; display: block; margin-bottom: 2px;">Orang Tua / Wali:</span>
-              <strong style="font-size: 0.95rem; color: #0f172a;">${esc(cachedParentName)}</strong>
-            </div>
-            <span style="font-size: 0.78rem; background: #dcfce7; color: #15803d; padding: 3px 10px; border-radius: 20px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">✓ Terverifikasi</span>
-          </div>
-        `}
-
-        <label style="display: block; margin-bottom: 14px;">
-          NISN Siswa
-          <input type="tel" inputmode="numeric" pattern="[0-9]*" name="nisn" required maxlength="50" style="margin-top: 6px;" placeholder="10 digit NISN" />
-        </label>
-
-        <label style="display: block; margin-bottom: 20px;">
-          Tanggal Lahir Siswa
-          <input type="date" name="dob" inputmode="numeric" required style="margin-top: 6px;" />
-        </label>
-
-        <button style="width: 100%;">Verifikasi & Hubungkan</button>
-        <button type="button" class="btn-secondary" id="cancel-link" style="width: 100%; margin-top: 8px;">Batal</button>
-      </form>
-    </div>
-  `, "add");
-
+  viewRevision++; dashboardVisible = false; activeTab = "add";
+  root.innerHTML = parentLayout(`<div class="parent-content"><form class="link-card" id="link-form"><h2>Hubungkan Anak</h2>
+    <p>Masukkan kode undangan pribadi dari sekolah anak. Undangan hanya dapat dipakai sekali.</p>
+    <label>Kode undangan<input name="token" autocomplete="off" required minlength="40" maxlength="128"></label>
+    <p id="link-status" role="status"></p><button>Hubungkan anak</button></form></div>`, "add");
   bindGlobalEvents();
-  document.getElementById("cancel-link")?.addEventListener("click", () => void dashboard());
-
   const form = document.querySelector<HTMLFormElement>("#link-form")!;
-  form.onsubmit = async (e) => {
-    e.preventDefault();
-    const d = new FormData(form);
-    const errorEl = document.getElementById("error")!;
-    const submit = form.querySelector<HTMLButtonElement>("button:not([type])")!;
-    const cancelBtn = document.getElementById("cancel-link") as HTMLButtonElement | null;
-    const inputs = form.querySelectorAll<HTMLInputElement>("input");
-
-    // 1. Visual processing state (banner + button + disabled inputs)
-    errorEl.style.display = "block";
-    errorEl.style.color = "#0369a1";
-    errorEl.style.padding = "12px 14px";
-    errorEl.style.borderRadius = "12px";
-    errorEl.style.background = "#e0f2fe";
-    errorEl.style.border = "1.5px solid #bae6fd";
-    errorEl.style.fontSize = "0.85rem";
-    errorEl.style.fontWeight = "600";
-    errorEl.innerHTML = `
-      <div style="display:flex;align-items:center;gap:10px;">
-        <svg class="spin" style="width:20px;height:20px;flex-shrink:0;color:#0284c7;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle style="opacity:0.25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path style="opacity:0.75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        <div>
-          <strong style="display:block;color:#0369a1;">Memverifikasi Data Siswa…</strong>
-          <span style="font-size:0.8rem;color:#0284c7;font-weight:400;">Menghubungkan ke database sekolah, mohon tunggu sebentar.</span>
-        </div>
-      </div>
-    `;
-
-    submit.disabled = true;
-    if (cancelBtn) cancelBtn.disabled = true;
-    inputs.forEach(inp => inp.disabled = true);
-    submit.innerHTML = `
-      <span style="display:inline-flex;align-items:center;justify-content:center;gap:8px;">
-        <svg class="spin" style="width:18px;height:18px;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle style="opacity:0.25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path style="opacity:0.75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        Memproses Verifikasi...
-      </span>
-    `;
-
-    const inputName = d.get("name") ? String(d.get("name")).trim() : "";
-    const nameToSave = inputName || cachedParentName || "";
-
+  form.onsubmit = async e => { e.preventDefault(); const button = form.querySelector("button")!; button.disabled = true;
     try {
-      const linkRes = await request<{ link_id: string; student_id: string }>("/parent/link", {
-        method: "POST",
-        body: JSON.stringify({
-          nisn: String(d.get("nisn") ?? "").trim(),
-          dob: String(d.get("dob") ?? "").trim(),
-          full_name: nameToSave
-        })
-      });
-
-      if (nameToSave && nameToSave !== "Orang Tua") {
-        cachedParentName = nameToSave;
-        setStoredCache(CACHE_KEYS.PROFILE_NAME, cachedParentName);
-      }
-
-      // Success feedback & update state
-      errorEl.style.color = "#15803d";
-      errorEl.style.background = "#dcfce7";
-      errorEl.style.borderColor = "#86efac";
-      errorEl.innerHTML = `
-        <div style="display:flex;align-items:center;gap:10px;">
-          <span style="font-size:1.3rem;">✨</span>
-          <div>
-            <strong style="display:block;color:#166534;">Anak Berhasil Dihubungkan!</strong>
-            <span style="font-size:0.8rem;color:#15803d;font-weight:400;">Dialihkan ke halaman Beranda...</span>
-          </div>
-        </div>
-      `;
-
-      const newStudentId = (linkRes as any)?.student_id;
-      if (newStudentId) {
-        selectedChildId = newStudentId;
-        setStoredCache(CACHE_KEYS.SELECTED_CHILD, newStudentId);
-      }
-
-      await fetchDashboardData(selectedChildId);
-      offerInstall();
-
-      // Automatically navigate to Beranda (Home)
-      await dashboard(selectedChildId);
-    } catch (err: any) {
-      errorEl.style.color = "#991b1b";
-      errorEl.style.background = "#fef2f2";
-      errorEl.style.borderColor = "#fca5a5";
-      errorEl.innerHTML = "⚠️ " + (err?.message || "Data anak tidak ditemukan atau tidak cocok dengan database sekolah.");
-      
-      submit.disabled = false;
-      if (cancelBtn) cancelBtn.disabled = false;
-      inputs.forEach(inp => inp.disabled = false);
-      submit.innerHTML = "Verifikasi & Hubungkan";
-    }
+      const result = await request<{ student_id: string }>("/parent/link", { method: "POST", body: JSON.stringify({ token: String(new FormData(form).get("token") ?? "").trim() }) });
+      parentMemoryCache.clear(); cachedChildren = null; selectedChildId = result.student_id; await dashboard(selectedChildId);
+    } catch (error) { document.getElementById("link-status")!.textContent = error instanceof Error ? error.message : "Undangan gagal diproses."; button.disabled = false; }
   };
 }
 
@@ -1456,54 +1265,37 @@ async function profileView() {
           </div>
           <div>
             <dt style="font-size: 0.8rem; color: var(--parent-text-muted);">Status Akses</dt>
-            <dd style="margin: 2px 0 0; font-weight: 800; font-size: 1rem; color: #1c7352;">Terverifikasi QR Admin Sekolah</dd>
+            <dd style="margin: 2px 0 0; font-weight: 800; font-size: 1rem; color: #1c7352;">Akun individual terverifikasi</dd>
           </div>
         </dl>
         <p style="font-size: 0.85rem; color: var(--parent-text-muted); line-height: 1.5; margin-bottom: 24px;">
           Akses ini terenkripsi dan terhubung langsung ke server sekolah. Hubungi admin sekolah apabila terdapat kendala data anak.
         </p>
         <div class="persistent-access-note">
-          <strong>Akses tersimpan di perangkat ini</strong>
-          <span>Portal akan tetap terhubung selama akses belum dicabut oleh Admin Sekolah.</span>
+          <strong>Sesi aman pada browser ini</strong>
+          <span>Akses anak mengikuti hubungan yang diverifikasi sekolah dan dapat dicabut sewaktu-waktu.</span>
         </div>
       </section>
     </div>
   `, "profile");
 
   bindGlobalEvents();
+  const logout = document.createElement("button"); logout.textContent = "Keluar";
+  logout.onclick = async () => { try { await portal.logout(); } finally { parentMemoryCache.clear(); loginView(); } }; root.append(logout);
 }
 
 async function start() {
-  const isConnected = portal.connected;
-
-  if (isConnected) {
-    // 🚀 Fast Startup Path: Render cached dashboard instantly if available
-    const hasCachedData = Boolean(cachedChildren?.length && selectedChildId && getStoredCache(CACHE_KEYS.TODAY(selectedChildId)));
-    if (hasCachedData) {
-      void dashboard(); // Render instantly (0ms)
-      portal.start().then(ok => {
-        if (ok) {
-          void fetchDashboardData(selectedChildId);
-          offerInstall();
-        }
-        else loginView("Akses kadaluarsa. Pindai QR kembali.", true);
-      }).catch(() => {});
-      return;
-    }
-  }
-
-  // Fallback to initial loading gate
-  loginView("Membuka akses sekolah…");
+  loginView("Memeriksa sesi…");
   try {
-    if (!await portal.start()) {
-      loginView("Pindai QR Akses dari admin sekolah untuk masuk.", false);
-      return;
+    if (!await portal.start()) { loginView(); return; }
+    if (sessionStorage.getItem("aksis.parent.recovery")) {
+      root.innerHTML = `<main class="parent-content"><form id="new-password"><h1>Password baru</h1><input type="password" name="password" minlength="12" maxlength="128" autocomplete="new-password" required><button>Simpan password</button><p role="status"></p></form></main>`;
+      const form = document.querySelector<HTMLFormElement>("#new-password")!;
+      form.onsubmit = async e => { e.preventDefault(); try { await request("/parent/session/password", { method: "POST", body: JSON.stringify({password:new FormData(form).get("password")}) }); sessionStorage.removeItem("aksis.parent.recovery"); loginView("Password diperbarui. Masuk kembali."); } catch(error) { form.querySelector("p")!.textContent = error instanceof Error ? error.message : "Gagal menyimpan."; } }; return;
     }
-    offerInstall();
-    await dashboard();
-  } catch (error) {
-    loginView(error instanceof Error ? error.message : "Belum dapat terhubung.", true);
-  }
+    offerInstall(); await dashboard();
+  } catch(error) { loginView(error instanceof Error ? error.message : "Belum dapat terhubung.", true); }
 }
-
 void start();
+
+window.addEventListener("storage", event => { if (event.key === "aksis.parent.locked" && event.newValue === "1") { portal.clear(); loginView("Sesi dikunci dari tab lain. Masuk kembali."); } });

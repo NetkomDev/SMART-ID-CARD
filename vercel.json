@@ -3,14 +3,69 @@
   "buildCommand": "npm run vercel-build",
   "outputDirectory": "dist",
   "functions": {
-    "api/index.ts": { "maxDuration": 60 }
+    "api/index.ts": {
+      "maxDuration": 60
+    }
   },
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api" },
-    { "source": "/parent/(.*)", "destination": "/parent/index.html" },
-    { "source": "/waste/(.*)", "destination": "/waste/index.html" },
-    { "source": "/extracurricular/(.*)", "destination": "/extracurricular/index.html" },
-    { "source": "/library/(.*)", "destination": "/library/index.html" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/api/(.*)",
+      "destination": "/api"
+    },
+    {
+      "source": "/parent/(.*)",
+      "destination": "/parent/index.html"
+    },
+    {
+      "source": "/waste/(.*)",
+      "destination": "/waste/index.html"
+    },
+    {
+      "source": "/extracurricular/(.*)",
+      "destination": "/extracurricular/index.html"
+    },
+    {
+      "source": "/library/(.*)",
+      "destination": "/library/index.html"
+    },
+    {
+      "source": "/led/(.*)",
+      "destination": "/led/index.html"
+    },
+    {
+      "source": "/command/(.*)",
+      "destination": "/command/index.html"
+    },
+    {
+      "source": "/card-writer/(.*)",
+      "destination": "/card-writer/index.html"
+    },
+    {
+      "source": "/operations/(.*)",
+      "destination": "/operations/index.html"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        },
+        {
+          "key": "Content-Security-Policy-Report-Only",
+          "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'"
+        }
+      ]
+    }
   ]
 }

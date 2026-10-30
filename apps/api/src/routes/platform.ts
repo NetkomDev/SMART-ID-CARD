@@ -6,6 +6,7 @@ import { requirePlatform } from '../middleware/platform.js';
 import { asyncHandler } from '../middleware/async-handler.js';
 import { validate } from '../middleware/validate.js';
 import { ApiError, fromDatabaseError } from '../lib/errors.js';
+import { passwordRecoveryRouter } from './password-recovery.js';
 import { createServiceClient } from '../lib/supabase.js';
 import { sendData } from '../lib/responses.js';
 import { config } from '../config.js';
@@ -77,139 +78,7 @@ router.patch('/devices/:id',validate({params:id,body:z.object({status:z.enum(['A
 router.get('/audit',validate({query:paginationSchema}),asyncHandler(async(req,res)=>{const page=Number(req.query.page),size=Number(req.query.page_size);const{data,error,count}=await req.auth!.client.from('audit_logs').select('id,school_id,actor_user_id,action,resource_type,resource_id,occurred_at,before_data,after_data,schools(name)',{count:'exact'}).order('occurred_at',{ascending:false}).range((page-1)*size,page*size-1);if(error)throw fromDatabaseError(error);sendData(res,data,200,{page,page_size:size,total:count??0});}));
 router.get('/iam',validate({query:paginationSchema}),asyncHandler(async(req,res)=>{const page=Number(req.query.page),size=Number(req.query.page_size);const{data,error}=await req.auth!.client.rpc('platform_get_iam',{p_limit:size,p_offset:(page-1)*size});if(error)throw fromDatabaseError(error);const count=data&&data.length>0?data[0].total_count:0;sendData(res,data,200,{page,page_size:size,total:Number(count)});}));
 router.patch('/iam/:id',validate({params:id,body:z.object({status:z.enum(['ACTIVE','SUSPENDED','REVOKED']),roles:z.array(z.enum(['SCHOOL_ADMIN','TEACHER','EXTRA_TEACHER','LIBRARY_STAFF','WASTE_STAFF','PARENT'])).min(1).max(6)}).strict()}),asyncHandler(async(req,res)=>{const{data,error}=await req.auth!.client.rpc('platform_update_membership',{p_id:req.params.id,p_status:req.body.status,p_roles:req.body.roles});if(error)throw fromDatabaseError(error);sendData(res,data);}));
-router.post('/schools/:id/reset-admin-password', validate({ params: id, body: z.object({ password: z.string().min(8).max(128).default("password123") }).optional() }), asyncHandler(async (req, res) => {
-  const client = createServiceClient();
-  const schoolId = req.params.id;
-  const newPassword = req.body?.password || "password123";
-
-  // Get school details for response metadata
-  const { data: school } = await client
-    .from('schools')
-    .select('id, name, code')
-    .eq('id', schoolId)
-    .maybeSingle();
-
-  // Find admin users for the school
-  const { data: adminMemberships } = await client
-    .from('school_users')
-    .select('user_id, users(full_name), school_user_roles!inner(roles!inner(code))')
-    .eq('school_id', schoolId)
-    .eq('school_user_roles.roles.code', 'SCHOOL_ADMIN')
-    .is('deleted_at', null);
-
-  let targetUsers: Array<{ user_id: string; full_name?: string | null }> = (adminMemberships || []).map(m => ({
-    user_id: m.user_id,
-    full_name: (m.users as any)?.full_name
-  }));
-
-  // Fallback if no specific SCHOOL_ADMIN role mapping exists
-  if (targetUsers.length === 0) {
-    const { data: fallbackUsers } = await client
-      .from('school_users')
-      .select('user_id, users(full_name)')
-      .eq('school_id', schoolId)
-      .is('deleted_at', null);
-    targetUsers = (fallbackUsers || []).map(m => ({
-      user_id: m.user_id,
-      full_name: (m.users as any)?.full_name
-    }));
-  }
-
-  if (targetUsers.length === 0) {
-    throw new ApiError(404, 'RESOURCE_NOT_FOUND', 'Tidak ada admin/pengguna yang terdaftar di sekolah ini.');
-  }
-
-  // Update password & retrieve auth email concurrently in parallel via Promise.all
-  const resetResults = await Promise.all(
-    targetUsers.map(async (m) => {
-      const [updateRes, userRes] = await Promise.all([
-        client.auth.admin.updateUserById(m.user_id, { password: newPassword }),
-        client.auth.admin.getUserById(m.user_id)
-      ]);
-
-      if (!updateRes.error) {
-        const email = userRes.data?.user?.email || '';
-        const name = m.full_name || email || m.user_id;
-        return { user_id: m.user_id, name, email };
-      } else {
-        console.error(`[ResetPassword] Failed for user ${m.user_id}:`, updateRes.error);
-        return null;
-      }
-    })
-  );
-
-  const validResults = resetResults.filter((r): r is { user_id: string; name: string; email: string } => r !== null);
-
-  if (validResults.length === 0) {
-    throw new ApiError(500, 'DATABASE_ERROR', 'Gagal me-reset password di Supabase Auth.');
-  }
-
-  const resetUsers = validResults.map(r => r.name);
-  const adminEmails = Array.from(new Set(validResults.map(r => r.email).filter(Boolean)));
-  const schoolCode = school?.code?.toLowerCase() || 'sekolah';
-  const primaryEmail = adminEmails.join(', ') || `admin@${schoolCode}.aksis.co.id`;
-  const schoolName = school?.name || resetUsers.join(', ');
-
-  sendData(res, {
-    success: true,
-    school_name: schoolName,
-    admin_email: primaryEmail,
-    admin_emails: adminEmails.length > 0 ? adminEmails : [primaryEmail],
-    reset_users: resetUsers,
-    new_password: newPassword,
-    message: `Password admin untuk ${schoolName} berhasil di-reset menjadi "${newPassword}".`
-  });
-}));
-router.post('/iam/:id/reset-password', validate({ params: id, body: z.object({ password: z.string().min(8).max(128).default("password123") }).optional() }), asyncHandler(async (req, res) => {
-  const client = createServiceClient();
-  const iamId = req.params.id;
-  const newPassword = req.body?.password || "password123";
-
-  let targetUserId: string | undefined;
-  let userName = 'User';
-  let schoolName = '';
-
-  const { data: schoolUser } = await client
-    .from('school_users')
-    .select('user_id, school_id, users(full_name), schools(name)')
-    .eq('id', iamId)
-    .maybeSingle();
-
-  if (schoolUser) {
-    targetUserId = schoolUser.user_id;
-    userName = (schoolUser.users as any)?.full_name || 'User';
-    schoolName = (schoolUser.schools as any)?.name || '';
-  } else {
-    const { data: user } = await client
-      .from('users')
-      .select('id, full_name')
-      .eq('id', iamId)
-      .maybeSingle();
-    if (user) {
-      targetUserId = user.id;
-      userName = user.full_name || 'User';
-    }
-  }
-
-  if (!targetUserId) {
-    throw new ApiError(404, 'RESOURCE_NOT_FOUND', 'Pengguna tidak ditemukan.');
-  }
-
-  const { error: authErr } = await client.auth.admin.updateUserById(targetUserId, {
-    password: newPassword
-  });
-
-  if (authErr) throw fromDatabaseError(authErr as any);
-
-  sendData(res, {
-    success: true,
-    user_id: targetUserId,
-    full_name: userName,
-    school_name: schoolName,
-    new_password: newPassword,
-    message: `Password untuk ${userName} berhasil di-reset menjadi "${newPassword}".`
-  });
-}));
+router.use(passwordRecoveryRouter);
 
 router.patch('/schools/:id/logo', validate({ params: id, body: z.object({ logo_url: z.string().trim().min(1), level: z.enum(['SD','SMP','SMA']).optional() }) }), asyncHandler(async (req, res) => {
   const client = createServiceClient();
@@ -230,7 +99,7 @@ router.get('/card-templates', asyncHandler(async (req, res) => {
 router.post('/card-templates', validate({ body: z.object({ level: z.enum(['SD','SMP','SMA']), side: z.enum(['front','back']), template_url: z.string().min(1) }) }), asyncHandler(async (req, res) => {
   const client = createServiceClient();
   const { level, side, template_url } = req.body;
-  const { data, error } = await client.from('card_templates').upsert({ level, side, template_url, updated_at: new Date().toISOString() }, { onConflict: 'level,side' }).select().single();
+  const { data, error } = await req.auth!.client.rpc('save_platform_card_template',{p_level:level,p_side:side,p_url:template_url});
   if (error) throw fromDatabaseError(error);
   sendData(res, data);
 }));

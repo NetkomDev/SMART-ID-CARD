@@ -53,13 +53,7 @@ export class ApiError extends Error {
   }
 }
 
-import * as fs from "node:fs";
-
 export function fromDatabaseError(error: PostgrestError): ApiError {
-  try {
-    fs.appendFileSync(process.cwd() + "/db_error.log", new Date().toISOString() + " DB Error: " + JSON.stringify(error) + "\n");
-  } catch (e) {}
-
   const detailsStr = [error.message, error.details, error.hint].filter(Boolean).join(" | ");
   const lower = detailsStr.toLowerCase();
 
@@ -103,7 +97,7 @@ export function fromDatabaseError(error: PostgrestError): ApiError {
     } else if (lower.includes("code")) {
       friendlyMessage = "Gagal menyimpan: Kode unik ini sudah terdaftar di database.";
     }
-    return new ApiError(409, "CONFLICT", friendlyMessage, { postgrest: error });
+    return new ApiError(409, "CONFLICT", friendlyMessage);
   }
   if (error.code === "23503") {
     let friendlyMessage = "Gagal menyimpan: Data merujuk pada referensi yang tidak ditemukan.";
@@ -112,7 +106,7 @@ export function fromDatabaseError(error: PostgrestError): ApiError {
     } else if (lower.includes("academic_year_id") || lower.includes("academic_years")) {
       friendlyMessage = "Gagal menyimpan: Tahun ajaran aktif tidak ditemukan untuk sekolah ini.";
     }
-    return new ApiError(422, "VALIDATION_ERROR", friendlyMessage, { postgrest: error });
+    return new ApiError(422, "VALIDATION_ERROR", friendlyMessage);
   }
   if (error.code === "23514") {
     let friendlyMessage = "Gagal menyimpan: Format atau isi data melanggar aturan constraint database.";
@@ -123,7 +117,7 @@ export function fromDatabaseError(error: PostgrestError): ApiError {
     } else if (lower.includes("students_text_not_blank")) {
       friendlyMessage = "Gagal menyimpan: Nama siswa dan NIS/Nomor Induk wajib diisi (tidak boleh kosong atau spasi).";
     }
-    return new ApiError(422, "VALIDATION_ERROR", friendlyMessage, { postgrest: error });
+    return new ApiError(422, "VALIDATION_ERROR", friendlyMessage);
   }
   if (error.code === "22023" || error.code === "P0001") {
     return new ApiError(422, "VALIDATION_ERROR", error.message || "Data input tidak valid.");

@@ -18,6 +18,7 @@ insert into public.students(id,school_id,student_number,full_name) values
  ('80000000-0000-4000-8000-000000000003','20000000-0000-4000-8000-000000000002','B1','Student Other School');
 insert into public.devices(id,school_id,device_code,name,device_type,status) values('90000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000001','STATION_A','Station A','CARD_STATION','ACTIVE'),('90000000-0000-4000-8000-000000000002','20000000-0000-4000-8000-000000000002','STATION_B','Station B','CARD_STATION','ACTIVE');
 insert into public.device_credentials(school_id,device_id,secret_hash,label) values('20000000-0000-4000-8000-000000000001','90000000-0000-4000-8000-000000000001',encode(digest('station-a-test-secret','sha256'),'hex'),'test'),('20000000-0000-4000-8000-000000000002','90000000-0000-4000-8000-000000000002',encode(digest('station-b-test-secret','sha256'),'hex'),'test');
+update public.students set photo_url='data:image/jpeg;base64,/9j/';
 set local role authenticated;
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000002',true);
 select pg_temp.check_ok(not public.is_platform_admin(),'School admin is not platform admin');

@@ -1,1 +1,9 @@
-{"name":"AKSIS LED Gateway","short_name":"LED Gateway","start_url":"/","display":"standalone","theme_color":"#101827","background_color":"#080d17"}
+{
+  "name": "AKSIS LED Gateway",
+  "short_name": "LED Gateway",
+  "start_url": "/led/",
+  "display": "standalone",
+  "theme_color": "#101827",
+  "background_color": "#080d17",
+  "scope": "/led/"
+}

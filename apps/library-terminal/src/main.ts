@@ -1,3 +1,4 @@
+import { renderPortrait } from "../../shared/portrait";
 import { gateIntro, gateHelp } from "../../shared/portal-ui";
 import "./style.css";
 import { PortalError, PortalSession } from "../../shared/portal-session";
@@ -80,12 +81,21 @@ async function sync() {
   if (syncing) return syncing;
   const work = async () => {
     const key = queueKey();
+    let failed = 0;
     for (const visit of queue(key)) {
-      await portal.request("/library/visits", { method: "POST", body: JSON.stringify(visit) });
-      // Remove only acknowledged IDs; scans added during the request remain queued.
-      save(queue(key).filter(item => item.event_id !== visit.event_id), key);
+      try {
+        await portal.request("/library/visits", { method: "POST", body: JSON.stringify(visit) });
+        save(queue(key).filter(item => item.event_id !== visit.event_id), key);
+      } catch(error) {
+        if (error instanceof PortalError && [400,403,404,409,422].includes(error.status)) {
+          const failedKey = `${key}.failed`;
+          const prior = JSON.parse(localStorage.getItem(failedKey) ?? "[]");
+          localStorage.setItem(failedKey, JSON.stringify([...prior, {event:visit,code:error.code,failed_at:new Date().toISOString()}]));
+          save(queue(key).filter(item => item.event_id !== visit.event_id), key); failed++;
+        } else throw error;
+      }
     }
-    status.value = "Semua kunjungan tersinkronisasi";
+    status.value = failed ? `${failed} kunjungan memerlukan rekonsiliasi; kunjungan lain disinkronisasi.` : "Semua kunjungan tersinkronisasi";
     await loadDailySummary();
   };
   syncing = Promise.resolve(navigator.locks ? navigator.locks.request(queueKey(), work) : work()).then(() => undefined).finally(() => { syncing = null; });
@@ -116,7 +126,8 @@ async function processVisit(uid: string, isFromCamera: boolean = false) {
   const visit: Visit = { event_id: crypto.randomUUID(), card_uid: uid, occurred_at: new Date().toISOString(), local_sequence: Date.now(), metadata: { terminal: "library-pwa" } };
   
   // 1. FAST PATH (Optimistic UI)
-  const cachedStr = localStorage.getItem(cacheKey);
+  let cachedStr = localStorage.getItem(cacheKey);
+  if (cachedStr) { try { const entry = JSON.parse(cachedStr); if (!entry.cached_at || Date.now()-entry.cached_at>86400000) { localStorage.removeItem(cacheKey); cachedStr=null; } } catch { localStorage.removeItem(cacheKey); cachedStr=null; } }
   if (cachedStr) {
     try {
       const cached = JSON.parse(cachedStr);
@@ -141,7 +152,7 @@ async function processVisit(uid: string, isFromCamera: boolean = false) {
       const avatarEl = document.getElementById("student-avatar");
       if (avatarEl) {
         if (cached.photo_url) {
-          avatarEl.innerHTML = `<div style="width:100%;height:100%;background-image:url('${cached.photo_url}');background-size:cover;background-position:center;"></div>`;
+          renderPortrait(avatarEl, cached.photo_url);
         } else {
           avatarEl.innerHTML = `<div class="avatar-fallback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke-linecap="round"/><circle cx="12" cy="7" r="4"/></svg></div>`;
         }
@@ -189,7 +200,7 @@ async function processVisit(uid: string, isFromCamera: boolean = false) {
       localStorage.setItem(cacheKey, JSON.stringify({
         student_name: result.student_name,
         class_name: result.class_name,
-        photo_url: result.photo_url
+        cached_at: Date.now()
       }));
     } catch (e) {}
     
@@ -205,7 +216,7 @@ async function processVisit(uid: string, isFromCamera: boolean = false) {
     const avatarEl = document.getElementById("student-avatar");
     if (avatarEl) {
       if (result.photo_url) {
-        avatarEl.innerHTML = `<div style="width:100%;height:100%;background-image:url('${result.photo_url}');background-size:cover;background-position:center;"></div>`;
+        renderPortrait(avatarEl, result.photo_url);
       } else {
         avatarEl.innerHTML = `<div class="avatar-fallback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke-linecap="round"/><circle cx="12" cy="7" r="4"/></svg></div>`;
       }

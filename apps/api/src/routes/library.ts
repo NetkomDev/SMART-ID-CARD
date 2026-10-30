@@ -31,18 +31,9 @@ libraryDeviceRouter.post("/visits/sync", validate({ body: libraryVisitBatchSchem
 
 export const libraryRouter = Router();
 libraryRouter.get("/summary", requirePermission("library.read"), validate({ query: librarySummaryQuerySchema }), asyncHandler(async (req, res) => {
-  let query = req.auth!.client.from("library_visits").select("class_id,classes(name)").eq("school_id", req.tenant!.schoolId);
-  if (req.query.occurred_from) query = query.gte("occurred_at", String(req.query.occurred_from));
-  if (req.query.occurred_to) query = query.lte("occurred_at", String(req.query.occurred_to));
-  const { data, error } = await query;
+  const { data, error } = await req.auth!.client.rpc("report_library_summary", { p_school: req.tenant!.schoolId, p_from: req.query.occurred_from ?? null, p_to: req.query.occurred_to ?? null });
   if (error) throw fromDatabaseError(error);
-  const groups = new Map<string, { class_id: string | null; class_name: string; total: number }>();
-  for (const row of data ?? []) {
-    const key = row.class_id ?? "unassigned"; const relation = Array.isArray(row.classes) ? row.classes[0] : row.classes;
-    const current = groups.get(key) ?? { class_id: row.class_id, class_name: relation?.name ?? "Tanpa kelas", total: 0 };
-    current.total++; groups.set(key, current);
-  }
-  sendData(res, [...groups.values()].sort((a, b) => b.total - a.total));
+  sendData(res, data);
 }));
 
 // Staff PWA uses its own user-scoped permission; device routes remain unchanged.

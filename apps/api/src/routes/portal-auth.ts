@@ -52,6 +52,7 @@ portalAuthRouter.post("/generate", requireAuth, validate({ body: qrGenerateSchem
 }));
 
 portalAuthRouter.post("/login", validate({ body: qrLoginSchema }), asyncHandler(async (req, res) => {
+  if (req.body.role_code === "PARENT") throw new ApiError(403, "FORBIDDEN", "Masuk dengan akun orang tua dan undangan anak dari sekolah.");
   const admin = service();
   const hash = createHash("sha256").update(req.body.token).digest("hex");
   const { data: entry, error } = await admin.from("qr_access_tokens")

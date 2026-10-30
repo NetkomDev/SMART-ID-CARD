@@ -5,6 +5,7 @@ import express from "express";
 import { rateLimit } from "express-rate-limit";
 import helmet from "helmet";
 import pinoHttp from "pino-http";
+import { databaseRateStore } from "./lib/rate-store.js";
 import { config } from "./config.js";
 import { ApiError } from "./lib/errors.js";
 import { logger } from "./lib/logger.js";
@@ -32,7 +33,6 @@ import { dashboardRouter } from "./routes/dashboard.js";
 import { cardWriterDeviceRouter, cardWriterRouter } from "./routes/card-writer.js";
 import { reportingRouter } from "./routes/reporting.js";
 import { monitoringRouter } from "./routes/monitoring.js";
-import { auditTrail } from "./middleware/audit.js";
 import { collectMetrics } from "./middleware/metrics.js";
 
 /**
@@ -42,6 +42,8 @@ import { collectMetrics } from "./middleware/metrics.js";
 export function createApp() {
   const app = express();
   app.disable("x-powered-by");
+  if (config.TRUST_PROXY_CIDRS) app.set("trust proxy", config.TRUST_PROXY_CIDRS.split(",").map(v => v.trim()));
+  if (config.NODE_ENV === "production" && config.RATE_LIMIT_BACKEND !== "database") throw new Error("Production requires RATE_LIMIT_BACKEND=database");
   app.use(helmet());
   app.use(compression());
   app.use(cors({ origin: config.corsOrigins, credentials: true }));
@@ -53,8 +55,9 @@ export function createApp() {
     res.setHeader("x-request-id", req.requestId);
     next();
   });
-  app.use(pinoHttp({ logger, genReqId: (req) => req.headers["x-request-id"] as string }));
+  app.use(pinoHttp({ logger, serializers: { req: (req) => ({ id: req.id, method: req.method, path: req.url?.split("?")[0] }) }, genReqId: (req) => req.headers["x-request-id"] as string }));
   app.use(rateLimit({
+    ...(config.RATE_LIMIT_BACKEND === "database" ? { store: databaseRateStore() } : {}),
     windowMs: config.RATE_LIMIT_WINDOW_MS,
     limit: config.RATE_LIMIT_MAX,
     standardHeaders: "draft-8",
@@ -84,7 +87,6 @@ export function createApp() {
 
   // Shared human authentication + tenant context for Phase 03-04 resources.
   app.use("/api/v1", requireAuth, requireTenant);
-  app.use("/api/v1", auditTrail);
 
   // Phase 03 core tenant resources.
   app.use("/api/v1/schools", schoolsRouter);

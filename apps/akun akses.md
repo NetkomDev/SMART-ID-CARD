@@ -1,42 +1,5 @@
-# 🔑 Akun Login Demo AKSIS.CO.ID
+# Pengelolaan akun akses
 
-Dokumentasi ini berisi daftar akun login resmi untuk platform AKSIS.CO.ID.
+Kredensial tidak disimpan dalam repository. Gunakan penyimpanan secret organisasi dan pemulihan email untuk satu akun yang telah diverifikasi.
 
----
-
-### 👑 Super Admin Platform
-* **Email:** `superadmin@aksis.co.id`
-* **Password:** `password123`
-* **Peran:** Platform Super Admin
-* **Akses:** Seluruh Perizinan (All System Permissions, Multi-School Switcher & IAM Management)
-
----
-
-### 🏫 Administrator Sekolah — Tingkat SD
-* **Sekolah:** SD Negeri 1 Watampone (`SDN1WTP`)
-* **Email:** `admin.sdn1wtp@aksis.co.id`
-* **Password:** `password123`
-* **Nama Admin:** Siti Nurhaliza, S.Pd.
-* **Akses:** Admin Operasional Sekolah (Tingkat SD)
-
----
-
-### 🏫 Administrator Sekolah — Tingkat SMP
-* **Sekolah:** SMP Negeri 1 Watampone (`SMPN1WTP`)
-* **Email:** `admin.smpn1wtp@aksis.co.id`
-* **Password:** `password123`
-* **Nama Admin:** Budi Santoso, M.Pd.
-* **Akses:** Admin Operasional Sekolah (Tingkat SMP)
-
----
-
-### 🏫 Administrator Sekolah — Tingkat SMA
-* **Sekolah:** SMA Negeri 1 Watampone (`SMAN1WTP`)
-* **Email:** `admin.sman1wtp@aksis.co.id`
-* **Password:** `password123`
-* **Nama Admin:** Andi Akbar, S.T.
-* **Akses:** Admin Operasional Sekolah (Tingkat SMA)
-
----
-
-> ℹ️ **Catatan:** Password standar untuk seluruh akun demo adalah `password123`.
+Berkas ini sebelumnya memuat petunjuk akun/password. Validitas akun lama belum diuji. Pengelola harus meninjau dan merotasi kredensial yang masih aktif, mencabut sesi terkait, serta menilai pembersihan riwayat Git. Penggantian dokumen ini tidak menghapus nilai dari commit lama.

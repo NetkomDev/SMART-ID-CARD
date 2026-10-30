@@ -1,5 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { Router } from "express";
+import { z } from "zod";
+import sharp from "sharp";
 import { ApiError, fromDatabaseError } from "../lib/errors.js";
 import { sendData } from "../lib/responses.js";
 import { asyncHandler } from "../middleware/async-handler.js";
@@ -8,9 +10,26 @@ import { requirePermission, requireTenant } from "../middleware/tenant.js";
 import { validate } from "../middleware/validate.js";
 import { idParamsSchema } from "../schemas/common.js";
 import { claimParentLinkSchema, claimParentPermitSchema, createParentTokenSchema } from "../schemas/parent.js";
-import { processStudentPhotoWorker } from "../services/photo-processor.js";
+import { parentSessionRouter, parentCookieAuth } from "./parent-session.js";
+import { processStudentPhotoWorker, dataUrlToBuffer } from "../services/photo-processor.js";
 
 const router = Router();
+router.use("/session", parentSessionRouter);
+router.use(parentCookieAuth);
+
+router.post("/attachments", requireAuth, asyncHandler(async (req, res) => {
+  const parsed = z.object({ student_id: z.uuid(), photo_data: z.string().max(3_000_000) }).strict().safeParse(req.body);
+  if (!parsed.success) throw new ApiError(422, "VALIDATION_ERROR", "Lampiran JPEG/PNG maksimal 2 MiB diperlukan.");
+  const { data: allowed, error: accessError } = await req.auth!.client.rpc("can_access_parent_child", { p_student_id: parsed.data.student_id });
+  if (accessError) throw fromDatabaseError(accessError);
+  if (!allowed) throw new ApiError(403, "FORBIDDEN", "Hubungan anak tidak valid.");
+  let jpeg: Buffer;
+  try { jpeg = await sharp(dataUrlToBuffer(parsed.data.photo_data), {limitInputPixels:20_000_000}).rotate().resize({width:2000,height:2000,fit:"inside",withoutEnlargement:true}).jpeg({quality:90}).toBuffer(); }
+  catch { throw new ApiError(422, "VALIDATION_ERROR", "Lampiran tidak dapat dibaca."); }
+  const { data, error } = await req.auth!.client.rpc("store_parent_permit_attachment", { p_student_id: parsed.data.student_id, p_jpeg: `data:image/jpeg;base64,${jpeg.toString("base64")}` });
+  if (error) throw fromDatabaseError(error);
+  sendData(res, { reference: `attachment:${data}` }, 201);
+}));
 
 router.post("/permits", requireAuth, validate({ body: claimParentPermitSchema }), asyncHandler(async (req, res) => {
   const { student_id, permit_date, reason, notes, attachment_url } = req.body as {
@@ -34,26 +53,10 @@ router.post("/permits", requireAuth, validate({ body: claimParentPermitSchema })
 }));
 
 router.post("/link", requireAuth, validate({ body: claimParentLinkSchema }), asyncHandler(async (req, res) => {
-  let { nisn, dob, full_name } = req.body as { nisn: string; dob: string; full_name?: string };
-  
-  let formattedDob = dob.trim();
-  if (/^\d{1,2}[\/-]\d{1,2}[\/-]\d{4}$/.test(formattedDob)) {
-    const [d, m, y] = formattedDob.split(/[\/-]/);
-    formattedDob = `${y}-${m!.padStart(2, "0")}-${d!.padStart(2, "0")}`;
-  }
-
-  const deviceId = req.headers["x-device-id"] as string;
-  if (!deviceId) throw new ApiError(400, "VALIDATION_ERROR", "Missing X-Device-Id header");
-
-  const { data, error } = await req.auth!.client.rpc("link_student_to_parent_portal", {
-    p_nisn: nisn.trim(),
-    p_dob: formattedDob,
-    p_parent_name: (full_name ?? "").trim(),
-    p_device_id: deviceId
-  });
-
+  const { data, error } = await req.auth!.client.rpc("claim_parent_invitation", { p_token: req.body.token });
   if (error) throw fromDatabaseError(error);
-  sendData(res, { link_id: data?.student_id || data?.id }, 201);
+  if (!data?.accepted) throw new ApiError(data?.code === "RATE_LIMITED" ? 429 : 422, data?.code === "RATE_LIMITED" ? "RATE_LIMITED" : "PARENT_LINK_INVALID", "Undangan tidak valid, kedaluwarsa, atau batas percobaan tercapai.");
+  sendData(res, data, 201);
 }));
 
 router.get("/profile", requireAuth, asyncHandler(async (req, res) => {
@@ -67,19 +70,15 @@ router.get("/profile", requireAuth, asyncHandler(async (req, res) => {
 }));
 
 router.get("/children", requireAuth, asyncHandler(async (req, res) => {
-  const deviceId = req.headers["x-device-id"] as string;
-  if (!deviceId) throw new ApiError(400, "VALIDATION_ERROR", "Missing X-Device-Id header");
 
-  const { data, error } = await req.auth!.client.rpc("get_parent_children", { p_device_id: deviceId });
+  const { data, error } = await req.auth!.client.rpc("get_verified_parent_children");
   if (error) throw fromDatabaseError(error);
   sendData(res, data ?? []);
 }));
 
 router.get("/children/:id/today", requireAuth, validate({ params: idParamsSchema }), asyncHandler(async (req, res) => {
-  const deviceId = req.headers["x-device-id"] as string;
-  if (!deviceId) throw new ApiError(400, "VALIDATION_ERROR", "Missing X-Device-Id header");
 
-  const { data, error } = await req.auth!.client.rpc("get_parent_child_today", { target_student_id: req.params.id, p_device_id: deviceId });
+  const { data, error } = await req.auth!.client.rpc("get_verified_parent_child_today", { target_student_id: req.params.id });
   if (error?.code === "AP002") throw new ApiError(404, "CHILD_NOT_LINKED", "Child relationship was not found");
   if (error) throw fromDatabaseError(error);
   sendData(res, data);
@@ -90,6 +89,10 @@ router.post("/children/:id/photo", requireAuth, validate({ params: idParamsSchem
   if (!photo_url || typeof photo_url !== "string" || !photo_url.trim()) {
     throw new ApiError(400, "VALIDATION_ERROR", "Photo data is required");
   }
+
+  const { data: allowed, error: accessError } = await req.auth!.client.rpc("can_access_parent_child", { p_student_id: req.params.id });
+  if (accessError) throw fromDatabaseError(accessError);
+  if (!allowed) throw new ApiError(403, "FORBIDDEN", "Hubungan anak belum terverifikasi atau telah dicabut.");
 
   // Worker pipeline server-side: Photoroom (bg + relighting) / Clipdrop + sharp / foto asli
   const processed = await processStudentPhotoWorker(photo_url.trim());

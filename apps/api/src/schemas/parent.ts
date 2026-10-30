@@ -1,10 +1,6 @@
 import { z } from "zod";
 
-export const claimParentLinkSchema = z.object({
-  nisn: z.string().trim().min(1).max(50),
-  dob: z.string().trim().min(1).max(50),
-  full_name: z.string().trim().max(200).optional().default("")
-}).strict();
+export const claimParentLinkSchema = z.object({ token: z.string().min(40).max(128).regex(/^[A-Za-z0-9_-]+$/) }).strict();
 
 export const createParentTokenSchema = z.object({
   student_id: z.string().uuid(),

@@ -4,7 +4,7 @@
   "version": "0.3.0",
   "description": "AKSIS multi-school platform",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.12.0"
   },
   "scripts": {
     "dev": "tsx watch apps/api/src/server.ts",
@@ -18,7 +18,7 @@
     "dev:card-writer": "vite --config apps/card-writer/vite.config.ts",
     "dev:operations": "vite --config apps/operations-console/vite.config.ts",
     "build": "tsc -p apps/api/tsconfig.json",
-    "vercel-build": "npm run build:admin && npm run build:parent && npm run build:waste && npm run build:extracurricular && npm run build:library && mkdir -p dist && cp -r apps/admin-web/dist/* dist/ && mkdir -p dist/parent && cp -r apps/parent-pwa/dist/* dist/parent/ && mkdir -p dist/waste && cp -r apps/waste-pwa/dist/* dist/waste/ && mkdir -p dist/extracurricular && cp -r apps/extracurricular-pwa/dist/* dist/extracurricular/ && mkdir -p dist/library && cp -r apps/library-terminal/dist/* dist/library/",
+    "vercel-build": "npm run build:all && node tooling/package-sites.mjs",
     "build:admin": "vite build --config apps/admin-web/vite.config.ts",
     "build:parent": "vite build --config apps/parent-pwa/vite.config.ts",
     "build:waste": "vite build --config apps/waste-pwa/vite.config.ts",
@@ -41,7 +41,14 @@
     "test:browser:waste": "node tooling/test-waste-pwa.mjs",
     "test:db:waste": "bash tooling/test-waste-db.sh",
     "test:browser:parent": "node tooling/test-parent-pwa.mjs",
-    "test:db:parent:local": "bash tooling/test-parent-db-local.sh"
+    "test:db:parent:local": "bash tooling/test-parent-db-local.sh",
+    "typecheck:all": "node tooling/verify-apps.mjs typecheck",
+    "build:all": "node tooling/verify-apps.mjs build",
+    "test:db:all": "bash tooling/test-db-local.sh",
+    "verify": "npm run typecheck:all && npm test && npm run build:all",
+    "test:db:upgrade": "AKSIS_UPGRADE_FIXTURE=supabase/tests/legacy_upgrade_fixture.sql AKSIS_RESTORE_DRILL=1 bash tooling/test-db-local.sh supabase/tests/legacy_upgrade_assertions.sql",
+    "test:browser:remediation": "node tooling/test-remediation-browser.mjs",
+    "format:check": "prettier --check apps/api/src/routes/parent-session.ts apps/api/src/routes/password-recovery.ts apps/api/src/routes/reporting.ts apps/shared/parent-session.ts apps/shared/operator-session.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
@@ -56,8 +63,8 @@
     "pino": "^9.9.4",
     "pino-http": "^10.5.0",
     "qrcode": "^1.5.4",
-    "sharp": "^0.34.5",
-    "xlsx": "^0.18.5",
+    "sharp": "^0.35.5",
+    "xlsx": "file:vendor/xlsx-0.20.3.tgz",
     "zod": "^4.1.8"
   },
   "devDependencies": {
@@ -67,10 +74,12 @@
     "@types/qrcode": "^1.5.6",
     "@types/supertest": "^6.0.3",
     "@vitejs/plugin-basic-ssl": "^2.3.0",
+    "prettier": "^3.9.10",
+    "puppeteer-core": "^25.16.0",
     "supertest": "^7.1.4",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2",
     "vite": "^7.3.6",
-    "vitest": "^3.2.4"
+    "vitest": "^5.0.5"
   }
 }

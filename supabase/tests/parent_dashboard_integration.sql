@@ -40,77 +40,75 @@ select public.provision_portal_access('10000000-0000-4000-8000-000000000001','20
 select public.provision_portal_access('10000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000004',repeat('c',64),'portal-test-library@local','LIBRARY_STAFF','{}');
 select public.provision_portal_access('10000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000005',repeat('d',64),'portal-test-teacher@local','TEACHER','{}');
 
-
-insert into public.parent_student_links(school_id,parent_user_id,student_id,relationship,status,portal_session_id) values
- ('20000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000003','80000000-0000-4000-8000-000000000001','OTHER','ACTIVE','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+select set_config('request.jwt.claims','{"session_id":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"}',true);
+-- Shared QR account must never become a family principal, even knowing a child's ID.
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000003',true);
-select set_config('request.jwt.claims','{"session_id":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"}',true);
 set local role authenticated;
-select pg_temp.check_ok(public.get_parent_child_today('80000000-0000-4000-8000-000000000001')#>>'{attendance,status}'='BELUM_HADIR','empty attendance is honest');
-select pg_temp.check_ok(public.get_parent_child_today('80000000-0000-4000-8000-000000000001')#>>'{waste,total_points}'='0','no invented waste points');
-select pg_temp.check_ok(public.get_parent_child_today('80000000-0000-4000-8000-000000000001')#>>'{library,month_visits}'='0','no invented library visits');
-select pg_temp.check_ok(public.get_parent_child_today('80000000-0000-4000-8000-000000000001')#>>'{extracurricular,status}'='TIDAK_ADA','no invented activity');
+select pg_temp.check_ok(not public.can_access_parent_child('80000000-0000-4000-8000-000000000001'),'shared QR cannot access children');
+select pg_temp.check_ok((select count(*)=0 from public.parent_student_links),'shared QR cannot enumerate device/link IDs');
 do $$ begin
- perform public.get_parent_child_today('80000000-0000-4000-8000-000000000003');
- raise exception 'cross-school leak';
-exception when sqlstate 'AP002' then raise notice 'PASS: other school denied'; end $$;
-select set_config('request.jwt.claims','{"session_id":"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"}',true);
-select pg_temp.check_ok((select count(*)=0 from public.get_parent_children()),'shared QR sessions have isolated children');
-do $$ begin
- perform public.get_parent_child_today('80000000-0000-4000-8000-000000000001');
- raise exception 'cross-session leak';
-exception when sqlstate 'AP002' then raise notice 'PASS: other parent session denied'; end $$;
-select set_config('request.jwt.claims','{"session_id":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"}',true);
+ perform public.get_verified_parent_child_today('80000000-0000-4000-8000-000000000001'); raise exception 'FAIL shared QR';
+exception when insufficient_privilege then raise notice 'PASS shared QR denied'; end $$;
+select pg_temp.check_ok(not has_function_privilege('authenticated','public.get_parent_child_today(uuid,text)','execute'),'historical device RPC revoked');
+select pg_temp.check_ok(not has_function_privilege('authenticated','public.link_student_to_parent_portal(text,date,text,text)','execute'),'DOB linking RPC revoked');
 reset role;
-update public.schools set timezone='Asia/Makassar', waste_organic_points_per_kg=7.5 where id='20000000-0000-4000-8000-000000000001';
-insert into public.waste_transactions(event_id,school_id,class_id,student_id,staff_user_id,organic_kg,inorganic_kg,source) values
- (gen_random_uuid(),'20000000-0000-4000-8000-000000000001','70000000-0000-4000-8000-000000000001','80000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000002',2.4,0,'MANUAL');
-insert into public.extracurriculars(id,school_id,code,name) values
- ('90000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000001','BSK','Bola Basket');
-insert into public.extracurricular_members(school_id,extracurricular_id,student_id,enrolled_by,idempotency_key) values
- ('20000000-0000-4000-8000-000000000001','90000000-0000-4000-8000-000000000001','80000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001',gen_random_uuid());
-insert into public.extracurricular_sessions(id,school_id,extracurricular_id,name,starts_at,ends_at,created_by)
- select '90000000-0000-4000-8000-000000000002','20000000-0000-4000-8000-000000000001','90000000-0000-4000-8000-000000000001','Latihan',
- ((now() at time zone 'Asia/Makassar')::date + time '15:30') at time zone 'Asia/Makassar',
- ((now() at time zone 'Asia/Makassar')::date + time '17:00') at time zone 'Asia/Makassar','10000000-0000-4000-8000-000000000001';
-insert into public.extracurricular_attendance(school_id,extracurricular_id,session_id,student_id,status,recorded_by,created_at) values
- ('20000000-0000-4000-8000-000000000001','90000000-0000-4000-8000-000000000001','90000000-0000-4000-8000-000000000002','80000000-0000-4000-8000-000000000001','EXCUSED','10000000-0000-4000-8000-000000000001',now()-interval '1 day');
+insert into auth.users(id,email,email_confirmed_at) values
+ ('10000000-0000-4000-8000-000000000006','parent-a@example.test',now()),
+ ('10000000-0000-4000-8000-000000000007','parent-b@example.test',now());
+insert into public.users(id,full_name) values ('10000000-0000-4000-8000-000000000006','Parent A'),('10000000-0000-4000-8000-000000000007','Parent B');
+insert into public.parent_link_tokens(school_id,student_id,token_hash,relationship,expires_at) values
+ ('20000000-0000-4000-8000-000000000001','80000000-0000-4000-8000-000000000001',encode(digest(repeat('i',43),'sha256'),'hex'),'MOTHER',now()+interval '1 day'),
+ ('20000000-0000-4000-8000-000000000001','80000000-0000-4000-8000-000000000002',encode(digest(repeat('j',43),'sha256'),'hex'),'FATHER',now()+interval '1 day');
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000006',true);
 set local role authenticated;
-select pg_temp.check_ok(public.get_parent_child_today('80000000-0000-4000-8000-000000000001')#>>'{waste,total_points}'='18.00','database points, no inferred conversion');
-select pg_temp.check_ok(public.get_parent_child_today('80000000-0000-4000-8000-000000000001')#>>'{extracurricular,status}'='IZIN','excused is not present; session date drives summary');
-select pg_temp.check_ok(public.get_parent_child_today('80000000-0000-4000-8000-000000000001')#>>'{extracurricular,schedule}'='15.30 – 17.00','real school-local schedule');
-reset role;
-update public.extracurricular_sessions set status='CANCELLED' where id='90000000-0000-4000-8000-000000000002';
-select pg_temp.check_ok(public.get_parent_child_today('80000000-0000-4000-8000-000000000001')#>>'{extracurricular,status}'='TIDAK_ADA','cancelled sessions excluded');
--- Gate times and day/month boundaries must use the school's timezone, not server UTC.
-insert into public.devices(id,school_id,device_code,device_type,name) values
- ('90000000-0000-4000-8000-000000000003','20000000-0000-4000-8000-000000000001','TEST-GATE','GATE','Test gate');
-insert into public.attendance_logs(event_id,school_id,device_id,student_id,card_id,direction,source,occurred_at_local,local_sequence)
- select gen_random_uuid(),c.school_id,'90000000-0000-4000-8000-000000000003',c.student_id,c.id,'CHECK_IN','REALTIME',
- ((now() at time zone 'Asia/Makassar')::date + t.local_time) at time zone 'Asia/Makassar',t.seq
- from public.student_cards c cross join (values(time '06:54',1),(time '09:00',2)) t(local_time,seq)
- where c.card_uid='PORTAL-CARD-1';
-insert into public.library_visits(event_id,school_id,device_id,student_id,occurred_at,local_sequence,source)
- select gen_random_uuid(),'20000000-0000-4000-8000-000000000001','90000000-0000-4000-8000-000000000003','80000000-0000-4000-8000-000000000001',
- ((now() at time zone 'Asia/Makassar')::date + time '00:01') at time zone 'Asia/Makassar',1,'REALTIME';
-insert into public.library_visits(event_id,school_id,device_id,student_id,occurred_at,local_sequence,source)
- select gen_random_uuid(),'20000000-0000-4000-8000-000000000001','90000000-0000-4000-8000-000000000003','80000000-0000-4000-8000-000000000001',
- (date_trunc('month',now() at time zone 'Asia/Makassar')-interval '1 minute') at time zone 'Asia/Makassar',2,'REALTIME';
-set local role authenticated;
-select pg_temp.check_ok(public.get_parent_child_today('80000000-0000-4000-8000-000000000001')#>>'{attendance,check_in}'='06.54','first arrival displayed in school timezone');
-select pg_temp.check_ok(public.get_parent_child_today('80000000-0000-4000-8000-000000000001')#>>'{library,today_visits}'='1','visit after local midnight belongs to today');
-select pg_temp.check_ok(public.get_parent_child_today('80000000-0000-4000-8000-000000000001')#>>'{library,month_visits}'='1','previous month excluded');
-reset role;
-update public.students set is_active=false where id='80000000-0000-4000-8000-000000000001';
+select public.ensure_parent_profile('Parent A');
+select pg_temp.check_ok((public.claim_parent_invitation(repeat('i',43))->>'accepted')::boolean,'individual claims single-use invitation');
+select pg_temp.check_ok(not (public.claim_parent_invitation(repeat('i',43))->>'accepted')::boolean,'invitation replay rejected');
+select pg_temp.check_ok((select count(*)=1 from public.get_verified_parent_children()),'one verified child');
+select pg_temp.check_ok(public.get_verified_parent_child_today('80000000-0000-4000-8000-000000000001')#>>'{attendance,status}'='BELUM_HADIR','honest empty attendance');
+select pg_temp.check_ok(public.get_verified_parent_child_today('80000000-0000-4000-8000-000000000001')#>>'{waste,total_points}'='0','honest empty points');
+select pg_temp.check_ok(public.get_verified_parent_child_today('80000000-0000-4000-8000-000000000001')#>>'{library,month_visits}'='0','honest empty library');
+select pg_temp.check_ok(public.get_verified_parent_child_today('80000000-0000-4000-8000-000000000001')->>'contract_version'='2','versioned rich contract');
 do $$ begin
- perform public.get_parent_child_today('80000000-0000-4000-8000-000000000001');
- raise exception 'inactive student leak';
-exception when sqlstate 'AP002' then raise notice 'PASS: inactive student denied'; end $$;
-update public.qr_access_tokens set revoked_at=now() where auth_user_id='10000000-0000-4000-8000-000000000003';
-set local role authenticated;
+ perform public.get_verified_parent_child_today('80000000-0000-4000-8000-000000000002'); raise exception 'FAIL cross family';
+exception when insufficient_privilege then raise notice 'PASS cross-family read denied'; end $$;
 do $$ begin
- perform public.get_parent_child_today('80000000-0000-4000-8000-000000000001');
- raise exception 'revoked QR leak';
-exception when insufficient_privilege then raise notice 'PASS: revoked portal denied'; end $$;
+ perform public.update_student_photo_by_parent('80000000-0000-4000-8000-000000000002','data:image/jpeg;base64,/9j/'); raise exception 'FAIL cross family photo';
+exception when insufficient_privilege then raise notice 'PASS cross-family photo denied'; end $$;
+do $$ begin
+ perform public.update_student_photo_by_parent('80000000-0000-4000-8000-000000000001','bad<img>'); raise exception 'FAIL invalid photo';
+exception when invalid_parameter_value then raise notice 'PASS invalid photo denied'; end $$;
+do $$ begin
+ insert into public.student_absence_permits(school_id,student_id,parent_user_id,permit_date,reason) values('20000000-0000-4000-8000-000000000001','80000000-0000-4000-8000-000000000002',auth.uid(),current_date,'IZIN'); raise exception 'FAIL direct permit';
+exception when insufficient_privilege then raise notice 'PASS direct permit denied'; end $$;
+select pg_temp.check_ok((public.submit_student_absence_permit('80000000-0000-4000-8000-000000000001',(now() at time zone 'Asia/Jakarta')::date,'SAKIT','day one',null)->>'success')::boolean,'permit does not require dashboard permission');
+do $$ begin
+ perform public.submit_student_absence_permit('80000000-0000-4000-8000-000000000001',(now() at time zone 'Asia/Jakarta')::date+1,'SAKIT','day two',null); raise exception 'FAIL missing attachment';
+exception when invalid_parameter_value then raise notice 'PASS medical image required day two'; end $$;
+select pg_temp.check_ok(public.get_verified_parent_child_today('80000000-0000-4000-8000-000000000001')#>>'{attendance,status}'='SAKIT','permit integrated in summary');
+reset role;
+update public.schools set timezone='Asia/Makassar',waste_organic_points_per_kg=7.5 where id='20000000-0000-4000-8000-000000000001';
+insert into public.waste_transactions(event_id,school_id,class_id,student_id,staff_user_id,organic_kg,inorganic_kg,source) values(gen_random_uuid(),'20000000-0000-4000-8000-000000000001','70000000-0000-4000-8000-000000000001','80000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000002',2.4,0,'MANUAL');
+set local role authenticated;
+select pg_temp.check_ok((public.get_verified_parent_child_today('80000000-0000-4000-8000-000000000001')#>>'{waste,total_points}')::numeric=18,'real waste points in rich contract');
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000007',true);
+select public.ensure_parent_profile('Parent B');
+select pg_temp.check_ok((public.claim_parent_invitation(repeat('j',43))->>'accepted')::boolean,'second family claims own child');
+select pg_temp.check_ok((select count(*)=1 from public.parent_student_links),'RLS only own verified link');
+select pg_temp.check_ok(not public.can_access_parent_child('80000000-0000-4000-8000-000000000001'),'same school different family denied');
+select pg_temp.check_ok(not (public.claim_parent_invitation('invalid1')->>'accepted')::boolean,'invalid claim fails');
+select public.claim_parent_invitation('invalid2'); select public.claim_parent_invitation('invalid3'); select public.claim_parent_invitation('invalid4'); select public.claim_parent_invitation('invalid5');
+select pg_temp.check_ok(public.claim_parent_invitation('invalid6')->>'code'='RATE_LIMITED','database claim limiter persists failures');
+reset role;
+update public.parent_student_links set status='REVOKED',revoked_at=now() where parent_user_id='10000000-0000-4000-8000-000000000007';
+set local role authenticated;
+select pg_temp.check_ok(not public.can_access_parent_child('80000000-0000-4000-8000-000000000002'),'revocation effective with same JWT');
+reset role;
+select pg_temp.check_ok((select count(*)>0 from public.audit_logs where action='parent.link.claimed'),'claim audit persists in transaction');
+select pg_temp.check_ok((select count(*)>0 from public.audit_logs where action='parent.permit.submitted'),'permit audit persists');
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000006',true);
+set local role authenticated;
+select public.revoke_current_parent_session();
+select pg_temp.check_ok(not public.can_access_parent_child('80000000-0000-4000-8000-000000000001'),'logged-out JWT cannot replay family access');
 reset role;
 rollback;
