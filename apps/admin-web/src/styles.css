@@ -76,8 +76,11 @@ input:focus { border-color: var(--lime); box-shadow: 0 0 0 3px rgba(223, 242, 12
 .button:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.05); }
 .button:active:not(:disabled) { transform: translateY(1px); }
 .button.primary { color: var(--primary-btn-text); background: var(--primary-btn-bg); box-shadow: 0 8px 18px rgba(0, 0, 0, 0.1); }
-.button.primary:hover:not(:disabled) { box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15); }
 .button.secondary { color: var(--secondary-btn-text); background: var(--secondary-btn-bg); }
+.button.warning { color: #ffffff; background: #d97706; }
+.button.warning:hover:not(:disabled) { background: #b45309; box-shadow: 0 4px 12px rgba(217, 119, 6, 0.25); }
+.button.danger { color: #ffffff; background: #dc2626; }
+.button.danger:hover:not(:disabled) { background: #b91c1c; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.25); }
 .button.wide { width: 100%; padding: 1rem; justify-content: space-between; }
 .button:disabled { opacity: .6; cursor: wait; transform: none !important; }
 .login-form small { color: var(--muted); line-height: 1.5; }

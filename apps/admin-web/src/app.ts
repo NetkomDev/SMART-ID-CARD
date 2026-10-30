@@ -7,6 +7,7 @@ import type { AcademicYear, Attendance, AuthContext, Card, Device, Extracurricul
 import { renderLandingPage } from "./landing";
 import { toast, toastSuccess, toastError } from "./lib/toast";
 import { optimistic, removeRowOptimistic } from "./lib/optimistic";
+import { confirmModal } from "./lib/confirm-modal";
 import * as XLSX from "xlsx";
 
 const savedTheme = localStorage.getItem("aksis-theme") || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
@@ -2658,19 +2659,45 @@ async function pwaPortalsPage() {
       const container = document.getElementById("portal-access-list"); if (!container) return;
       try {
         const result = await api<Array<{ id: string; role_code: string; metadata: { class_id?: string; student_id?: string }; created_at: string; revoked_at: string | null }>>(`/auth/qr?school_id=${schoolId}`);
-        container.innerHTML = result.data.length ? `<div class="table-wrap"><table><thead><tr><th>Portal</th><th>Lingkup</th><th>Dibuat</th><th>Status</th><th></th></tr></thead><tbody>${result.data.map(q => {
+        container.innerHTML = result.data.length ? `<div class="table-wrap"><table><thead><tr><th>Portal</th><th>Lingkup</th><th>Dibuat</th><th>Status</th><th>Aksi</th></tr></thead><tbody>${result.data.map(q => {
           const scope = classes.find(c => c.id === q.metadata?.class_id)?.name ?? students.find(s => s.id === q.metadata?.student_id)?.full_name ?? state.school!.name;
+          const portalName = definitions.find(d => d.role === q.role_code)?.name ?? q.role_code;
           const statusBadge = q.revoked_at ? `<span class="status neutral">Nonaktif</span>` : `<span class="status success">● Aktif</span>`;
-          return `<tr><td><strong>${escapeHtml(definitions.find(d => d.role === q.role_code)?.name ?? q.role_code)}</strong></td><td>${escapeHtml(scope)}</td><td>${escapeHtml(new Date(q.created_at).toLocaleDateString("id-ID"))}</td><td>${statusBadge}</td><td>${q.revoked_at ? "" : `<button class="button secondary" data-revoke="${q.id}">Nonaktifkan</button>`}<button class="button danger" style="margin-left: 8px;" data-hard-delete="${q.id}">Hapus</button></td></tr>`;
+          return `<tr data-row-id="${q.id}"><td><strong>${escapeHtml(portalName)}</strong></td><td>${escapeHtml(scope)}</td><td>${escapeHtml(new Date(q.created_at).toLocaleDateString("id-ID"))}</td><td class="portal-status-cell">${statusBadge}</td><td>${q.revoked_at ? "" : `<button class="button secondary" data-revoke="${q.id}" data-portal="${escapeHtml(portalName)}" data-scope="${escapeHtml(scope)}">Nonaktifkan</button>`}<button class="button danger" style="margin-left: 8px;" data-hard-delete="${q.id}" data-portal="${escapeHtml(portalName)}" data-scope="${escapeHtml(scope)}">Hapus</button></td></tr>`;
         }).join("")}</tbody></table></div>` : `<p>Belum ada QR diterbitkan untuk sekolah ini.</p>`;
         container.querySelectorAll<HTMLButtonElement>("[data-revoke]").forEach(button => {
           button.onclick = async () => {
+            const portal = button.dataset.portal || "Portal";
+            const scope = button.dataset.scope || "Sekolah";
+            const confirmed = await confirmModal({
+              title: "Konfirmasi Nonaktifkan Akses",
+              message: `Apakah Anda yakin ingin menonaktifkan akses ${portal} untuk "${scope}"? Pengguna yang memegang QR ini tidak akan dapat login kembali.`,
+              confirmLabel: "Ya, Nonaktifkan",
+              cancelLabel: "Batal",
+              variant: "warning"
+            });
+            if (!confirmed) return;
+
             const row = button.closest("tr");
-            const reinsert = row ? removeRowOptimistic(row as HTMLTableRowElement) : () => {};
+            const statusCell = row?.querySelector<HTMLElement>(".portal-status-cell");
+            const prevStatusHtml = statusCell?.innerHTML ?? "";
+
             await optimistic({
-              apply: () => { button.disabled = true; },
+              apply: () => {
+                button.disabled = true;
+                if (statusCell) {
+                  statusCell.innerHTML = `<span class="status neutral">Nonaktif</span>`;
+                }
+                button.style.display = "none";
+              },
               mutation: () => api(`/auth/qr/${button.dataset.revoke}`, { method: "DELETE" }),
-              rollback: () => { reinsert(); button.disabled = false; },
+              rollback: () => {
+                if (statusCell && prevStatusHtml) {
+                  statusCell.innerHTML = prevStatusHtml;
+                }
+                button.style.display = "";
+                button.disabled = false;
+              },
               revalidate: () => loadAccess(),
               successMessage: "Akses portal berhasil dinonaktifkan.",
               errorPrefix: "Gagal menonaktifkan akses"
@@ -2679,7 +2706,17 @@ async function pwaPortalsPage() {
         });
         container.querySelectorAll<HTMLButtonElement>("[data-hard-delete]").forEach(button => {
           button.onclick = async () => {
-            if (!confirm("Apakah Anda yakin ingin menghapus akses ini secara permanen? Data yang berkaitan dengan sesi ini akan ikut terhapus.")) return;
+            const portal = button.dataset.portal || "Portal";
+            const scope = button.dataset.scope || "Sekolah";
+            const confirmed = await confirmModal({
+              title: "Hapus Akses Portal Permanen",
+              message: `Akses ${portal} untuk "${scope}" akan dihapus secara permanen beserta sesi yang terhubung. Tindakan ini tidak dapat dibatalkan. Apakah Anda yakin?`,
+              confirmLabel: "Ya, Hapus Permanen",
+              cancelLabel: "Batal",
+              variant: "danger"
+            });
+            if (!confirmed) return;
+
             const row = button.closest("tr");
             const reinsert = row ? removeRowOptimistic(row as HTMLTableRowElement) : () => {};
             await optimistic({
