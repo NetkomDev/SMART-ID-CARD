@@ -1,0 +1,25 @@
+{
+  "result": "PASS",
+  "base": "https://www.aksis.co.id/attendance/",
+  "method": "Real eSpeak Indonesian worker, real QR decoder, cached assets, Chromium fake QR MediaStream and offline reload; API fixtures",
+  "cases": [
+    "Indonesian engine and voice data precached",
+    "offline page reload",
+    "offline real QR scan speaks locally cached student name",
+    "nonzero generated PCM plays through Web Audio",
+    "rapid names queued in order",
+    "voice mute prevents synthesis and persists across offline reload"
+  ],
+  "buffers": [
+    {
+      "frames": 32566,
+      "peak": 0.68377685546875,
+      "at": 0.9984580498866213
+    },
+    {
+      "frames": 24302,
+      "peak": 0.667327880859375,
+      "at": 2.555374149659864
+    }
+  ]
+}

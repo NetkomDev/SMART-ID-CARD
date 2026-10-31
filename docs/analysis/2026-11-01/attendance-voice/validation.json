@@ -1,0 +1,54 @@
+{
+  "result": "PASS",
+  "offline_engine": "eSpeak NG 1.49.1 Indonesian; Web Worker + Web Audio",
+  "unit": {
+    "tests": 12,
+    "files": 2
+  },
+  "typecheck": "attendance PWA PASS",
+  "attendance_regression": "PASS",
+  "browser": {
+    "result": "PASS",
+    "base": "http://127.0.0.1:59592/attendance/",
+    "method": "Real eSpeak Indonesian worker, real QR decoder, cached assets, Chromium fake QR MediaStream and offline reload; API fixtures",
+    "cases": [
+      "Indonesian engine and voice data precached",
+      "offline page reload",
+      "offline real QR scan speaks locally cached student name",
+      "nonzero generated PCM plays through Web Audio",
+      "rapid names queued in order",
+      "voice mute prevents synthesis"
+    ],
+    "buffers": [
+      {
+        "frames": 32566,
+        "peak": 0.68377685546875,
+        "at": 0.7604535147392291
+      },
+      {
+        "frames": 24302,
+        "peak": 0.667327880859375,
+        "at": 2.317369614512472
+      }
+    ]
+  },
+  "privacy": "Name synthesis local; no external text-to-speech API",
+  "hardware_limit": "Physical Android/iPhone not tested",
+  "production": {
+    "deployment_id": "dpl_D7bhMkGUcAtYtF2SvJCrnckLB3Ww",
+    "alias": "www.aksis.co.id",
+    "ready_state": "READY",
+    "browser": "PASS",
+    "browser_cases": [
+      "Indonesian engine and voice data precached",
+      "offline page reload",
+      "offline real QR scan speaks locally cached student name",
+      "nonzero generated PCM plays through Web Audio",
+      "rapid names queued in order",
+      "voice mute prevents synthesis and persists across offline reload"
+    ],
+    "offline_sound_nonzero": true,
+    "http_smoke": "PASS",
+    "platform_entrypoints": "PASS"
+  }
+}

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  newEventId,
   schoolTime,
   compliance,
   resolveStudent,
@@ -82,5 +83,28 @@ describe("mobile attendance day and identity", () => {
       "occurred_at",
       "scanner_name",
     ]);
+  });
+});
+
+describe("UUID support on older browsers", () => {
+  it("creates valid distinct UUIDs without randomUUID", () => {
+    const original = crypto.randomUUID;
+    Object.defineProperty(crypto, "randomUUID", {
+      configurable: true,
+      value: undefined,
+    });
+    try {
+      const first = newEventId(),
+        second = newEventId();
+      expect(first).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+      );
+      expect(second).not.toBe(first);
+    } finally {
+      Object.defineProperty(crypto, "randomUUID", {
+        configurable: true,
+        value: original,
+      });
+    }
   });
 });

@@ -44,6 +44,7 @@
         </div>
       </div>
       <p id="offline-status" class="offline-status" role="status">Persiapan data offline...</p>
+      <button id="btn-refresh-data" type="button" class="refresh-data" aria-label="Perbarui data siswa" title="Perbarui data siswa">↻</button>
     </nav>
 
     <!-- VIEW ERROR / ACCESS DENIED -->
@@ -143,6 +144,15 @@
         </div>
       </form>
 
+      <!-- Suara Nama Siswa (Di bawah input NISN) -->
+      <section class="voice-panel" aria-label="Suara nama siswa">
+        <div class="voice-panel-heading"><strong>Suara nama siswa</strong><span id="voice-status" role="status" aria-live="polite">Menyiapkan suara…</span></div>
+        <div class="voice-panel-actions">
+          <button type="button" id="voice-toggle" aria-pressed="true">🔊 Suara aktif</button>
+          <button type="button" id="voice-test">Uji suara</button>
+        </div>
+      </section>
+
       <!-- Scan History List (Today's local scans) -->
       <div class="history-section">
         <div class="history-header">
@@ -221,9 +231,9 @@
       </div>
     </div>
 
-    <button id="btn-export" type="button" class="export-button">Ekspor antrean untuk pemeriksaan admin</button>
     <footer>
       <span>AKSIS · Presensi Multi-Scanner Guru Piket</span>
+      <a href="tts/NOTICE.txt">Lisensi suara</a>
     </footer>
   </main>
 

@@ -1,0 +1,117 @@
+{
+  "result": "PASS",
+  "base": "https://www.aksis.co.id",
+  "checked_at": "2026-10-31T18:17:24.416Z",
+  "checks": [
+    {
+      "path": "/attendance/assets/Header-PWA-Bfq5bZSw.svg",
+      "status": 200,
+      "sha256": "7f3f5f92562a8025b3b61cf11f738ea7a2b77d88dfefe6cd5aae74272b29a41e"
+    },
+    {
+      "path": "/attendance/assets/index-BaVQeB5N.css",
+      "status": 200,
+      "sha256": "d2694638efa5ef9d98a47466d3671f7a400e087244c2d81db4a11a1f5d89ff0a"
+    },
+    {
+      "path": "/attendance/assets/index-NIK7nDjt.js",
+      "status": 200,
+      "sha256": "3e9fb101ce5ee36fed9e4245d2d144552607c877372523beaa5218a0f71c0d32"
+    },
+    {
+      "path": "/attendance/assets/index-Dhrc4pdr.js",
+      "status": 200,
+      "sha256": "f01240ba1cc70299ee9278538ad42a30eec8c29d1228e1151b3ef4226c2cf98f"
+    },
+    {
+      "path": "/attendance/icon-192.png",
+      "status": 200,
+      "sha256": "a7d1643ea886a931bdaef2a6b13621093cbab0e4d81a2bc809ab44e05f36f3e5"
+    },
+    {
+      "path": "/attendance/icon-512.png",
+      "status": 200,
+      "sha256": "6182a0ff26cd394e41117838205b71e500862db3e40df2df9db66c0952c09c4e"
+    },
+    {
+      "path": "/attendance/apple-touch-icon.png",
+      "status": 200,
+      "sha256": "4dfd9ed4993892bf7205438f7ea4dfeaeaeb8b111f9ff7baf272101c40e58672"
+    },
+    {
+      "path": "/attendance/brand-mark.webp",
+      "status": 200,
+      "sha256": "03a43ee8000c88af41faafa375ca4f51a35e919921b1c8e7c32cfbfb0b784ef1"
+    },
+    {
+      "path": "/attendance/manifest.webmanifest",
+      "status": 200,
+      "sha256": "4bc3dce0c7c162133d4ed0351cb01e47052aaed1676bfc62b1dc477699651384"
+    },
+    {
+      "path": "/attendance/Header-PWA.svg",
+      "status": 200,
+      "sha256": "7f3f5f92562a8025b3b61cf11f738ea7a2b77d88dfefe6cd5aae74272b29a41e"
+    },
+    {
+      "path": "/attendance/tts/espeakng.worker.js",
+      "status": 200,
+      "sha256": "27dbae622e8dbd2b4f5def07208db1c557554148b83a99bacba37419031e2e2e"
+    },
+    {
+      "path": "/attendance/tts/espeakng.worker.data",
+      "status": 200,
+      "sha256": "a1a5de916d3f3d28babe3a0948d6eab84e793ae69e333974a918a69ddec32a67"
+    },
+    {
+      "path": "/attendance/tts/LICENSE.txt",
+      "status": 200,
+      "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
+    },
+    {
+      "path": "/attendance/tts/NOTICE.txt",
+      "status": 200,
+      "sha256": "502f3444c8e406cf9660fabef7797ff9193b2fc23cefca7d68dcece9b5276fe2"
+    },
+    {
+      "path": "/attendance/tts/espeak-ng-1.49.1-source.tar.gz",
+      "method": "HEAD",
+      "status": 200,
+      "content_type": "application/gzip",
+      "content_length": 9515727
+    },
+    {
+      "path": "/attendance",
+      "status": 200
+    },
+    {
+      "path": "/school-hours",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/attendance/bootstrap",
+      "method": "GET",
+      "status": 401,
+      "code": "AUTH_REQUIRED"
+    },
+    {
+      "path": "/api/v1/attendance/state",
+      "method": "GET",
+      "status": 401,
+      "code": "AUTH_REQUIRED"
+    },
+    {
+      "path": "/api/v1/attendance/rules",
+      "method": "GET",
+      "status": 401,
+      "code": "AUTH_REQUIRED"
+    },
+    {
+      "path": "/api/v1/attendance/pwa-sync",
+      "method": "POST",
+      "status": 401,
+      "code": "AUTH_REQUIRED"
+    }
+  ],
+  "limit": "Read-only production smoke. Authenticated business behavior verified by API fixtures and rollback SQL integration; no real school attendance written."
+}

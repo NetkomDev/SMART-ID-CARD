@@ -1,0 +1,67 @@
+{
+  "auth": {
+    "result": "PASS",
+    "sessions": 10,
+    "independent_refresh_tokens": 10,
+    "refreshed_and_valid": 10,
+    "temporary_user_removed": true
+  },
+  "database": {
+    "result": "PASS",
+    "local_postgres": "17",
+    "simultaneous_sessions": 10,
+    "audit_events": 10,
+    "official_arrivals": 1,
+    "earliest_time": "07:30"
+  },
+  "application": {
+    "typecheck": "PASS",
+    "tests_passed": 16,
+    "test_files": 3,
+    "browser": "PASS",
+    "browser_cases": [
+      "six responsive viewports",
+      "acknowledgement cannot delete new in-flight scans",
+      "offline reload from service worker",
+      "QR decoder available offline",
+      "offline card aliases deduplicate",
+      "same UUIDs preserved during retry",
+      "partial acknowledgement retains and retries missing event",
+      "cached scanner opens while network validation is stalled",
+      "automatic interval retry without export button",
+      "late reason required",
+      "early departure reason required",
+      "portal change locks old page and preserves scoped queue",
+      "Sunday and before-start attendance remain available"
+    ],
+    "viewports": 6
+  },
+  "limitations": [
+    "QR login flow inferred from source and verified via 10 Auth sessions, not 10 physical phones",
+    "Production Auth test used an isolated account and no school transaction",
+    "Background sync requires the application to be running or later reopened"
+  ],
+  "production": {
+    "deployment_id": "dpl_HJDZgLsRvC2kwqKGvHZM7X9AphjB",
+    "alias": "www.aksis.co.id",
+    "ready_state": "READY",
+    "browser": "PASS",
+    "browser_cases": [
+      "six responsive viewports",
+      "acknowledgement cannot delete new in-flight scans",
+      "offline reload from service worker",
+      "QR decoder available offline",
+      "offline card aliases deduplicate",
+      "same UUIDs preserved during retry",
+      "partial acknowledgement retains and retries missing event",
+      "cached scanner opens while network validation is stalled",
+      "automatic interval retry without export button",
+      "late reason required",
+      "early departure reason required",
+      "portal change locks old page and preserves scoped queue",
+      "Sunday and before-start attendance remain available"
+    ],
+    "http_smoke": "PASS",
+    "platform_entrypoints": "PASS"
+  }
+}

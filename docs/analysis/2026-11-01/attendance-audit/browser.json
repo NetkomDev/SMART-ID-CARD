@@ -1,0 +1,345 @@
+{
+  "result": "PASS",
+  "base": "http://127.0.0.1:53304/attendance/",
+  "method": "Production build, real service worker and actual QR SDK with virtual MediaStream; authenticated API fixtures",
+  "cases": [
+    "six responsive viewports",
+    "acknowledgement cannot delete new in-flight scans",
+    "offline reload from service worker",
+    "QR decoder available offline",
+    "offline card aliases deduplicate",
+    "same UUIDs preserved during retry",
+    "partial acknowledgement retains and retries missing event",
+    "cached scanner opens while network validation is stalled",
+    "late reason required",
+    "early departure reason required",
+    "portal change locks old page and preserves scoped queue",
+    "Sunday and before-start attendance remain available"
+  ],
+  "geometry": [
+    {
+      "width": 320,
+      "pageWidth": 320,
+      "viewport": {
+        "x": 40,
+        "y": 512.5625,
+        "width": 240,
+        "height": 240,
+        "top": 512.5625,
+        "right": 280,
+        "bottom": 752.5625,
+        "left": 40
+      },
+      "button": {
+        "x": 29,
+        "y": 764.5625,
+        "width": 262,
+        "height": 48.390625,
+        "top": 764.5625,
+        "right": 291,
+        "bottom": 812.953125,
+        "left": 29
+      },
+      "schoolCard": {
+        "x": 14,
+        "y": 114,
+        "width": 292,
+        "height": 169.59375,
+        "top": 114,
+        "right": 306,
+        "bottom": 283.59375,
+        "left": 14
+      },
+      "school": {
+        "x": 27,
+        "y": 127,
+        "width": 187.734375,
+        "height": 37.59375,
+        "top": 127,
+        "right": 214.734375,
+        "bottom": 164.59375,
+        "left": 27
+      },
+      "teacher": {
+        "x": 27,
+        "y": 172.59375,
+        "width": 114.3125,
+        "height": 44,
+        "top": 172.59375,
+        "right": 141.3125,
+        "bottom": 216.59375,
+        "left": 27
+      }
+    },
+    {
+      "width": 360,
+      "pageWidth": 360,
+      "viewport": {
+        "x": 60,
+        "y": 482.171875,
+        "width": 240,
+        "height": 240,
+        "top": 482.171875,
+        "right": 300,
+        "bottom": 722.171875,
+        "left": 60
+      },
+      "button": {
+        "x": 29,
+        "y": 734.171875,
+        "width": 302,
+        "height": 48.390625,
+        "top": 734.171875,
+        "right": 331,
+        "bottom": 782.5625,
+        "left": 29
+      },
+      "schoolCard": {
+        "x": 14,
+        "y": 114,
+        "width": 332,
+        "height": 150.796875,
+        "top": 114,
+        "right": 346,
+        "bottom": 264.796875,
+        "left": 14
+      },
+      "school": {
+        "x": 27,
+        "y": 127,
+        "width": 202.578125,
+        "height": 18.796875,
+        "top": 127,
+        "right": 229.578125,
+        "bottom": 145.796875,
+        "left": 27
+      },
+      "teacher": {
+        "x": 27,
+        "y": 153.796875,
+        "width": 114.3125,
+        "height": 44,
+        "top": 153.796875,
+        "right": 141.3125,
+        "bottom": 197.796875,
+        "left": 27
+      }
+    },
+    {
+      "width": 390,
+      "pageWidth": 390,
+      "viewport": {
+        "x": 45,
+        "y": 471.359375,
+        "width": 300,
+        "height": 300,
+        "top": 471.359375,
+        "right": 345,
+        "bottom": 771.359375,
+        "left": 45
+      },
+      "button": {
+        "x": 33,
+        "y": 785.359375,
+        "width": 324,
+        "height": 48.390625,
+        "top": 785.359375,
+        "right": 357,
+        "bottom": 833.75,
+        "left": 33
+      },
+      "schoolCard": {
+        "x": 14,
+        "y": 114,
+        "width": 362,
+        "height": 156.984375,
+        "top": 114,
+        "right": 376,
+        "bottom": 270.984375,
+        "left": 14
+      },
+      "school": {
+        "x": 31,
+        "y": 129,
+        "width": 222.09375,
+        "height": 20.984375,
+        "top": 129,
+        "right": 253.09375,
+        "bottom": 149.984375,
+        "left": 31
+      },
+      "teacher": {
+        "x": 31,
+        "y": 157.984375,
+        "width": 114.3125,
+        "height": 44,
+        "top": 157.984375,
+        "right": 145.3125,
+        "bottom": 201.984375,
+        "left": 31
+      }
+    },
+    {
+      "width": 430,
+      "pageWidth": 430,
+      "viewport": {
+        "x": 65,
+        "y": 471.359375,
+        "width": 300,
+        "height": 300,
+        "top": 471.359375,
+        "right": 365,
+        "bottom": 771.359375,
+        "left": 65
+      },
+      "button": {
+        "x": 33,
+        "y": 785.359375,
+        "width": 364,
+        "height": 48.390625,
+        "top": 785.359375,
+        "right": 397,
+        "bottom": 833.75,
+        "left": 33
+      },
+      "schoolCard": {
+        "x": 14,
+        "y": 114,
+        "width": 402,
+        "height": 156.984375,
+        "top": 114,
+        "right": 416,
+        "bottom": 270.984375,
+        "left": 14
+      },
+      "school": {
+        "x": 31,
+        "y": 129,
+        "width": 222.09375,
+        "height": 20.984375,
+        "top": 129,
+        "right": 253.09375,
+        "bottom": 149.984375,
+        "left": 31
+      },
+      "teacher": {
+        "x": 31,
+        "y": 157.984375,
+        "width": 114.3125,
+        "height": 44,
+        "top": 157.984375,
+        "right": 145.3125,
+        "bottom": 201.984375,
+        "left": 31
+      }
+    },
+    {
+      "width": 768,
+      "pageWidth": 768,
+      "viewport": {
+        "x": 234,
+        "y": 471.359375,
+        "width": 300,
+        "height": 300,
+        "top": 471.359375,
+        "right": 534,
+        "bottom": 771.359375,
+        "left": 234
+      },
+      "button": {
+        "x": 117,
+        "y": 785.359375,
+        "width": 534,
+        "height": 48.390625,
+        "top": 785.359375,
+        "right": 651,
+        "bottom": 833.75,
+        "left": 117
+      },
+      "schoolCard": {
+        "x": 98,
+        "y": 114,
+        "width": 572,
+        "height": 156.984375,
+        "top": 114,
+        "right": 670,
+        "bottom": 270.984375,
+        "left": 98
+      },
+      "school": {
+        "x": 115,
+        "y": 129,
+        "width": 222.09375,
+        "height": 20.984375,
+        "top": 129,
+        "right": 337.09375,
+        "bottom": 149.984375,
+        "left": 115
+      },
+      "teacher": {
+        "x": 115,
+        "y": 157.984375,
+        "width": 114.3125,
+        "height": 44,
+        "top": 157.984375,
+        "right": 229.3125,
+        "bottom": 201.984375,
+        "left": 115
+      }
+    },
+    {
+      "width": 844,
+      "pageWidth": 844,
+      "viewport": {
+        "x": 327,
+        "y": 471.359375,
+        "width": 190,
+        "height": 190,
+        "top": 471.359375,
+        "right": 517,
+        "bottom": 661.359375,
+        "left": 327
+      },
+      "button": {
+        "x": 155,
+        "y": 675.359375,
+        "width": 534,
+        "height": 48.390625,
+        "top": 675.359375,
+        "right": 689,
+        "bottom": 723.75,
+        "left": 155
+      },
+      "schoolCard": {
+        "x": 136,
+        "y": 114,
+        "width": 572,
+        "height": 156.984375,
+        "top": 114,
+        "right": 708,
+        "bottom": 270.984375,
+        "left": 136
+      },
+      "school": {
+        "x": 153,
+        "y": 129,
+        "width": 222.09375,
+        "height": 20.984375,
+        "top": 129,
+        "right": 375.09375,
+        "bottom": 149.984375,
+        "left": 153
+      },
+      "teacher": {
+        "x": 153,
+        "y": 157.984375,
+        "width": 114.3125,
+        "height": 44,
+        "top": 157.984375,
+        "right": 267.3125,
+        "bottom": 201.984375,
+        "left": 153
+      }
+    }
+  ]
+}

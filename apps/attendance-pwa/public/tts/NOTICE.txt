@@ -1,0 +1,5 @@
+eSpeak NG 1.49.1, JavaScript worker build by Eitan Isaacson and contributors.
+Distributed under GNU GPL version 3 or later. See LICENSE.txt.
+Corresponding source and build instructions: espeak-ng-1.49.1-source.tar.gz
+Official release: https://github.com/espeak-ng/espeak-ng/releases/tag/1.49.1
+The worker and voice data match the official 1.49.1 distribution byte-for-byte.

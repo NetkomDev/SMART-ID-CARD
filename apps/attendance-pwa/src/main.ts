@@ -1,8 +1,13 @@
 import { QRCamera, bindLoginCamera } from "../../shared/qr-camera";
 import { PortalError, PortalSession } from "../../shared/portal-session";
-import { setupInstallPrompt, offerInstall, promptOrOfferInstall } from "../../shared/install-prompt";
+import {
+  setupInstallPrompt,
+  offerInstall,
+  promptOrOfferInstall,
+} from "../../shared/install-prompt";
 import {
   acknowledge,
+  newEventId,
   addReason,
   compliance,
   enqueue,
@@ -18,6 +23,7 @@ import {
   type Snapshot,
   type Student,
 } from "./store";
+import { OfflineVoice } from "./offline-voice";
 import "./style.css";
 
 const portal = new PortalSession(
@@ -53,15 +59,22 @@ let calibratedAt = performance.now(),
   wallAt = Date.now();
 let history: ScanRecord[] = [];
 let lastScannedId = "";
+let directionDay = "";
+let lastBind = 0,
+  binding = false;
 const deviceKey = "aksis.attendance.device.v2";
 let deviceId = localStorage.getItem(deviceKey);
 if (!deviceId) {
-  deviceId = crypto.randomUUID();
+  deviceId = newEventId();
   localStorage.setItem(deviceKey, deviceId);
 }
 const nameKey = () => {
-  const currentScope = scope || (portal.context ? `${portal.context.school_id}:${portal.context.id}` : "");
-  return currentScope ? `aksis.attendance.name.${currentScope}` : "aksis.attendance.name.default";
+  const currentScope =
+    scope ||
+    (portal.context ? `${portal.context.school_id}:${portal.context.id}` : "");
+  return currentScope
+    ? `aksis.attendance.name.${currentScope}`
+    : "aksis.attendance.name.default";
 };
 const name = () => localStorage.getItem(nameKey()) ?? "";
 const now = () =>
@@ -108,6 +121,19 @@ function beep() {
     /* Sound is optional. */
   }
 }
+const speaker = new OfflineVoice(({ enabled, text }) => {
+  const toggle = el("voice-toggle") as HTMLButtonElement;
+  toggle.setAttribute("aria-pressed", String(enabled));
+  toggle.textContent = enabled ? "🔊 Aktif" : "🔇 Nonaktif";
+  (el("voice-test") as HTMLButtonElement).disabled = !enabled;
+  el("voice-status").textContent = text;
+});
+el("voice-toggle").onclick = () => speaker.setEnabled(!speaker.enabled);
+el("voice-test").onclick = () => {
+  speaker.unlock();
+  speaker.speak("Suara siap digunakan");
+};
+void speaker.prepare().catch(() => undefined);
 const camera = new QRCamera({
   readerId: "qr-reader",
   toggleId: "btn-toggle-camera",
@@ -124,6 +150,7 @@ const camera = new QRCamera({
 });
 bindLoginCamera(import.meta.env.BASE_URL);
 el("btn-toggle-camera").onclick = () => {
+  speaker.unlock();
   void (camera.active ? camera.stop() : camera.start());
 };
 el("btn-switch-camera").onclick = () => {
@@ -136,27 +163,26 @@ document.querySelectorAll<HTMLButtonElement>(".zoom-btn").forEach(
     }),
 );
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden) void camera.stop();
-  else void sync();
+  if (document.hidden) {
+    speaker.stop();
+    void camera.stop();
+  } else void sync();
 });
 window.addEventListener("pagehide", () => {
+  speaker.stop();
   void camera.stop();
 });
 function autoDetectDirection(): Direction {
   if (!data?.rules) return "CHECK_IN";
-  const { time: currentTime } = schoolTime(now(), data.rules.timezone);
-  const [endH, endM] = (data.rules.check_in_end || "07:30").split(":").map(Number);
-  const [outH, outM] = (data.rules.check_out_start || "14:00").split(":").map(Number);
-  const endMin = (endH ?? 7) * 60 + (endM ?? 30);
-  const outMin = (outH ?? 14) * 60 + (outM ?? 0);
-  const midMin = Math.round((endMin + outMin) / 2);
-
-  const [curH, curM] = currentTime.split(":").map(Number);
-  const curMin = (curH ?? 0) * 60 + (curM ?? 0);
-
-  return curMin >= midMin ? "CHECK_OUT" : "CHECK_IN";
+  const { time } = schoolTime(now(), data.rules.timezone);
+  return time >= data.rules.check_out_start ? "CHECK_OUT" : "CHECK_IN";
 }
 function updateDirection(forceAuto = false) {
+  if (data?.rules) {
+    const day = schoolTime(now(), data.rules.timezone).day;
+    if (directionDay && directionDay !== day) manualDirection = false;
+    directionDay = day;
+  }
   if (forceAuto || !manualDirection) {
     direction = autoDetectDirection();
   }
@@ -201,7 +227,8 @@ async function render() {
   el("network-badge").className =
     `badge-status ${navigator.onLine ? "online" : "offline"}`;
   const nameDisplay = el("scanner-name-display");
-  const nameTextEl = nameDisplay.querySelector<HTMLElement>(".teacher-name-text");
+  const nameTextEl =
+    nameDisplay.querySelector<HTMLElement>(".teacher-name-text");
   const teacherName = name() || "Isi nama petugas";
   if (nameTextEl) nameTextEl.textContent = teacherName;
   else nameDisplay.textContent = teacherName;
@@ -307,7 +334,9 @@ function reason(value: ScanRecord) {
     chip.onclick = () => {
       input("reason-input-text").value = text;
       input("reason-input-text").focus();
-      chipsWrap.querySelectorAll(".chip-btn").forEach((c) => c.classList.remove("selected"));
+      chipsWrap
+        .querySelectorAll(".chip-btn")
+        .forEach((c) => c.classList.remove("selected"));
       chip.classList.add("selected");
     };
     chipsWrap.appendChild(chip);
@@ -382,19 +411,58 @@ el("form-scanner-name").onsubmit = async (e) => {
   el("modal-scanner-name").style.display = "none";
   void render();
 
-  // 2. Simpan & ikat perangkat ke database di latar belakang
-  void portal
-    .request("/attendance/register-device", {
-      method: "POST",
-      body: JSON.stringify({ device_id: deviceId, scanner_name: value }),
-    })
-    .catch((err) => {
-      console.warn("Device binding will retry on next scan:", err);
-    });
+  // Registration is retried in the background after connectivity returns.
+  bindDevice(true);
 
   // 3. Picu instalasi PWA ke layar HP pengguna
   await promptOrOfferInstall();
 };
+async function attendanceRequest<T>(
+  path: string,
+  init: RequestInit = {},
+): Promise<T> {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 15000);
+  try {
+    return await portal.request<T>(path, {
+      ...init,
+      signal: controller.signal,
+    });
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+function bindDevice(force = false) {
+  if (
+    !navigator.onLine ||
+    !sameAccess() ||
+    !deviceId ||
+    !name() ||
+    binding ||
+    (!force && Date.now() - lastBind < 60000)
+  )
+    return;
+  binding = true;
+  lastBind = Date.now();
+  void attendanceRequest("/attendance/register-device", {
+    method: "POST",
+    body: JSON.stringify({ device_id: deviceId, scanner_name: name() }),
+  })
+    .catch((error) => {
+      if (error instanceof PortalError && [401, 403].includes(error.status)) {
+        locked = true;
+        void camera.stop();
+        feedback(
+          "error",
+          "Akses tidak aktif",
+          "Hubungi admin sekolah. Antrean tetap tersimpan.",
+        );
+      }
+    })
+    .finally(() => {
+      binding = false;
+    });
+}
 async function persist(value: ScanRecord) {
   lastScannedId = value.event_id;
   if (!(await enqueue(value))) {
@@ -405,7 +473,7 @@ async function persist(value: ScanRecord) {
     );
     return;
   }
-  beep();
+  if (!speaker.available) beep();
   feedback(
     "success",
     "Tersimpan di HP",
@@ -433,35 +501,15 @@ async function scan(raw: string) {
       throw new Error(
         "Jam HP berubah. Hubungkan internet dan muat ulang untuk menyamakan waktu.",
       );
-    if (!manualDirection) {
-      updateDirection();
-    }
+    updateDirection();
     const time = now(),
       student = resolveStudent(data!.students, raw, time);
     if (!student)
       throw new Error(
         "QR/NISN tidak ditemukan pada data sekolah di HP ini. Perbarui data saat online atau periksa kartu siswa.",
       );
-    const { day, time: clockTime } = schoolTime(time, data!.rules.timezone);
-
-    // Audit hari libur (Minggu) dan waktu sebelum jam kedatangan
-    const weekday = new Intl.DateTimeFormat("en-US", {
-      timeZone: data!.rules.timezone,
-      weekday: "short",
-    }).format(new Date(time));
-    const isSunday = weekday === "Sun";
-    const isBeforeCheckIn =
-      direction === "CHECK_IN" && clockTime < data!.rules.check_in_start;
-
-    if (isSunday || isBeforeCheckIn) {
-      showOutOfHours(
-        student,
-        isSunday
-          ? "Hari Minggu adalah hari libur sekolah. Presensi kehadiran tidak aktif pada hari libur."
-          : `Waktu saat ini (${clockTime}) belum memasuki jam kedatangan yang ditetapkan admin sekolah (${data!.rules.check_in_start}–${data!.rules.check_in_end}). Presensi belum dapat dicatat.`,
-      );
-      return;
-    }
+    speaker.speak(student.full_name);
+    const { day } = schoolTime(time, data!.rules.timezone);
 
     const local = (await records(scope)).find(
       (v) =>
@@ -497,7 +545,7 @@ async function scan(raw: string) {
       return;
     }
     const value: ScanRecord = {
-      event_id: crypto.randomUUID(),
+      event_id: newEventId(),
       device_id: deviceId!,
       identifier: raw.trim(),
       direction,
@@ -526,6 +574,7 @@ async function scan(raw: string) {
 }
 el("form-scan").onsubmit = (e) => {
   e.preventDefault();
+  speaker.unlock();
   void scan(input("scan-input").value);
   input("scan-input").value = "";
 };
@@ -549,7 +598,7 @@ async function sync() {
       .slice(0, 25)
       .map(payload);
     if (!batch.length || !sameAccess()) return;
-    const response = await portal.request<{
+    const response = await attendanceRequest<{
       results: Result[];
       server_time: string;
     }>("/attendance/pwa-sync", {
@@ -621,7 +670,7 @@ async function refreshData() {
         rules: Snapshot["rules"];
         server_time: string;
         today: Snapshot["today"];
-      } = await portal.request(
+      } = await attendanceRequest(
         `/attendance/bootstrap${after ? `?after=${after}` : ""}`,
       );
       if (
@@ -653,6 +702,7 @@ async function refreshData() {
   } catch (error) {
     if (error instanceof PortalError && [401, 403].includes(error.status)) {
       locked = true;
+      void camera.stop();
       feedback(
         "error",
         "Akses tidak aktif",
@@ -673,7 +723,7 @@ async function refreshState() {
   }
   const originalScope = scope;
   try {
-    const state = await portal.request<{
+    const state = await attendanceRequest<{
       school_id: string;
       server_time: string;
       rules: Snapshot["rules"];
@@ -703,19 +753,50 @@ async function refreshState() {
 async function start() {
   try {
     const incoming = /(?:[?#&])token=/.test(location.href);
+    // An existing validated snapshot opens immediately even when Wi-Fi has no internet.
+    const cachedContext = portal.context;
+    let warm = false;
+    if (!incoming && cachedContext) {
+      scope = `${cachedContext.school_id}:${cachedContext.id}`;
+      data = await snapshot(scope);
+      warm = usable();
+    }
     if (navigator.onLine || incoming) {
-      try {
-        if (!(await portal.start())) {
-          el("view-login").style.display = "block";
-          return;
+      if (warm && !incoming) {
+        void portal
+          .start()
+          .then((active) => {
+            if (!active || !sameAccess())
+              throw new PortalError("Akses berubah", 403, "PORTAL_MISMATCH");
+          })
+          .catch((error) => {
+            if (
+              error instanceof PortalError &&
+              [401, 403].includes(error.status)
+            ) {
+              locked = true;
+              void camera.stop();
+              feedback(
+                "error",
+                "Akses tidak aktif",
+                "Hubungi admin sekolah. Antrean tetap tersimpan.",
+              );
+            }
+          });
+      } else {
+        try {
+          if (!(await portal.start())) {
+            el("view-login").style.display = "block";
+            return;
+          }
+        } catch (error) {
+          if (
+            incoming ||
+            !portal.context ||
+            (error instanceof PortalError && [401, 403].includes(error.status))
+          )
+            throw error;
         }
-      } catch (error) {
-        if (
-          incoming ||
-          !portal.context ||
-          (error instanceof PortalError && [401, 403].includes(error.status))
-        )
-          throw error;
       }
     }
     if (!portal.context) {
@@ -723,6 +804,9 @@ async function start() {
       return;
     }
     scope = `${portal.context.school_id}:${portal.context.id}`;
+    const scopedDeviceKey = `${deviceKey}.${scope}`;
+    deviceId = localStorage.getItem(scopedDeviceKey) || newEventId();
+    localStorage.setItem(scopedDeviceKey, deviceId);
     data = await snapshot(scope);
     if (data) {
       calibrate(
@@ -777,8 +861,9 @@ async function start() {
       feedback(
         "warning",
         "Antrean versi lama ditemukan",
-        "Antrean lama tetap disimpan dan dapat diekspor. Minta admin memeriksa sebelum digunakan.",
+        "Antrean lama tetap disimpan di HP ini. Hubungi admin agar dapat diperiksa.",
       );
+    bindDevice();
     void sync();
   } catch (error) {
     el("view-login").style.display = "block";
@@ -791,38 +876,53 @@ el("form-login").onsubmit = (e) => {
   void start();
 };
 el("btn-login-retry").style.display = "inline-block";
-el("btn-export").onclick = async () => {
-  const value = {
-    scope,
-    school_id: scope.split(":")[0],
-    portal_id: scope.split(":")[1],
-    records: await records(scope),
-    legacy_unassigned: localStorage.getItem("aksis_attendance_queue_v1"),
-  };
-  const url = URL.createObjectURL(
-    new Blob([JSON.stringify(value, null, 2)], { type: "application/json" }),
-  );
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "aksis-antrean-kehadiran.json";
-  a.click();
-  URL.revokeObjectURL(url);
+el("btn-refresh-data").onclick = () => {
+  if (!navigator.onLine) {
+    feedback(
+      "warning",
+      "Data belum diperbarui",
+      "Hubungkan internet untuk memperbarui data siswa.",
+    );
+    return;
+  }
+  const previous = data?.saved;
+  void refreshData()
+    .then(() => {
+      if (!data || data.saved === previous)
+        throw new Error("Data belum diperbarui");
+      feedback(
+        "success",
+        "Data diperbarui",
+        "Daftar siswa dan jam sekolah tersedia di HP ini.",
+      );
+    })
+    .catch(() =>
+      feedback(
+        "error",
+        "Data belum diperbarui",
+        "Periksa koneksi dan coba kembali.",
+      ),
+    );
 };
 window.addEventListener("online", () => {
+  bindDevice(true);
   void sync();
   void refreshState();
 });
 window.addEventListener("offline", () => {
   void render();
 });
+// Background batches use the same stable event IDs and retry without blocking the scanner.
+const SYNC_INTERVAL_MS = 8500;
 setInterval(() => {
   void sync();
-}, 8500);
+}, SYNC_INTERVAL_MS);
 setInterval(() => {
+  bindDevice();
   void refreshState();
 }, 60000);
 setInterval(() => {
-  if (!manualDirection) updateDirection();
+  updateDirection();
 }, 30000);
 void start();
 
