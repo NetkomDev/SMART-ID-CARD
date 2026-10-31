@@ -2,6 +2,7 @@ import { api } from '../lib/api';
 import type { School } from '../lib/types';
 import { toast, toastSuccess, toastError } from '../lib/toast';
 import { optimistic, removeRowOptimistic } from '../lib/optimistic';
+import { confirmModal } from '../lib/confirm-modal';
 // @ts-ignore
 import QRCode from 'qrcode/lib/browser.js';
 import './platform.css';
@@ -112,6 +113,196 @@ export async function registerSchoolDevice(schoolId:string){
  const fd=await dialog('Daftarkan perangkat','<label>Kode<input name="device_code" required></label><label>Nama<input name="name" required></label><label>Jenis<select name="device_type">'+options(['CARD_STATION','GATE','LIBRARY','LED','WASTE_SCALE','OTHER'])+'</select></label>');
  if(!fd)return;const{data}=await api<Row>('/devices/register',{method:'POST',headers:{'x-school-id':schoolId},body:JSON.stringify(Object.fromEntries(fd))});await showSecret('Kredensial perangkat',`Device ID: ${data.device.id}\nToken: ${data.credential.token}`);
 }
+async function iamPage(root: HTMLElement, content: HTMLElement, schools: School[], alive: () => boolean) {
+  let page = 1;
+  let selectedSchoolId = '';
+
+  const isPortalRole = (roles: any[]): boolean => {
+    return (roles ?? []).some((r: any) => {
+      const code = String(r?.code || '');
+      return code.startsWith('PORTAL_') || ['WASTE_STAFF', 'TEACHER', 'PARENT', 'LIBRARY_STAFF'].includes(code);
+    });
+  };
+
+  const isLoginWithin3Months = (lastSignInAt: string | null | undefined): boolean => {
+    if (!lastSignInAt) return false;
+    const lastTime = new Date(lastSignInAt).getTime();
+    if (isNaN(lastTime)) return false;
+    const threeMonthsMs = 90 * 24 * 60 * 60 * 1000;
+    return Date.now() - lastTime < threeMonthsMs;
+  };
+
+  async function load() {
+    feedback(root, '');
+    const query = new URLSearchParams({
+      page: String(page),
+      page_size: '30',
+    });
+    if (selectedSchoolId) {
+      query.set('school_id', selectedSchoolId);
+    }
+    const response = await api<Row[]>(`/platform/iam?${query.toString()}`);
+    if (!alive()) return;
+
+    const filterToolbar = `
+      <div class="iam-filter-toolbar" style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:1.25rem;background:#f8fafc;padding:0.75rem 1rem;border-radius:0.75rem;border:1px solid #e2e8f0;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:280px">
+          <span style="font-size:1.15rem" aria-hidden="true">🏢</span>
+          <label for="iam-school-filter" style="font-weight:600;font-size:0.875rem;color:#334155;white-space:nowrap;margin:0">Filter Sekolah:</label>
+          <select id="iam-school-filter" style="flex:1;max-width:440px;padding:0.45rem 0.75rem;border:1px solid #cbd5e1;border-radius:0.5rem;background:#ffffff;font-size:0.875rem;color:#0f172a;cursor:pointer">
+            <option value="">🏢 Semua Sekolah (Lintas Sekolah)</option>
+            ${schools.map(s => `<option value="${esc(s.id)}" ${s.id === selectedSchoolId ? 'selected' : ''}>${esc(s.name)} (${esc(s.code)})</option>`).join('')}
+          </select>
+        </div>
+        <div style="color:#64748b;font-size:0.82rem;font-weight:500">
+          Total: <strong style="color:#0f172a">${response.meta?.total ?? response.data.length}</strong> pengguna
+        </div>
+      </div>
+    `;
+
+    const columns = ['Pengguna', 'Sekolah', 'Terakhir Login', 'Role & permission', 'Status', 'Aksi'];
+    const tableHtml = `
+      <div class="table-wrap table-iam-wrap">
+        <table>
+          <thead>
+            <tr>${columns.map(c => `<th>${esc(c)}</th>`).join('')}</tr>
+          </thead>
+          <tbody>
+            ${response.data.map(r => `
+              <tr>
+                <td><div class="cell-scroll"><strong>${esc(r.full_name)}</strong><small style="font-family:monospace;font-size:0.75rem">${esc(r.user_id)}</small></div></td>
+                <td><div class="cell-scroll"><strong>${esc(r.school_name)}</strong></div></td>
+                <td><div class="cell-scroll">${r.last_sign_in_at ? `<span class="date-chip" style="padding:0.2rem 0.5rem;font-size:0.75rem">${esc(time(r.last_sign_in_at))}</span>` : '<span style="color:#94a3b8;font-size:0.75rem;font-style:italic">Belum pernah</span>'}</div></td>
+                <td><div class="cell-scroll">${(r.roles ?? []).map((role: any) => `<strong>${esc(role.code)}</strong><small>${(role.permissions ?? []).join(', ')}</small>`).join('')}</div></td>
+                <td>
+                  <button type="button" class="status-toggle-btn ${r.status === 'ACTIVE' ? 'active' : 'inactive'}" data-action="toggle-status" data-id="${esc(r.id)}" title="${r.status === 'ACTIVE' ? 'Klik untuk menonaktifkan (NON ACTIVE)' : 'Klik untuk mengaktifkan (ACTIVE)'}">
+                    ${r.status === 'ACTIVE' ? 'ACTIVE ✓' : 'NON ACTIVE'}
+                  </button>
+                </td>
+                <td>
+                  <div class="sa-actions">
+                    <button type="button" class="button secondary" data-action="delete" data-id="${esc(r.id)}" title="Hapus hak akses pengguna">🗑️ Hapus</button>
+                  </div>
+                </td>
+              </tr>
+            `).join('') || `<tr><td colspan="${columns.length}">Tidak ada data hak akses untuk sekolah yang dipilih.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+      <div class="sa-actions">
+        <button type="button" class="button secondary" data-prev ${page === 1 ? 'disabled' : ''}>Sebelumnya</button>
+        <span>Halaman ${page} · ${response.meta?.total ?? response.data.length} data</span>
+        <button type="button" class="button secondary" data-next ${page * 30 >= (response.meta?.total ?? 0) ? 'disabled' : ''}>Berikutnya</button>
+        <button type="button" class="button secondary" data-refresh>Segarkan</button>
+      </div>
+    `;
+
+    content.innerHTML = filterToolbar + tableHtml;
+
+    const schoolFilter = content.querySelector<HTMLSelectElement>('#iam-school-filter');
+    if (schoolFilter) {
+      schoolFilter.onchange = () => {
+        selectedSchoolId = schoolFilter.value;
+        page = 1;
+        void load().catch(e => feedback(root, e));
+      };
+    }
+
+    content.querySelectorAll<HTMLButtonElement>('[data-action]').forEach(b => {
+      b.onclick = () => void busy(b, root, async () => {
+        const action = b.dataset.action!;
+        const id = b.dataset.id!;
+        const r = response.data.find(x => x.id === id);
+        if (!r) return;
+
+        const isPortal = isPortalRole(r.roles ?? []);
+        const hasRecentLogin = isLoginWithin3Months(r.last_sign_in_at);
+
+        if (action === 'delete') {
+          if (isPortal && hasRecentLogin) {
+            await confirmModal({
+              title: "Penghapusan Akses Ditolak",
+              message: `Hak akses untuk "${r.full_name}" (${r.school_name}) tidak dapat dihapus karena pengguna terdeteksi masih pernah login pada ${time(r.last_sign_in_at)} (dalam 3 bulan terakhir).\n\nSesuai kebijakan keamanan sistem, hak akses akun dengan peran Portal (WASTE_STAFF, TEACHER, PARENT, LIBRARY_STAFF) hanya dapat dihapus jika sudah tidak pernah login lebih dari 3 bulan.`,
+              variant: "warning",
+              confirmLabel: "Saya Mengerti",
+              cancelLabel: "Tutup"
+            });
+            return;
+          }
+
+          const confirmed = await confirmModal({
+            title: "Hapus Hak Akses Pengguna",
+            message: `PERINGATAN: Apakah Anda yakin ingin menghapus hak akses "${r.full_name}" dari sekolah "${r.school_name}"?\n\nKredensial dan akses operasional akun ini akan dicabut secara permanen dari sistem dan database. Tindakan ini tidak dapat dibatalkan.`,
+            variant: "danger",
+            confirmLabel: "Ya, Hapus Akses",
+            cancelLabel: "Batal"
+          });
+          if (!confirmed) return;
+
+          try {
+            await api(`/platform/iam/${id}`, { method: 'DELETE' });
+            toastSuccess(`Hak akses "${r.full_name}" dari "${r.school_name}" berhasil dihapus.`);
+            await load();
+          } catch (err: any) {
+            toastError(err.message || 'Gagal menghapus hak akses');
+          }
+          return;
+        }
+
+        if (action === 'toggle-status') {
+          const nextStatus = r.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
+
+          if (r.status === 'ACTIVE' && isPortal && hasRecentLogin) {
+            await confirmModal({
+              title: "Penonaktifan Akses Ditolak",
+              message: `Hak akses untuk "${r.full_name}" (${r.school_name}) tidak dapat dinonaktifkan karena pengguna terdeteksi masih pernah login pada ${time(r.last_sign_in_at)} (dalam 3 bulan terakhir).\n\nSesuai kebijakan keamanan sistem, hak akses akun dengan peran Portal (WASTE_STAFF, TEACHER, PARENT, LIBRARY_STAFF) hanya dapat dinonaktifkan jika sudah tidak pernah login lebih dari 3 bulan.`,
+              variant: "warning",
+              confirmLabel: "Saya Mengerti",
+              cancelLabel: "Tutup"
+            });
+            return;
+          }
+
+          const confirmed = await confirmModal({
+            title: nextStatus === 'SUSPENDED' ? 'Konfirmasi Nonaktifkan Akses' : 'Konfirmasi Aktifkan Akses',
+            message: nextStatus === 'SUSPENDED'
+              ? `Apakah Anda yakin ingin menonaktifkan hak akses untuk "${r.full_name}" (${r.school_name})?\n\nPengguna tidak akan dapat login atau menggunakan hak aksesnya sampai diaktifkan kembali.`
+              : `Apakah Anda yakin ingin mengaktifkan kembali hak akses untuk "${r.full_name}" (${r.school_name})?\n\nPengguna akan dapat kembali login dan menggunakan hak aksesnya di portal/dashboard.`,
+            variant: nextStatus === 'SUSPENDED' ? 'warning' : 'primary',
+            confirmLabel: nextStatus === 'SUSPENDED' ? 'Nonaktifkan Akses' : 'Aktifkan Akses',
+            cancelLabel: 'Batal'
+          });
+          if (!confirmed) return;
+
+          const roles = (r.roles ?? []).map((a: any) => a.code);
+          const currentRoles = roles.length > 0 ? roles : ['SCHOOL_ADMIN'];
+
+          try {
+            await api(`/platform/iam/${id}`, {
+              method: 'PATCH',
+              body: JSON.stringify({ status: nextStatus, roles: currentRoles })
+            });
+            toastSuccess(`Status akses "${r.full_name}" berhasil diubah menjadi ${nextStatus}.`);
+            await load();
+          } catch (err: any) {
+            toastError(err.message || 'Gagal mengubah status akses');
+          }
+          return;
+        }
+      });
+    });
+
+    const prevBtn = content.querySelector<HTMLButtonElement>('[data-prev]');
+    if (prevBtn) prevBtn.onclick = () => { page--; void load().catch(e => feedback(root, e)); };
+    const nextBtn = content.querySelector<HTMLButtonElement>('[data-next]');
+    if (nextBtn) nextBtn.onclick = () => { page++; void load().catch(e => feedback(root, e)); };
+    const refreshBtn = content.querySelector<HTMLButtonElement>('[data-refresh]');
+    if (refreshBtn) refreshBtn.onclick = () => void load().catch(e => feedback(root, e));
+  }
+
+  await load();
+}
+
 export async function mountPlatformPage(path:string,schools:School[],shell:Shell,navigate:(p:string)=>void){
  const epoch=++generation;
  const titles:Record<string,string>={'/platform':'Ringkasan Platform','/platform-schools':'Sekolah & Administrator','/platform-iam':'IAM & Hak Akses','/platform-devices':'Monitor Perangkat','/platform-card-templates':'Template Desain Kartu Siswa','/platform-card-jobs':'Produksi Kartu Siswa','/platform-audit':'Audit Platform'};
@@ -146,10 +337,8 @@ export async function mountPlatformPage(path:string,schools:School[],shell:Shell
     await table('/platform/schools',['Sekolah','Zona waktu','Status','Aksi'],r=>`<tr><td><strong>${esc(r.name)}</strong><small>${esc(r.code)}</small></td><td><span class="date-chip">${esc(r.timezone)}</span></td><td>${badge(r.status)}</td><td><div class="sa-actions">${btn('✏️ Ubah','edit',r.id)}${btn('👤 + Admin','admin',r.id)}${btn('🔑 Reset Pass','reset-pass',r.id)}</div></td></tr>`,async(action,id,r)=>{if(action==='edit'){const fd=await dialog('Ubah sekolah',`<label>Nama<input name="name" value="${esc(r.name)}" required></label><label>Zona waktu<select name="timezone">${options(['Asia/Makassar','Asia/Jakarta','Asia/Jayapura'],r.timezone)}</select></label><label>Status<select name="status">${options(['ACTIVE','SUSPENDED','INACTIVE'],r.status)}</select></label><p>Sekolah nonaktif tidak dapat memakai station atau akses operasional biasa.</p>`);if(!fd)return;await api(`/platform/schools/${r.id}`,{method:'PATCH',body:JSON.stringify(Object.fromEntries(fd))});}else if(action==='reset-pass'){const candidates=await api<Row[]>(`/platform/schools/${r.id}/recovery-candidates`);if(!candidates.data.length){toastError('Tidak ada administrator aktif yang dapat dipulihkan.');return;}const fd=await dialog('Pulihkan satu akun admin',`<p>${esc(r.name)} — petunjuk dikirim ke email akun yang terverifikasi.</p><label>Administrator<select name="membership_id" required>${candidates.data.map(c=>`<option value="${esc(c.id)}">${esc(relation(c.users)?.full_name||c.user_id)}</option>`).join('')}</select></label><label>Alasan<input name="reason" minlength="3" maxlength="300" required></label>`,'Kirim petunjuk');if(!fd)return;const result=await api<{message:string}>(`/platform/iam/${String(fd.get('membership_id'))}/reset-password`,{method:'POST',body:JSON.stringify({operation_id:crypto.randomUUID(),reason:String(fd.get('reason'))})});toastSuccess(result.data.message);}else{const fd=await dialog('Tambah administrator',`<p>${esc(r.name)}</p><label>Nama<input name="full_name" required maxlength="200"></label><label>Email<input name="email" type="email" required></label><label>Password awal<div style="display:flex;gap:4px"><input name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required style="flex:1;min-width:0"><button type="button" class="button secondary" style="flex:none;width:48px;padding:0;display:flex;justify-content:center;align-items:center;color:#64748b" onclick="const i=this.previousElementSibling;if(i.type==='password'){i.type='text';this.querySelector('.eye-off').style.display='block';this.querySelector('.eye-on').style.display='none'}else{i.type='password';this.querySelector('.eye-off').style.display='none';this.querySelector('.eye-on').style.display='block'}" title="Lihat/sembunyikan password"><svg class="eye-on" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg><svg class="eye-off" style="display:none" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg></button></div></label>`);if(!fd)return;const{data}=await provisionRequest(`/platform/schools/${r.id}/admin`,Object.fromEntries(fd));await showCredentialsModal('Administrator Berhasil Ditambahkan',`Admin baru untuk ${r.name}`,[{label:'Email Admin',value:data.admin_email,copyable:true},{label:'Password Admin',value:data.admin_password,copyable:true}]);}});return;
   }
   if(path==='/platform-iam'){
-  await table('/platform/iam',['Pengguna','Sekolah','Terakhir Login','Role & permission','Status','Aksi'],r=>`<tr><td><div class="cell-scroll"><strong>${esc(r.full_name)}</strong><small style="font-family:monospace;font-size:0.75rem">${esc(r.user_id)}</small></div></td><td><div class="cell-scroll"><strong>${esc(r.school_name)}</strong></div></td><td><div class="cell-scroll">${r.last_sign_in_at?`<span class="date-chip" style="padding:0.2rem 0.5rem;font-size:0.75rem">${esc(time(r.last_sign_in_at))}</span>`:'<span style="color:#94a3b8;font-size:0.75rem;font-style:italic">Belum pernah</span>'}</div></td><td><div class="cell-scroll">${(r.roles??[]).map((role:any)=>`<strong>${esc(role.code)}</strong><small>${(role.permissions??[]).join(', ')}</small>`).join('')}</div></td><td><button type="button" class="status-toggle-btn ${r.status==='ACTIVE'?'active':'inactive'}" data-action="toggle-status" data-id="${r.id}" title="${r.status==='ACTIVE'?'Klik untuk menonaktifkan (NON ACTIVE)':'Klik untuk mengaktifkan (ACTIVE)'}">${r.status==='ACTIVE'?'ACTIVE ✓':'NON ACTIVE'}</button></td><td><div class="sa-actions">${btn('🗑️ Hapus','delete',r.id)}</div></td></tr>`,async(action,id,r)=>{
-  if(action==='delete'){if(confirm(`Yakin ingin menghapus akses ${r.full_name} dari ${r.school_name}? Tindakan ini tidak dapat dibatalkan.`)){const btn=document.querySelector(`[data-action="delete"][data-id="${id}"]`) as HTMLElement|null;const row=btn?.closest('tr') as HTMLTableRowElement|null;const reinsertRow=row?removeRowOptimistic(row):()=>{};await optimistic({apply:()=>{},mutation:()=>api(`/platform/iam/${id}`,{method:'DELETE'}),rollback:()=>{reinsertRow();},successMessage:`Akses ${r.full_name} dari ${r.school_name} berhasil dihapus.`,errorPrefix:'Gagal menghapus akses'});}return;}
-  if(action==='toggle-status'){const nextStatus=r.status==='ACTIVE'?'SUSPENDED':'ACTIVE';const roles=(r.roles??[]).map((a:any)=>a.code);const currentRoles=roles.length>0?roles:['SCHOOL_ADMIN'];const toggleBtn=document.querySelector(`[data-action="toggle-status"][data-id="${id}"]`) as HTMLElement|null;const prevText=toggleBtn?.textContent??'';const prevClass=r.status==='ACTIVE'?'active':'inactive';const nextClass=nextStatus==='ACTIVE'?'active':'inactive';if(toggleBtn){toggleBtn.textContent=nextStatus==='ACTIVE'?'ACTIVE ✓':'NON ACTIVE';toggleBtn.classList.remove(prevClass);toggleBtn.classList.add(nextClass);}await optimistic({apply:()=>{},mutation:()=>api(`/platform/iam/${id}`,{method:'PATCH',body:JSON.stringify({status:nextStatus,roles:currentRoles})}),rollback:()=>{if(toggleBtn){toggleBtn.textContent=prevText;toggleBtn.classList.remove(nextClass);toggleBtn.classList.add(prevClass);}},successMessage:`Status ${r.full_name} berhasil diubah ke ${nextStatus}.`,errorPrefix:'Gagal mengubah status'});return;}
-  },'table-iam-wrap');return;
+    await iamPage(root,content,schools,alive);
+    return;
   }
  if(path==='/platform-devices'){
  await table('/platform/devices',['Perangkat / sekolah','Koneksi','Status','Terakhir terlihat','Aksi'],r=>`<tr><td><strong>${esc(r.name)}</strong><small>${esc(relation(r.schools)?.name)} · ${esc(r.device_type)}</small><small class="date-chip" style="margin-top:4px">${esc(r.id)}</small></td><td>${badge(r.online?'ONLINE':'OFFLINE')}</td><td>${badge(r.status)}</td><td>${esc(time(r.last_seen_at))}</td><td><div class="sa-actions">${btn('Status','status',r.id)}${btn('Rotasi token','rotate',r.id)}</div></td></tr>`,async(action,id,r)=>{if(action==='rotate'){const fd=await dialog('Rotasi kredensial','<p>Token sebelumnya langsung dicabut. Station perlu dikonfigurasi ulang.</p>','Rotasi');if(!fd)return;const{data}=await api<{token:string}>(`/platform/devices/${id}/credential`,{method:'POST'});await showSecret('Token perangkat baru',data.token);}else{const fd=await dialog('Status perangkat',`<select name="status">${options(['ACTIVE','DISABLED','MAINTENANCE','RETIRED'],r.status)}</select>`);if(!fd)return;await api(`/platform/devices/${id}`,{method:'PATCH',body:JSON.stringify(Object.fromEntries(fd))});}});return;

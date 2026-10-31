@@ -76,8 +76,26 @@ router.get('/devices',validate({query:paginationSchema}),asyncHandler(async(req,
 router.post('/devices/:id/credential',validate({params:id}),asyncHandler(async(req,res)=>{const secret=randomBytes(32).toString('base64url');const {error}=await req.auth!.client.rpc('platform_rotate_device',{p_device:req.params.id,p_hash:createHash('sha256').update(secret).digest('hex')});if(error)throw fromDatabaseError(error);sendData(res,{token:secret});}));
 router.patch('/devices/:id',validate({params:id,body:z.object({status:z.enum(['ACTIVE','DISABLED','MAINTENANCE','RETIRED'])}).strict()}),asyncHandler(async(req,res)=>{const{data,error}=await req.auth!.client.rpc('platform_device_status',{p_device:req.params.id,p_status:req.body.status});if(error)throw fromDatabaseError(error);sendData(res,data);}));
 router.get('/audit',validate({query:paginationSchema}),asyncHandler(async(req,res)=>{const page=Number(req.query.page),size=Number(req.query.page_size);const{data,error,count}=await req.auth!.client.from('audit_logs').select('id,school_id,actor_user_id,action,resource_type,resource_id,occurred_at,before_data,after_data,schools(name)',{count:'exact'}).order('occurred_at',{ascending:false}).range((page-1)*size,page*size-1);if(error)throw fromDatabaseError(error);sendData(res,data,200,{page,page_size:size,total:count??0});}));
-router.get('/iam',validate({query:paginationSchema}),asyncHandler(async(req,res)=>{const page=Number(req.query.page),size=Number(req.query.page_size);const{data,error}=await req.auth!.client.rpc('platform_get_iam',{p_limit:size,p_offset:(page-1)*size});if(error)throw fromDatabaseError(error);const count=data&&data.length>0?data[0].total_count:0;sendData(res,data,200,{page,page_size:size,total:Number(count)});}));
-router.patch('/iam/:id',validate({params:id,body:z.object({status:z.enum(['ACTIVE','SUSPENDED','REVOKED']),roles:z.array(z.enum(['SCHOOL_ADMIN','TEACHER','EXTRA_TEACHER','LIBRARY_STAFF','WASTE_STAFF','PARENT'])).min(1).max(6)}).strict()}),asyncHandler(async(req,res)=>{const{data,error}=await req.auth!.client.rpc('platform_update_membership',{p_id:req.params.id,p_status:req.body.status,p_roles:req.body.roles});if(error)throw fromDatabaseError(error);sendData(res,data);}));
+const iamQuerySchema = paginationSchema.extend({
+  school_id: z.string().uuid().optional(),
+});
+const iamRoleEnum = z.enum([
+  'SCHOOL_ADMIN',
+  'TEACHER',
+  'EXTRA_TEACHER',
+  'LIBRARY_STAFF',
+  'WASTE_STAFF',
+  'PARENT',
+  'PORTAL_TEACHER',
+  'PORTAL_EXTRA_TEACHER',
+  'PORTAL_LIBRARY_STAFF',
+  'PORTAL_WASTE_STAFF',
+  'PORTAL_PARENT'
+]);
+
+router.get('/iam',validate({query:iamQuerySchema}),asyncHandler(async(req,res)=>{const page=Number(req.query.page),size=Number(req.query.page_size);const{data,error}=await req.auth!.client.rpc('platform_get_iam',{p_limit:size,p_offset:(page-1)*size,p_school_id:req.query.school_id||null});if(error)throw fromDatabaseError(error);const count=data&&data.length>0?data[0].total_count:0;sendData(res,data,200,{page,page_size:size,total:Number(count)});}));
+router.patch('/iam/:id',validate({params:id,body:z.object({status:z.enum(['ACTIVE','SUSPENDED','REVOKED']),roles:z.array(iamRoleEnum).min(1).max(10)}).strict()}),asyncHandler(async(req,res)=>{const{data,error}=await req.auth!.client.rpc('platform_update_membership',{p_id:req.params.id,p_status:req.body.status,p_roles:req.body.roles});if(error)throw fromDatabaseError(error);sendData(res,data);}));
+router.delete('/iam/:id',validate({params:id}),asyncHandler(async(req,res)=>{const{error}=await req.auth!.client.rpc('platform_delete_school_user',{p_id:req.params.id});if(error)throw fromDatabaseError(error);sendData(res,{success:true,message:'Hak akses pengguna berhasil dihapus'});}));
 router.use(passwordRecoveryRouter);
 
 router.patch('/schools/:id/logo', validate({ params: id, body: z.object({ logo_url: z.string().trim().min(1), level: z.enum(['SD','SMP','SMA']).optional() }) }), asyncHandler(async (req, res) => {

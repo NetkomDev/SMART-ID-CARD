@@ -28,6 +28,7 @@ export type ErrorCode =
   | "GATE_RULE_VIOLATION"
   | "PARENT_ACCOUNT_EXISTS"
   | "PARENT_LINK_INVALID"
+  | "PORTAL_ACTIVE_RECENTLY"
   | "CHILD_NOT_LINKED"
   | "EXTRACURRICULAR_MEMBER_REQUIRED"
   | "RESOURCE_NOT_FOUND"
@@ -60,6 +61,10 @@ export function fromDatabaseError(error: PostgrestError): ApiError {
 
   if (error.code === "PGRST202" && error.message.includes("is_platform_admin")) {
     return new ApiError(503, "DATABASE_NOT_READY", "Konfigurasi database Super Admin belum siap. Pengelola perlu menerapkan migrasi Super Admin dan memperbarui cache API database.");
+  }
+
+  if (error.message && error.message.includes("PORTAL_ACTIVE_RECENTLY")) {
+    return new ApiError(409, "PORTAL_ACTIVE_RECENTLY", error.message.replace(/^.*?PORTAL_ACTIVE_RECENTLY:\s*/, ""));
   }
 
   if (error.code === "28000") {
