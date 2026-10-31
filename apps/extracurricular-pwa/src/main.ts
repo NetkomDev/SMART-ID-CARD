@@ -1,6 +1,7 @@
 import { QRCamera, bindLoginCamera } from "../../shared/qr-camera";
 import { renderPortrait } from "../../shared/portrait";
 import { gateIntro, gateHelp, schoolLabel } from "../../shared/portal-ui";
+import { NaturalVoice } from "../../shared/natural-voice";
 
 import { PortalError, PortalSession } from "../../shared/portal-session";
 import { setupInstallPrompt, offerInstall } from "../../shared/install-prompt";
@@ -9,6 +10,25 @@ import "../../shared/scanner.css";
 
 const portal = new PortalSession("TEACHER", import.meta.env.VITE_API_BASE_URL ?? "/api/v1");
 setupInstallPrompt("Ekstrakurikuler", import.meta.env.BASE_URL, import.meta.env.PROD);
+
+const speaker = new NaturalVoice("ekskul", ({ enabled, text }) => {
+  const toggle = document.getElementById("voice-toggle") as HTMLButtonElement | null;
+  if (toggle) {
+    toggle.setAttribute("aria-pressed", String(enabled));
+    toggle.textContent = enabled ? "🔊 Suara aktif" : "🔇 Nonaktif";
+  }
+  const testBtn = document.getElementById("voice-test") as HTMLButtonElement | null;
+  if (testBtn) testBtn.disabled = !enabled;
+  const statusEl = document.getElementById("voice-status");
+  if (statusEl) statusEl.textContent = text;
+});
+document.getElementById("voice-toggle")?.addEventListener("click", () => {
+  speaker.setEnabled(!speaker.enabled);
+});
+document.getElementById("voice-test")?.addEventListener("click", () => {
+  speaker.unlock();
+  speaker.speak("Suara siap digunakan");
+});
 try { for (const key of Object.keys(localStorage)) if (key.startsWith("ekskul_cache_")) localStorage.removeItem(key); } catch { /* Historical profile cache is no longer used. */ }
 
 const entry = document.getElementById("view-login")!;
@@ -104,7 +124,30 @@ document.querySelectorAll<HTMLButtonElement>(".zoom-btn").forEach(btn => {
 
 setupScannerPinchZoom();
 
-const camera = new QRCamera({readerId:"qr-reader",toggleId:"btn-toggle-camera",stageId:"scanner-stage",placeholderId:"scanner-placeholder",statusId:"scan-status",errorId:"scan-error",zoomId:"zoom-controls",once:true,canRead:()=>!submitting && Boolean(currentSessionId) && document.getElementById("success-overlay")!.style.display!=="flex" && document.getElementById("enrollment-overlay")!.style.display!=="flex",onState:phase=>{isScanning=phase==="active";},onDecode:async value=>{triggerHapticFeedback();const input=document.getElementById("scan-input") as HTMLInputElement;input.value=value;document.getElementById("form-scan")!.dispatchEvent(new Event("submit",{cancelable:true,bubbles:true}));}});
+const camera = new QRCamera({
+  readerId: "qr-reader",
+  toggleId: "btn-toggle-camera",
+  stageId: "scanner-stage",
+  placeholderId: "scanner-placeholder",
+  statusId: "scan-status",
+  errorId: "scan-error",
+  zoomId: "zoom-controls",
+  once: false,
+  canRead: () =>
+    !submitting &&
+    Boolean(currentSessionId) &&
+    document.getElementById("success-overlay")!.style.display !== "flex" &&
+    document.getElementById("enrollment-overlay")!.style.display !== "flex",
+  onState: (phase) => {
+    isScanning = phase === "active";
+  },
+  onDecode: async (value) => {
+    triggerHapticFeedback();
+    const input = document.getElementById("scan-input") as HTMLInputElement;
+    input.value = value;
+    document.getElementById("form-scan")!.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+  },
+});
 async function stopCameraScanner(){await camera.stop();currentZoom=1;}
 async function startCameraScanner(){await camera.start();}
 document.getElementById("btn-switch-camera")!.addEventListener("click",()=>{void camera.flip();});
@@ -383,11 +426,12 @@ document.getElementById("form-scan")!.addEventListener("submit", async (e) => {
     document.getElementById("success-student-name")!.textContent = student.full_name;
     document.getElementById("success-time")!.textContent = new Intl.DateTimeFormat("id-ID",{hour:"2-digit",minute:"2-digit"}).format(new Date());
     if (navigator.vibrate) navigator.vibrate(50);
+    speaker.speak(`${student.full_name}, hadir`);
     const overlay = document.getElementById("success-overlay")!;
     overlay.style.display = "flex";
     void loadSessionSummary();
     if (scanTimeout) clearTimeout(scanTimeout);
-    scanTimeout = window.setTimeout(()=>overlay.style.display="none",5000);
+    scanTimeout = window.setTimeout(()=>overlay.style.display="none",1800);
   } catch(error) {
     const text = error instanceof Error ? error.message : "Presensi belum dapat disimpan. Coba kembali.";
     errorEl.textContent = text;
@@ -441,6 +485,7 @@ document.getElementById("btn-confirm-enroll")!.addEventListener("click", async (
     document.getElementById("success-time")!.textContent = new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit" }).format(new Date());
     
     
+    speaker.speak(`${pendingStudent.full_name}, terdaftar dan hadir`);
     const overlay = document.getElementById("success-overlay")!;
     overlay.style.display = "flex";
     toast.style.display = "none";
@@ -449,7 +494,7 @@ document.getElementById("btn-confirm-enroll")!.addEventListener("click", async (
     if (scanTimeout) clearTimeout(scanTimeout);
     scanTimeout = window.setTimeout(() => {
       overlay.style.display = "none";
-    }, 5000);
+    }, 1800);
 
   } catch (err: any) {
     errorEl.textContent = "Gagal: " + err.message;

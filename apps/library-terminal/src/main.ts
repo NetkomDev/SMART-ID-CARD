@@ -1,12 +1,33 @@
 import { QRCamera, bindLoginCamera } from "../../shared/qr-camera";
 import { renderPortrait } from "../../shared/portrait";
 import { gateIntro, gateHelp } from "../../shared/portal-ui";
+import { NaturalVoice } from "../../shared/natural-voice";
 import "./style.css";
 import "../../shared/scanner.css";
 import { PortalError, PortalSession } from "../../shared/portal-session";
 import { setupInstallPrompt, offerInstall } from "../../shared/install-prompt";
+
 const portal = new PortalSession("LIBRARY_STAFF", import.meta.env.VITE_API_BASE_URL ?? "/api/v1");
 setupInstallPrompt("Perpustakaan", import.meta.env.BASE_URL, import.meta.env.PROD);
+
+const speaker = new NaturalVoice("perpustakaan", ({ enabled, text }) => {
+  const toggle = document.getElementById("voice-toggle") as HTMLButtonElement | null;
+  if (toggle) {
+    toggle.setAttribute("aria-pressed", String(enabled));
+    toggle.textContent = enabled ? "🔊 Suara aktif" : "🔇 Nonaktif";
+  }
+  const testBtn = document.getElementById("voice-test") as HTMLButtonElement | null;
+  if (testBtn) testBtn.disabled = !enabled;
+  const statusEl = document.getElementById("voice-status");
+  if (statusEl) statusEl.textContent = text;
+});
+document.getElementById("voice-toggle")?.addEventListener("click", () => {
+  speaker.setEnabled(!speaker.enabled);
+});
+document.getElementById("voice-test")?.addEventListener("click", () => {
+  speaker.unlock();
+  speaker.speak("Suara siap digunakan");
+});
 try { for (const key of Object.keys(localStorage)) if (key.startsWith("library_cache_")) localStorage.removeItem(key); } catch { /* Historical profile cache is no longer used. */ }
 type Visit = { event_id: string; card_uid: string; occurred_at: string; local_sequence: number; metadata: Record<string, unknown> };
 const form = document.querySelector<HTMLFormElement>("#scan")!;
@@ -118,7 +139,6 @@ async function processVisit(uid: string, isFromCamera: boolean = false) {
       void flash.offsetWidth;
       flash.classList.add("flash-active");
     }
-    showLoadingOverlay(true);
   }
 
   try {
@@ -142,15 +162,21 @@ async function processVisit(uid: string, isFromCamera: boolean = false) {
         avatarEl.innerHTML = `<div class="avatar-fallback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke-linecap="round"/><circle cx="12" cy="7" r="4"/></svg></div>`;
       }
     }
+
+    if (result.duplicate) {
+      speaker.speak(`${result.student_name ?? "Siswa"}, sudah tercatat`);
+    } else {
+      speaker.speak(`Selamat datang, ${result.student_name ?? "Siswa"}`);
+    }
     
     status.value = result.duplicate ? "Kunjungan sudah tercatat." : "Kunjungan berhasil disimpan.";
     switchView("success");
     void loadDailySummary();
     if (!isFromCamera) triggerHapticFeedback();
     
-    // Auto-return to scan after 5 seconds
+    // Auto-return to scan after 1.8 seconds to keep line moving fast
     if (scanTimeout) clearTimeout(scanTimeout);
-    scanTimeout = window.setTimeout(() => switchView("scan"), 5000);
+    scanTimeout = window.setTimeout(() => switchView("scan"), 1800);
 
   } catch (error) {
     if (isFromCamera) showLoadingOverlay(false);
@@ -167,6 +193,7 @@ async function processVisit(uid: string, isFromCamera: boolean = false) {
     }
     
     save([...queue(key), visit], key); 
+    speaker.speak("Kunjungan disimpan offline");
     status.value = "Koneksi tertunda — kunjungan tersimpan di perangkat";
   } finally {
     visitBusy = false; submit.disabled = false;

@@ -337,3 +337,74 @@
 #qr-reader canvas {
   touch-action: pan-y;
 }
+
+/* Voice panel control card */
+.voice-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: #fff;
+  border: 1px solid #d9e6df;
+  border-radius: 16px;
+  padding: 12px 14px;
+  margin: 14px 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+}
+.voice-panel-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.voice-panel-heading strong {
+  color: #164735;
+  font-size: 0.88rem;
+}
+.voice-panel-heading span {
+  color: #52695d;
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+.voice-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+.voice-panel-actions button {
+  min-height: 44px;
+  border: 1px solid #cde5d8;
+  background: #f1faf5;
+  color: #07543a;
+  border-radius: 10px;
+  padding: 8px 11px;
+  font-size: 0.77rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.voice-panel-actions button:hover {
+  background: #e2f4eb;
+  border-color: #a3d9bc;
+}
+.voice-panel-actions button:focus-visible {
+  outline: 3px solid #5dbf8b;
+  outline-offset: 2px;
+}
+.voice-panel-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+@media (max-width: 420px) {
+  .voice-panel {
+    gap: 8px;
+  }
+  .voice-panel-actions {
+    flex-wrap: nowrap;
+  }
+  .voice-panel-actions button {
+    padding: 8px;
+  }
+}
+

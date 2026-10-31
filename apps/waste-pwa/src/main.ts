@@ -1,5 +1,6 @@
 import { QRCamera, bindLoginCamera } from "../../shared/qr-camera";
 import { gateIntro, gateHelp, escapePortal as esc } from "../../shared/portal-ui";
+import { NaturalVoice } from "../../shared/natural-voice";
 import "./style.css";
 import "../../shared/scanner.css";
 import { PortalError, PortalSession } from "../../shared/portal-session";
@@ -8,6 +9,25 @@ import { calculateWasteMeasurement, type WasteType, type WasteUnit } from "./was
 
 const portal = new PortalSession("WASTE_STAFF", import.meta.env.VITE_API_BASE_URL ?? "/api/v1");
 setupInstallPrompt("Piket Bank Sampah", import.meta.env.BASE_URL, import.meta.env.PROD);
+
+const speaker = new NaturalVoice("waste", ({ enabled, text }) => {
+  const toggle = document.getElementById("voice-toggle") as HTMLButtonElement | null;
+  if (toggle) {
+    toggle.setAttribute("aria-pressed", String(enabled));
+    toggle.textContent = enabled ? "🔊 Suara aktif" : "🔇 Nonaktif";
+  }
+  const testBtn = document.getElementById("voice-test") as HTMLButtonElement | null;
+  if (testBtn) testBtn.disabled = !enabled;
+  const statusEl = document.getElementById("voice-status");
+  if (statusEl) statusEl.textContent = text;
+});
+document.getElementById("voice-toggle")?.addEventListener("click", () => {
+  speaker.setEnabled(!speaker.enabled);
+});
+document.getElementById("voice-test")?.addEventListener("click", () => {
+  speaker.unlock();
+  speaker.speak("Suara siap digunakan");
+});
 const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const input = <T extends HTMLInputElement | HTMLSelectElement = HTMLInputElement>(id: string) => el<T>(id);
 const number = (n: number) => new Intl.NumberFormat("id-ID", { maximumFractionDigits: 3 }).format(n);
@@ -406,6 +426,7 @@ async function resolveStudent(scannedText?: string) {
     }
 
     showStudent(resolvedStudent);
+    speaker.speak(resolvedStudent.full_name);
     el("scan-error").style.display = "none";
     el("scan-error").textContent = "";
     el("input-error").textContent = "";
@@ -441,6 +462,7 @@ async function saveDeposit(e: SubmitEvent) {
   el("input-error").textContent = "Menyimpan setoran…";
   try {
     const saved = await portal.request<{ total_kg: number; points_earned: number | null }>("/waste/transactions", { method: "POST", body: JSON.stringify(pending) });
+    speaker.speak("Setoran berhasil disimpan");
     el("success-detail").textContent = `${student.full_name} · ${number(saved.total_kg)} kg${saved.points_earned == null ? "" : ` · ${number(saved.points_earned)} poin`}. Terima kasih sudah berkontribusi!`;
     pending = null; rememberPending(); student = null; el("input-error").textContent = ""; lockForm(false); switchView("success"); void loadDashboard();
   } catch (error) {

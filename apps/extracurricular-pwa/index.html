@@ -94,6 +94,18 @@
           </div>
         </form>
 
+        <!-- Suara Nama Siswa (Di bawah input NISN) -->
+        <section class="voice-panel" aria-label="Suara nama siswa">
+          <div class="voice-panel-heading">
+            <strong>Suara nama siswa</strong>
+            <span id="voice-status" role="status" aria-live="polite">Menyiapkan suara…</span>
+          </div>
+          <div class="voice-panel-actions">
+            <button type="button" id="voice-toggle" aria-pressed="true">🔊 Suara aktif</button>
+            <button type="button" id="voice-test">Uji suara</button>
+          </div>
+        </section>
+
         <p id="scan-error" class="error-msg"></p>
 
         <div class="session-stats">
