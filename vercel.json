@@ -25,6 +25,10 @@
       "destination": "/extracurricular/index.html"
     },
     {
+      "source": "/attendance",
+      "destination": "/index.html"
+    },
+    {
       "source": "/attendance/(.*)",
       "destination": "/attendance/index.html"
     },
