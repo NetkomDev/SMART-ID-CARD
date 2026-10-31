@@ -1,6 +1,6 @@
 import { QRCamera, bindLoginCamera } from "../../shared/qr-camera";
 import { PortalError, PortalSession } from "../../shared/portal-session";
-import { setupInstallPrompt } from "../../shared/install-prompt";
+import { setupInstallPrompt, offerInstall, promptOrOfferInstall } from "../../shared/install-prompt";
 import {
   acknowledge,
   addReason,
@@ -58,7 +58,10 @@ if (!deviceId) {
   deviceId = crypto.randomUUID();
   localStorage.setItem(deviceKey, deviceId);
 }
-const nameKey = () => `aksis.attendance.name.${scope}`;
+const nameKey = () => {
+  const currentScope = scope || (portal.context ? `${portal.context.school_id}:${portal.context.id}` : "");
+  return currentScope ? `aksis.attendance.name.${currentScope}` : "aksis.attendance.name.default";
+};
 const name = () => localStorage.getItem(nameKey()) ?? "";
 const now = () =>
   new Date(serverAt + performance.now() - calibratedAt).toISOString();
@@ -290,13 +293,31 @@ el("btn-edit-scanner-name").onclick = editName;
 el("btn-close-scanner-name").onclick = () => {
   el("modal-scanner-name").style.display = "none";
 };
-el("form-scanner-name").onsubmit = (e) => {
+el("form-scanner-name").onsubmit = async (e) => {
   e.preventDefault();
   const value = input("input-scanner-name").value.trim();
-  if (!scope || !value) return;
+  if (!scope && portal.context) {
+    scope = `${portal.context.school_id}:${portal.context.id}`;
+  }
+  if (!value) return;
+
+  // 1. Simpan identitas nama guru lokal & perbarui tampilan
   localStorage.setItem(nameKey(), value);
   el("modal-scanner-name").style.display = "none";
   void render();
+
+  // 2. Simpan & ikat perangkat ke database di latar belakang
+  void portal
+    .request("/attendance/register-device", {
+      method: "POST",
+      body: JSON.stringify({ device_id: deviceId, scanner_name: value }),
+    })
+    .catch((err) => {
+      console.warn("Device binding will retry on next scan:", err);
+    });
+
+  // 3. Picu instalasi PWA ke layar HP pengguna
+  await promptOrOfferInstall();
 };
 async function persist(value: ScanRecord) {
   lastScannedId = value.event_id;
@@ -632,7 +653,11 @@ async function start() {
           : "CHECK_IN";
     renderDirection();
     await render();
-    if (!name()) editName();
+    if (!name()) {
+      editName();
+    } else {
+      offerInstall();
+    }
     if (localStorage.getItem("aksis_attendance_queue_v1"))
       feedback(
         "warning",

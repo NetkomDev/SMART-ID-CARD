@@ -40,3 +40,11 @@ export const pwaAttendanceScanSchema = z
 export const pwaAttendanceBatchSyncSchema = z
   .object({ scans: z.array(pwaAttendanceScanSchema).min(1).max(50) })
   .strict();
+
+export const attendanceRegisterDeviceSchema = z
+  .object({
+    device_id: z.string().uuid(),
+    scanner_name: z.string().trim().min(1).max(100),
+  })
+  .strict();
+

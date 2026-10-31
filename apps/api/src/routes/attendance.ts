@@ -10,6 +10,7 @@ import {
   pwaAttendanceBatchSyncSchema,
   pwaAttendanceScanSchema,
   attendanceBootstrapQuerySchema,
+  attendanceRegisterDeviceSchema,
 } from "../schemas/attendance.js";
 
 const router = Router();
@@ -152,4 +153,20 @@ router.post(
     sendData(res, data, 201);
   }),
 );
+
+router.post(
+  "/register-device",
+  requirePermission("attendance.scan"),
+  validate({ body: attendanceRegisterDeviceSchema }),
+  asyncHandler(async (req, res) => {
+    const { device_id, scanner_name } = req.body;
+    const { data, error } = await req.auth!.client.rpc(
+      "bind_attendance_scanner",
+      { p_device_id: device_id, p_scanner_name: scanner_name },
+    );
+    if (error) throw fromDatabaseError(error);
+    sendData(res, data ?? { bound: true });
+  }),
+);
+
 export { router as attendanceRouter };

@@ -24,8 +24,43 @@ export function setupInstallPrompt(appName: string, base: string, production = t
   }
 }
 export function offerInstall() { ready = true; show(); }
-function show() {
-  if (shown || installed()) return;
+export async function promptOrOfferInstall(): Promise<boolean> {
+  ready = true;
+  if (installed()) {
+    console.log("[install-prompt] App already installed");
+    return false;
+  }
+  if (deferred) {
+    const event = deferred;
+    deferred = null;
+    try {
+      console.log("[install-prompt] Triggering native install prompt");
+      void event.prompt();
+      void event.userChoice.then((choice) => {
+        console.log("[install-prompt] Native userChoice outcome:", choice.outcome);
+        if (choice.outcome === "accepted") {
+          document.querySelector("#aksis-install")?.remove();
+        }
+      });
+      return true;
+    } catch (err) {
+      console.warn("[install-prompt] Native prompt failed, falling back to modal:", err);
+      // Fall back to dialog
+    }
+  }
+  console.log("[install-prompt] Showing install modal dialog");
+  show(true);
+  return false;
+}
+
+function show(force = false) {
+  if (installed()) return;
+  const existing = document.querySelector<HTMLDialogElement>("#aksis-install");
+  if (existing) {
+    if (!existing.open) existing.showModal();
+    return;
+  }
+  if (shown && !force) return;
   shown = true;
   const dialog = document.createElement("dialog");
   dialog.id = "aksis-install";
@@ -47,3 +82,4 @@ function show() {
   later.onclick = () => dialog.close();
   dialog.append(heading, text, instruction, button, later); document.body.append(dialog); dialog.showModal();
 }
+
