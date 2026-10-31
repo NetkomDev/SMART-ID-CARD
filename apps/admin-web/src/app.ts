@@ -317,6 +317,303 @@ function tablePage<T>(options: { title: string; subtitle: string; path: string; 
   void load();
 }
 
+async function openParentAccessModal(opts: {
+  studentId: string;
+  studentName: string;
+  studentNisn: string;
+  guardians: Array<{ user_id: string; phone: string; parent_profiles: { full_name: string } }>;
+}): Promise<void> {
+  const overlay = document.createElement("div");
+  overlay.className = "parent-modal-overlay";
+
+  const card = document.createElement("div");
+  card.className = "parent-modal-card";
+  card.setAttribute("role", "dialog");
+  card.setAttribute("aria-modal", "true");
+  card.setAttribute("aria-labelledby", "parent-modal-title");
+
+  const close = () => {
+    overlay.style.opacity = "0";
+    card.style.transform = "scale(0.95)";
+    setTimeout(() => overlay.remove(), 180);
+  };
+
+  overlay.onclick = (e) => {
+    if (e.target === overlay) close();
+  };
+
+  const handleKeydown = (e: KeyboardEvent) => {
+    if (e.key === "Escape") {
+      close();
+      window.removeEventListener("keydown", handleKeydown);
+    }
+  };
+  window.addEventListener("keydown", handleKeydown);
+
+  // Header
+  const header = document.createElement("div");
+  header.className = "parent-modal-header";
+  header.innerHTML = `
+    <div class="parent-modal-title-wrap">
+      <div class="parent-modal-icon" aria-hidden="true">👨‍👩‍👧‍👦</div>
+      <div style="min-width:0;">
+        <h3 id="parent-modal-title" class="parent-modal-title">Akses Portal Orang Tua</h3>
+        <p class="parent-modal-subtitle">Siswa: <strong>${escapeHtml(opts.studentName)}</strong>${opts.studentNisn ? ` · NISN: ${escapeHtml(opts.studentNisn)}` : ""}</p>
+      </div>
+    </div>
+    <button class="parent-modal-close-btn" aria-label="Tutup modal">&times;</button>
+  `;
+  header.querySelector(".parent-modal-close-btn")?.addEventListener("click", close);
+
+  // Body container
+  const body = document.createElement("div");
+  body.className = "parent-modal-body";
+
+  const renderDefaultView = () => {
+    body.innerHTML = `
+      <div class="parent-modal-notice">
+        <span style="font-size:1.15rem;flex-shrink:0" aria-hidden="true">💡</span>
+        <div>
+          <strong>Panduan Pendaftaran &amp; Akses:</strong>
+          <div style="margin-top:3px">
+            • <strong>Pendaftaran Baru:</strong> Bagikan QR Sekolah dari menu <em>Portal PWA &amp; QR</em>. Wali mendaftar mandiri menggunakan NISN &amp; tanggal lahir anak.<br>
+            • <strong>Masuk Ulang:</strong> Gunakan tombol <em>Buat QR Masuk Ulang</em> di bawah jika wali terdaftar berganti HP atau kehilangan akses (berlaku 24 jam).
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <h4 style="margin:0;font-size:0.95rem;font-weight:700;color:var(--text)">Wali Terdaftar (${opts.guardians.length})</h4>
+      </div>
+
+      <div id="parent-guardians-list" style="display:flex;flex-direction:column;gap:8px">
+        ${
+          opts.guardians.length === 0
+            ? `
+          <div style="text-align:center;padding:1.5rem 1rem;background:var(--bg);border:1px dashed var(--line);border-radius:0.85rem">
+            <span style="font-size:1.8rem;display:block;margin-bottom:0.5rem" aria-hidden="true">👥</span>
+            <strong style="display:block;font-size:0.9rem;color:var(--text)">Belum ada wali yang terdaftar</strong>
+            <p style="margin:4px 0 0;font-size:0.8rem;color:var(--muted)">Wali murid belum melakukan pendaftaran melalui QR Portal sekolah untuk siswa ini.</p>
+          </div>
+        `
+            : opts.guardians
+                .map((g, idx) => {
+                  const initial = (g.parent_profiles?.full_name || "W").charAt(0).toUpperCase() || "W";
+                  return `
+            <div class="parent-guardian-card" data-guardian-idx="${idx}">
+              <div class="parent-guardian-info">
+                <div class="parent-guardian-avatar">${escapeHtml(initial)}</div>
+                <div style="min-width:0">
+                  <p class="parent-guardian-name">${escapeHtml(g.parent_profiles?.full_name || "Wali Murid")}</p>
+                  <p class="parent-guardian-phone"><span>📱</span> ${escapeHtml(g.phone || "-")}</p>
+                </div>
+              </div>
+              <button class="button primary btn-issue-recovery" data-idx="${idx}" style="font-size:0.78rem;padding:0.45rem 0.85rem;white-space:nowrap;display:inline-flex;align-items:center;gap:6px">
+                <span>🔄</span> Buat QR Masuk Ulang
+              </button>
+            </div>
+          `;
+                })
+                .join("")
+        }
+      </div>
+
+      <div style="border-top:1px dashed var(--line);padding-top:1rem;margin-top:0.25rem">
+        <button id="btn-issue-link-token" class="button secondary" style="width:100%;justify-content:center;gap:8px;padding:0.65rem 1rem;font-weight:600">
+          <span>🔗</span> Buat Kode Tautan Tambah Anak (Akun Wali Aktif)
+        </button>
+        <p style="margin:6px 0 0;font-size:0.75rem;color:var(--muted);text-align:center">
+          Gunakan opsi ini jika wali sudah memiliki akun aktif di PWA Orang Tua untuk anak lain dan ingin menambahkan anak ini.
+        </p>
+      </div>
+    `;
+
+    // Bind recovery token buttons
+    body.querySelectorAll<HTMLButtonElement>(".btn-issue-recovery").forEach((btn) => {
+      btn.onclick = async () => {
+        const idx = Number(btn.dataset.idx);
+        const guardian = opts.guardians[idx];
+        if (!guardian) return;
+        btn.disabled = true;
+        try {
+          const recovery = await api<{ token: string; expires_at: string }>("/parent/recovery-tokens", {
+            method: "POST",
+            body: JSON.stringify({ user_id: guardian.user_id }),
+          });
+          const url = new URL(
+            import.meta.env.VITE_PARENT_URL || (location.hostname === "localhost" ? "http://localhost:4174/parent/" : "/parent/"),
+            location.origin
+          );
+          url.hash = new URLSearchParams({ parent_recovery: recovery.data.token }).toString();
+
+          // @ts-ignore — browser entry is provided by qrcode at runtime.
+          const QRCode = (await import("qrcode/lib/browser.js")).default;
+          const qrDataUrl = await QRCode.toDataURL(url.toString(), { width: 320, margin: 4 });
+
+          renderRecoveryView(guardian.parent_profiles?.full_name || "Wali Murid", qrDataUrl, url.toString(), recovery.data.expires_at);
+        } catch (err: any) {
+          toastError(err?.message || "Gagal membuat QR masuk ulang.");
+          btn.disabled = false;
+        }
+      };
+    });
+
+    // Bind link token button
+    const linkBtn = body.querySelector<HTMLButtonElement>("#btn-issue-link-token");
+    if (linkBtn) {
+      linkBtn.onclick = async () => {
+        linkBtn.disabled = true;
+        try {
+          const result = await api<{ token: string }>("/parent/link-tokens", {
+            method: "POST",
+            body: JSON.stringify({ student_id: opts.studentId, relationship: "GUARDIAN", expires_in_hours: 24 }),
+          });
+          renderLinkTokenView(result.data.token);
+        } catch (err: any) {
+          toastError(err?.message || "Gagal membuat kode tautan.");
+          linkBtn.disabled = false;
+        }
+      };
+    }
+  };
+
+  const renderRecoveryView = (guardianName: string, qrUrl: string, fullUrl: string, expiresAt: string) => {
+    const expiryFormatted = new Date(expiresAt).toLocaleString("id-ID", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+
+    body.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:-0.25rem">
+        <button id="btn-back-to-list" class="button secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;gap:4px">
+          ← Kembali
+        </button>
+        <span style="font-size:0.75rem;font-weight:600;color:#16a34a;background:#dcfce7;padding:0.2rem 0.6rem;border-radius:999px">
+          QR Masuk Ulang Siap
+        </span>
+      </div>
+
+      <div class="parent-modal-qr-view">
+        <div>
+          <h4 style="margin:0;font-size:1rem;color:var(--text)">QR Khusus: ${escapeHtml(guardianName)}</h4>
+          <p style="margin:2px 0 0;font-size:0.78rem;color:var(--muted)">Pindai menggunakan kamera smartphone wali untuk langsung masuk.</p>
+        </div>
+
+        <div class="parent-modal-qr-box">
+          <img src="${qrUrl}" alt="QR Pribadi ${escapeHtml(guardianName)}" />
+        </div>
+
+        <div style="width:100%">
+          <label style="display:block;font-size:0.78rem;font-weight:600;color:var(--muted);text-align:left;margin-bottom:4px">Tautan Langsung (Opsional):</label>
+          <div class="parent-modal-copy-box">
+            <input type="text" id="parent-recovery-url" readonly value="${escapeHtml(fullUrl)}" />
+            <button id="btn-copy-url" class="button secondary" style="white-space:nowrap;font-size:0.8rem;padding:0.5rem 0.85rem">
+              📋 Salin
+            </button>
+          </div>
+        </div>
+
+        <div style="background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:0.75rem;padding:0.7rem 0.9rem;font-size:0.78rem;line-height:1.45;text-align:left;width:100%">
+          ⚠️ <strong>Penting:</strong> QR ini bersifat rahasia, berlaku satu kali pakai hingga <strong>${expiryFormatted}</strong>, dan secara otomatis menggantikan sesi lama wali.
+        </div>
+      </div>
+    `;
+
+    body.querySelector<HTMLButtonElement>("#btn-back-to-list")?.addEventListener("click", renderDefaultView);
+
+    const copyBtn = body.querySelector<HTMLButtonElement>("#btn-copy-url");
+    if (copyBtn) {
+      copyBtn.onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(fullUrl);
+          toastSuccess("Tautan masuk ulang berhasil disalin!");
+          copyBtn.textContent = "✓ Tersalin!";
+          setTimeout(() => {
+            copyBtn.textContent = "📋 Salin";
+          }, 2000);
+        } catch {
+          const input = body.querySelector<HTMLInputElement>("#parent-recovery-url");
+          input?.select();
+          document.execCommand("copy");
+          toastSuccess("Tautan masuk ulang berhasil disalin!");
+        }
+      };
+    }
+  };
+
+  const renderLinkTokenView = (token: string) => {
+    body.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:-0.25rem">
+        <button id="btn-back-to-list" class="button secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;gap:4px">
+          ← Kembali
+        </button>
+        <span style="font-size:0.75rem;font-weight:600;color:#2563eb;background:#dbeafe;padding:0.2rem 0.6rem;border-radius:999px">
+          Kode Tautan Aktif (24 Jam)
+        </span>
+      </div>
+
+      <div style="text-align:center;padding:0.5rem 0;display:flex;flex-direction:column;gap:1rem">
+        <div>
+          <h4 style="margin:0;font-size:1.05rem;color:var(--text)">Kode Menghubungkan Anak</h4>
+          <p style="margin:3px 0 0;font-size:0.8rem;color:var(--muted)">Berikan kode ini kepada orang tua siswa yang sudah memiliki akun aktif.</p>
+        </div>
+
+        <div class="parent-modal-token-box">
+          <span style="font-size:0.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em">Kode Tautan Siswa</span>
+          <div class="parent-modal-token-code" id="token-code-text">${escapeHtml(token)}</div>
+          <button id="btn-copy-token" class="button primary" style="font-size:0.82rem;padding:0.5rem 1.25rem;gap:6px">
+            📋 Salin Kode Tautan
+          </button>
+        </div>
+
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:0.75rem;padding:0.75rem 1rem;font-size:0.8rem;color:#475569;line-height:1.5;text-align:left">
+          ℹ️ <strong>Cara Penggunaan oleh Wali:</strong><br>
+          1. Wali membuka Portal Orang Tua di smartphone miliknya.<br>
+          2. Masuk ke menu profil / <strong>"Hubungkan Anak"</strong>.<br>
+          3. Masukkan kode di atas untuk langsung menghubungkan data anak ke akunnya.
+        </div>
+      </div>
+    `;
+
+    body.querySelector<HTMLButtonElement>("#btn-back-to-list")?.addEventListener("click", renderDefaultView);
+
+    const copyBtn = body.querySelector<HTMLButtonElement>("#btn-copy-token");
+    if (copyBtn) {
+      copyBtn.onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(token);
+          toastSuccess("Kode tautan berhasil disalin!");
+          copyBtn.textContent = "✓ Kode Tersalin!";
+          setTimeout(() => {
+            copyBtn.textContent = "📋 Salin Kode Tautan";
+          }, 2000);
+        } catch {
+          toastSuccess("Kode: " + token);
+        }
+      };
+    }
+  };
+
+  // Initial render
+  renderDefaultView();
+
+  // Footer
+  const footer = document.createElement("div");
+  footer.className = "parent-modal-footer";
+  const closeBtn = document.createElement("button");
+  closeBtn.type = "button";
+  closeBtn.className = "button secondary";
+  closeBtn.textContent = "Tutup";
+  closeBtn.onclick = close;
+  footer.appendChild(closeBtn);
+
+  card.appendChild(header);
+  card.appendChild(body);
+  card.appendChild(footer);
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+}
+
 async function studentsPage(): Promise<void> {
   let selectedClassId: string | null = null;
   let currentSearch = "";
@@ -739,7 +1036,7 @@ async function studentsPage(): Promise<void> {
                     </td>
                     <td>
                       <div style="display:flex;gap:4px;">
-                        <button class="button secondary btn-parent-invite" data-id="${escapeHtml(item.id)}">Akses orang tua</button>
+                        <button class="button secondary btn-parent-invite" data-id="${escapeHtml(item.id)}" data-name="${escapeHtml(item.full_name)}" data-nisn="${escapeHtml(item.nisn || '')}">Akses orang tua</button>
                         <button class="button secondary btn-edit-student" data-student='${JSON.stringify(item).replace(/'/g, "&#39;")}' style="padding:0.2rem 0.5rem;font-size:0.75rem;">Edit</button>
                         <button class="button danger btn-delete-student" data-id="${item.id}" data-name="${escapeHtml(item.full_name)}" style="padding:0.2rem 0.5rem;font-size:0.75rem;">Hapus</button>
                       </div>
@@ -756,48 +1053,21 @@ async function studentsPage(): Promise<void> {
         button.onclick = async () => {
           button.disabled = true;
           try {
-            const response = await api<Array<{user_id:string;phone:string;parent_profiles:{full_name:string}}>>(`/parent/guardians?student_id=${encodeURIComponent(button.dataset.id!)}`);
-            const dialog = document.createElement("dialog"); dialog.style.cssText = "max-width:540px;width:calc(100% - 32px);max-height:85vh;overflow:auto";
-            const title = document.createElement("h2"); title.textContent = "Akses pribadi orang tua";
-            const note = document.createElement("p"); note.textContent = "Pendaftaran baru: bagikan QR sekolah dari menu Portal PWA & QR. Untuk masuk ulang, pastikan identitas wali sebelum menerbitkan QR pribadi. QR berlaku sekali selama 24 jam dan menggantikan sesi lama saat digunakan.";
-            const content = document.createElement("div");
-            if (!response.data.length) content.textContent = "Belum ada wali yang mendaftar melalui QR sekolah untuk anak ini.";
-            for (const guardian of response.data) {
-              const row = document.createElement("p"), label = document.createElement("strong"), issue = document.createElement("button");
-              label.textContent = `${guardian.parent_profiles.full_name} · ${guardian.phone} `;
-              issue.textContent = "Buat QR masuk ulang";
-              issue.onclick = async () => {
-                issue.disabled = true;
-                try {
-                  const recovery = await api<{token:string;expires_at:string}>("/parent/recovery-tokens", {method:"POST",body:JSON.stringify({user_id:guardian.user_id})});
-                  const url = new URL(import.meta.env.VITE_PARENT_URL || (location.hostname === "localhost" ? "http://localhost:4174/parent/" : "/parent/"), location.origin);
-                  url.hash = new URLSearchParams({parent_recovery:recovery.data.token}).toString();
-                  // @ts-ignore — browser entry is provided by qrcode at runtime.
-                  const QRCode = (await import("qrcode/lib/browser.js")).default;
-                  const image = document.createElement("img"); image.alt = `QR pribadi ${guardian.parent_profiles.full_name}`; image.style.cssText = "width:100%;max-width:320px";
-                  image.src = await QRCode.toDataURL(url.toString(), {width:320,margin:4});
-                  const link = document.createElement("textarea"); link.readOnly = true; link.value = url.toString(); link.style.width = "100%";
-                  const expiry = document.createElement("p"); expiry.textContent = `Rahasiakan QR ini. Berlaku sampai ${new Date(recovery.data.expires_at).toLocaleString("id-ID")}. QR sebelumnya tidak berlaku.`;
-                  content.replaceChildren(image,link,expiry);
-                } catch(error) { toastError(error instanceof Error ? error.message : "QR gagal dibuat."); issue.disabled = false; }
-              };
-              row.append(label,issue); content.append(row);
-            }
-            const invite = document.createElement("button"); invite.textContent = "Buat kode untuk menambahkan anak ke akun wali yang sudah aktif";
-            invite.onclick = async () => {
-              invite.disabled = true;
-              try {
-                const result = await api<{token:string}>("/parent/link-tokens", {method:"POST",body:JSON.stringify({student_id:button.dataset.id,relationship:"GUARDIAN",expires_in_hours:24})});
-                const code = document.createElement("textarea"); code.readOnly = true; code.value = result.data.token;
-                const help = document.createElement("p"); help.textContent = "Wali memasukkan kode ini di menu Hubungkan Anak. Sekali pakai, berlaku 24 jam. Berikan hanya kepada wali yang telah diperiksa sekolah.";
-                content.replaceChildren(help,code);
-              } catch(error) { toastError(error instanceof Error ? error.message : "Undangan gagal dibuat."); invite.disabled = false; }
-            };
-            const close = document.createElement("button"); close.textContent = "Tutup"; close.onclick = () => dialog.close();
-            dialog.append(title,note,content,invite,close); document.body.append(dialog); dialog.addEventListener("close",()=>dialog.remove()); dialog.showModal();
-
-          } catch(error) { toastError(error instanceof Error ? error.message : "Undangan gagal dibuat."); }
-          finally { button.disabled=false; }
+            const studentId = button.dataset.id!;
+            const studentName = button.dataset.name || "Siswa";
+            const studentNisn = button.dataset.nisn || "";
+            const response = await api<Array<{user_id:string;phone:string;parent_profiles:{full_name:string}}>>(`/parent/guardians?student_id=${encodeURIComponent(studentId)}`);
+            openParentAccessModal({
+              studentId,
+              studentName,
+              studentNisn,
+              guardians: response.data
+            });
+          } catch(error) { 
+            toastError(error instanceof Error ? error.message : "Gagal memuat data akses orang tua."); 
+          } finally { 
+            button.disabled = false; 
+          }
         };
       });
 
