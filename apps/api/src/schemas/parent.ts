@@ -1,11 +1,8 @@
 import { z } from "zod";
 
-export const claimParentLinkSchema = z.object({ token: z.string().min(40).max(128).regex(/^[A-Za-z0-9_-]+$/) }).strict();
-
-export const createParentTokenSchema = z.object({
-  student_id: z.string().uuid(),
-  relationship: z.enum(["FATHER", "MOTHER", "GUARDIAN", "OTHER"]),
-  expires_in_hours: z.number().int().min(1).max(168).default(24)
+export const linkChildByNisnDobSchema = z.object({
+  nisn: z.string().trim().min(4, "NISN minimal 4 karakter").max(20, "NISN maksimal 20 karakter"),
+  date_of_birth: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, "Format tanggal lahir harus YYYY-MM-DD")
 }).strict();
 
 export const claimParentPermitSchema = z.object({

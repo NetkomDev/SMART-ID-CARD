@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { claimParentLinkSchema, createParentTokenSchema } from "./parent.js";
+import { linkChildByNisnDobSchema } from "./parent.js";
 
-describe("Phase 08 parent access contracts", () => {
-  it("rejects short link tokens", () => expect(claimParentLinkSchema.safeParse({ token: "short", full_name: "Ibu Andi" }).success).toBe(false));
-  it("bounds token validity", () => expect(createParentTokenSchema.safeParse({ student_id: "0199b4dc-3ea3-7d25-b493-0b998dbafabe", relationship: "MOTHER", expires_in_hours: 200 }).success).toBe(false));
+describe("Parent self-service link by NISN and DOB contracts", () => {
+  it("rejects invalid NISN or bad date format", () => {
+    expect(linkChildByNisnDobSchema.safeParse({ nisn: "12", date_of_birth: "2010-05-15" }).success).toBe(false);
+    expect(linkChildByNisnDobSchema.safeParse({ nisn: "0075849305", date_of_birth: "15-05-2010" }).success).toBe(false);
+  });
+  it("accepts valid NISN and ISO date", () => {
+    expect(linkChildByNisnDobSchema.safeParse({ nisn: "0075849305", date_of_birth: "2010-05-15" }).success).toBe(true);
+  });
 });

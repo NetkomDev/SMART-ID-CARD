@@ -1222,17 +1222,69 @@ function bindGlobalEvents() {
 
 async function linkView() {
   viewRevision++; dashboardVisible = false; activeTab = "add";
-  root.innerHTML = parentLayout(`<div class="parent-content"><form class="link-card" id="link-form"><h2>Hubungkan Anak</h2>
-    <p>Masukkan kode undangan pribadi dari sekolah anak. Undangan hanya dapat dipakai sekali.</p>
-    <label>Kode undangan<input name="token" autocomplete="off" required minlength="40" maxlength="128"></label>
-    <p id="link-status" role="status"></p><button>Hubungkan anak</button></form></div>`, "add");
+  root.innerHTML = parentLayout(`
+    <div class="parent-content">
+      <form class="link-card" id="link-form" style="background:white;border-radius:22px;padding:24px;border:1px solid #e1efe8;display:flex;flex-direction:column;gap:14px;">
+        <div>
+          <small style="color:var(--parent-green-accent);font-weight:800;letter-spacing:0.1em;text-transform:uppercase;">TAMBAH ANAK</small>
+          <h2 style="margin:6px 0 8px;font-size:1.3rem;">Hubungkan Anak ke Portal</h2>
+          <p style="margin:0;font-size:0.85rem;color:#475569;line-height:1.5;">
+            Tambahkan anak Anda baik di sekolah yang sama maupun di sekolah lain dalam ekosistem AKSIS. Cukup masukkan NISN dan tanggal lahir anak.
+          </p>
+        </div>
+
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:0.85rem;font-weight:600;color:#1e293b;">
+          NISN Siswa
+          <input name="nisn" inputmode="numeric" pattern="[0-9]{4,20}" placeholder="Contoh: 0075849305" required autocomplete="off" style="padding:10px 14px;border:1px solid #cbd5e1;border-radius:12px;font-size:0.95rem;">
+        </label>
+
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:0.85rem;font-weight:600;color:#1e293b;">
+          Tanggal Lahir Anak
+          <input name="date_of_birth" type="date" required style="padding:10px 14px;border:1px solid #cbd5e1;border-radius:12px;font-size:0.95rem;">
+        </label>
+
+        <p id="link-status" role="status" style="margin:2px 0 0;font-size:0.85rem;min-height:1.2rem;"></p>
+
+        <button id="btn-submit-link" style="min-height:46px;font-size:0.95rem;font-weight:700;background:var(--parent-green-accent);color:white;border:none;border-radius:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
+          <span>🔗</span> Hubungkan Anak
+        </button>
+      </form>
+    </div>
+  `, "add");
   bindGlobalEvents();
   const form = document.querySelector<HTMLFormElement>("#link-form")!;
-  form.onsubmit = async e => { e.preventDefault(); const button = form.querySelector("button")!; button.disabled = true;
+  form.onsubmit = async e => {
+    e.preventDefault();
+    const button = form.querySelector<HTMLButtonElement>("button")!;
+    const statusEl = document.getElementById("link-status")!;
+    button.disabled = true;
+    button.textContent = "Memeriksa data siswa...";
+    statusEl.style.color = "#2563eb";
+    statusEl.textContent = "Mencocokkan data NISN dan tanggal lahir...";
+
+    const fd = new FormData(form);
+    const nisn = String(fd.get("nisn") ?? "").trim();
+    const date_of_birth = String(fd.get("date_of_birth") ?? "").trim();
+
     try {
-      const result = await request<{ student_id: string }>("/parent/link", { method: "POST", body: JSON.stringify({ token: String(new FormData(form).get("token") ?? "").trim() }) });
-      parentMemoryCache.clear(); cachedChildren = null; selectedChildId = result.student_id; await dashboard(selectedChildId);
-    } catch (error) { document.getElementById("link-status")!.textContent = error instanceof Error ? error.message : "Undangan gagal diproses."; button.disabled = false; }
+      const result = await request<{ student_id: string; full_name?: string; school_name?: string; message?: string }>("/parent/link", {
+        method: "POST",
+        body: JSON.stringify({ nisn, date_of_birth })
+      });
+      statusEl.style.color = "#16a34a";
+      statusEl.textContent = `✓ ${result.message || "Anak berhasil dihubungkan!"} Mengalihkan...`;
+      parentMemoryCache.clear();
+      cachedChildren = null;
+      selectedChildId = result.student_id;
+      setTimeout(async () => {
+        await dashboard(selectedChildId);
+      }, 600);
+    } catch (error) {
+      statusEl.style.color = "#dc2626";
+      statusEl.textContent = error instanceof Error ? error.message : "Data siswa tidak cocok atau gagal dihubungkan.";
+      button.disabled = false;
+      button.innerHTML = "<span>🔗</span> Hubungkan Anak";
+    }
   };
 }
 

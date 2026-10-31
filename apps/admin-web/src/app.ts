@@ -419,12 +419,15 @@ async function openParentAccessModal(opts: {
       </div>
 
       <div style="border-top:1px dashed var(--line);padding-top:1rem;margin-top:0.25rem">
-        <button id="btn-issue-link-token" class="button secondary" style="width:100%;justify-content:center;gap:8px;padding:0.65rem 1rem;font-weight:600">
-          <span>🔗</span> Buat Kode Tautan Tambah Anak (Akun Wali Aktif)
-        </button>
-        <p style="margin:6px 0 0;font-size:0.75rem;color:var(--muted);text-align:center">
-          Gunakan opsi ini jika wali sudah memiliki akun aktif di PWA Orang Tua untuk anak lain dan ingin menambahkan anak ini.
-        </p>
+        <div style="background:rgba(37,99,235,0.05);border:1px solid rgba(37,99,235,0.18);border-radius:0.75rem;padding:0.75rem 1rem;font-size:0.8rem;color:var(--text);display:flex;align-items:flex-start;gap:10px">
+          <span style="font-size:1.1rem;flex-shrink:0" aria-hidden="true">✨</span>
+          <div>
+            <strong style="color:#1d4ed8;display:block;margin-bottom:2px">Sistem Otomatis Tambah Anak Mandiri</strong>
+            <p style="margin:0;font-size:0.78rem;color:var(--muted);line-height:1.45">
+              Admin tidak perlu repot membuat dan mengirim kode tautan manual. Wali siswa yang sudah memiliki akun di ekosistem AKSIS dapat langsung menghubungkan siswa ini melalui menu <strong>Tambah Anak</strong> di Portal Orang Tua dengan memasukkan NISN <strong>${escapeHtml(opts.studentNisn || "-")}</strong> dan tanggal lahir anak.
+            </p>
+          </div>
+        </div>
       </div>
     `;
 
@@ -457,24 +460,6 @@ async function openParentAccessModal(opts: {
         }
       };
     });
-
-    // Bind link token button
-    const linkBtn = body.querySelector<HTMLButtonElement>("#btn-issue-link-token");
-    if (linkBtn) {
-      linkBtn.onclick = async () => {
-        linkBtn.disabled = true;
-        try {
-          const result = await api<{ token: string }>("/parent/link-tokens", {
-            method: "POST",
-            body: JSON.stringify({ student_id: opts.studentId, relationship: "GUARDIAN", expires_in_hours: 24 }),
-          });
-          renderLinkTokenView(result.data.token);
-        } catch (err: any) {
-          toastError(err?.message || "Gagal membuat kode tautan.");
-          linkBtn.disabled = false;
-        }
-      };
-    }
   };
 
   const renderRecoveryView = (guardianName: string, qrUrl: string, fullUrl: string, expiresAt: string) => {
@@ -536,59 +521,6 @@ async function openParentAccessModal(opts: {
           input?.select();
           document.execCommand("copy");
           toastSuccess("Tautan masuk ulang berhasil disalin!");
-        }
-      };
-    }
-  };
-
-  const renderLinkTokenView = (token: string) => {
-    body.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:-0.25rem">
-        <button id="btn-back-to-list" class="button secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem;gap:4px">
-          ← Kembali
-        </button>
-        <span style="font-size:0.75rem;font-weight:600;color:#2563eb;background:#dbeafe;padding:0.2rem 0.6rem;border-radius:999px">
-          Kode Tautan Aktif (24 Jam)
-        </span>
-      </div>
-
-      <div style="text-align:center;padding:0.5rem 0;display:flex;flex-direction:column;gap:1rem">
-        <div>
-          <h4 style="margin:0;font-size:1.05rem;color:var(--text)">Kode Menghubungkan Anak</h4>
-          <p style="margin:3px 0 0;font-size:0.8rem;color:var(--muted)">Berikan kode ini kepada orang tua siswa yang sudah memiliki akun aktif.</p>
-        </div>
-
-        <div class="parent-modal-token-box">
-          <span style="font-size:0.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em">Kode Tautan Siswa</span>
-          <div class="parent-modal-token-code" id="token-code-text">${escapeHtml(token)}</div>
-          <button id="btn-copy-token" class="button primary" style="font-size:0.82rem;padding:0.5rem 1.25rem;gap:6px">
-            📋 Salin Kode Tautan
-          </button>
-        </div>
-
-        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:0.75rem;padding:0.75rem 1rem;font-size:0.8rem;color:#475569;line-height:1.5;text-align:left">
-          ℹ️ <strong>Cara Penggunaan oleh Wali:</strong><br>
-          1. Wali membuka Portal Orang Tua di smartphone miliknya.<br>
-          2. Masuk ke menu profil / <strong>"Hubungkan Anak"</strong>.<br>
-          3. Masukkan kode di atas untuk langsung menghubungkan data anak ke akunnya.
-        </div>
-      </div>
-    `;
-
-    body.querySelector<HTMLButtonElement>("#btn-back-to-list")?.addEventListener("click", renderDefaultView);
-
-    const copyBtn = body.querySelector<HTMLButtonElement>("#btn-copy-token");
-    if (copyBtn) {
-      copyBtn.onclick = async () => {
-        try {
-          await navigator.clipboard.writeText(token);
-          toastSuccess("Kode tautan berhasil disalin!");
-          copyBtn.textContent = "✓ Kode Tersalin!";
-          setTimeout(() => {
-            copyBtn.textContent = "📋 Salin Kode Tautan";
-          }, 2000);
-        } catch {
-          toastSuccess("Kode: " + token);
         }
       };
     }

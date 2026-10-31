@@ -10,7 +10,7 @@ import { requireAuth } from "../middleware/auth.js";
 import { requirePermission, requireTenant } from "../middleware/tenant.js";
 import { validate } from "../middleware/validate.js";
 import { idParamsSchema } from "../schemas/common.js";
-import { claimParentLinkSchema, claimParentPermitSchema, createParentTokenSchema } from "../schemas/parent.js";
+import { claimParentPermitSchema, linkChildByNisnDobSchema } from "../schemas/parent.js";
 import { parentSessionRouter, parentCookieAuth } from "./parent-session.js";
 import { processStudentPhotoWorker, dataUrlToBuffer } from "../services/photo-processor.js";
 
@@ -53,10 +53,19 @@ router.post("/permits", requireAuth, validate({ body: claimParentPermitSchema })
   sendData(res, data, 201);
 }));
 
-router.post("/link", requireAuth, validate({ body: claimParentLinkSchema }), asyncHandler(async (req, res) => {
-  const { data, error } = await req.auth!.client.rpc("claim_parent_invitation", { p_token: req.body.token });
+router.post("/link", requireAuth, validate({ body: linkChildByNisnDobSchema }), asyncHandler(async (req, res) => {
+  const { nisn, date_of_birth } = req.body;
+  const { data, error } = await req.auth!.client.rpc("link_child_by_nisn_dob", {
+    p_nisn: nisn,
+    p_dob: date_of_birth
+  });
   if (error) throw fromDatabaseError(error);
-  if (!data?.accepted) throw new ApiError(data?.code === "RATE_LIMITED" ? 429 : 422, data?.code === "RATE_LIMITED" ? "RATE_LIMITED" : "PARENT_LINK_INVALID", "Undangan tidak valid, kedaluwarsa, atau batas percobaan tercapai.");
+  if (!data?.accepted) {
+    if (data?.code === "RATE_LIMITED") {
+      throw new ApiError(429, "RATE_LIMITED", data?.message || "Terlalu banyak percobaan gagal. Silakan coba kembali dalam 15 menit.");
+    }
+    throw new ApiError(404, data?.code || "STUDENT_NOT_FOUND", data?.message || "Data siswa dengan NISN dan tanggal lahir tersebut tidak ditemukan.");
+  }
   sendData(res, data, 201);
 }));
 
@@ -130,19 +139,5 @@ router.post("/recovery-tokens", requireAuth, requireTenant,
     sendData(res, { token, expires_at }, 201);
   }));
 
-router.post("/link-tokens", requireAuth, requireTenant, requirePermission("parent.manage"),
-  validate({ body: createParentTokenSchema }), asyncHandler(async (req, res) => {
-    const token = randomBytes(32).toString("base64url");
-    const { data, error } = await req.auth!.client.from("parent_link_tokens").insert({
-      school_id: req.tenant!.schoolId,
-      student_id: req.body.student_id,
-      relationship: req.body.relationship,
-      token_hash: createHash("sha256").update(token).digest("hex"),
-      expires_at: new Date(Date.now() + req.body.expires_in_hours * 3_600_000).toISOString(),
-      created_by: req.auth!.user.id
-    }).select("id, expires_at").single();
-    if (error) throw fromDatabaseError(error);
-    sendData(res, { ...data, token }, 201);
-  }));
 
 export { router as parentsRouter };
