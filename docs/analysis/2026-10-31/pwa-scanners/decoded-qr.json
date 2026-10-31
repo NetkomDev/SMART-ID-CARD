@@ -1,0 +1,24 @@
+{
+  "result": "PASS",
+  "method": "Actual html5-qrcode with Chromium virtual MediaStream; API data mocked",
+  "apps": [
+    {
+      "app": "waste-pwa",
+      "result": "PASS",
+      "method": "Actual QR decoded by html5-qrcode from a synthetic Y4M camera stream",
+      "business_api_calls": 1
+    },
+    {
+      "app": "library-terminal",
+      "result": "PASS",
+      "method": "Actual QR decoded by html5-qrcode from a synthetic Y4M camera stream",
+      "business_api_calls": 1
+    },
+    {
+      "app": "extracurricular-pwa",
+      "result": "PASS",
+      "method": "Actual QR decoded by html5-qrcode from a synthetic Y4M camera stream",
+      "business_api_calls": 1
+    }
+  ]
+}

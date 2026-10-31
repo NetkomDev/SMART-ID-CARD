@@ -1,10 +1,13 @@
+import { QRCamera, bindLoginCamera } from "../../shared/qr-camera";
 import { renderPortrait } from "../../shared/portrait";
 import { gateIntro, gateHelp } from "../../shared/portal-ui";
 import "./style.css";
+import "../../shared/scanner.css";
 import { PortalError, PortalSession } from "../../shared/portal-session";
 import { setupInstallPrompt, offerInstall } from "../../shared/install-prompt";
 const portal = new PortalSession("LIBRARY_STAFF", import.meta.env.VITE_API_BASE_URL ?? "/api/v1");
 setupInstallPrompt("Perpustakaan", import.meta.env.BASE_URL, import.meta.env.PROD);
+try { for (const key of Object.keys(localStorage)) if (key.startsWith("library_cache_")) localStorage.removeItem(key); } catch { /* Historical profile cache is no longer used. */ }
 type Visit = { event_id: string; card_uid: string; occurred_at: string; local_sequence: number; metadata: Record<string, unknown> };
 const form = document.querySelector<HTMLFormElement>("#scan")!;
 const card = document.querySelector<HTMLInputElement>("#card")!;
@@ -29,35 +32,7 @@ login.classList.add("portal-gate");
 login.insertAdjacentHTML("afterbegin", gateIntro("Layanan Perpustakaan", "Akses layanan perpustakaan sekolah melalui akses resmi dari admin."));
 loginForm.insertAdjacentHTML("beforeend", gateHelp);
 
-let loginScanner: any = null;
-document.getElementById("btn-start-login-scan")!.addEventListener("click", async () => {
-  document.getElementById("btn-start-login-scan")!.style.display = "none";
-  document.getElementById("login-scanner-container")!.style.display = "block";
-  try {
-    if (!loginScanner) {
-      const { Html5Qrcode } = await import("html5-qrcode");
-      loginScanner = new Html5Qrcode("login-qr-reader");
-    }
-    await loginScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: (w: number, h: number) => ({ width: Math.min(250, w * .8, h * .8), height: Math.min(250, w * .8, h * .8) }) }, (decoded: string) => {
-      try {
-        const url = new URL(decoded);
-        if (url.hash.includes("token=") || url.searchParams.has("token")) {
-          void loginScanner?.stop().catch(() => {});
-          window.location.href = decoded;
-        }
-      } catch { /* ignore invalid URLs */ }
-    }, () => undefined);
-  } catch (error) {
-    document.getElementById("login-error")!.textContent = "Kamera tidak dapat diakses untuk memindai QR.";
-    document.getElementById("login-scanner-container")!.style.display = "none";
-    document.getElementById("btn-start-login-scan")!.style.display = "block";
-  }
-});
-document.getElementById("btn-cancel-login-scan")!.addEventListener("click", async () => {
-  if (loginScanner) { try { await loginScanner.stop(); } catch {} }
-  document.getElementById("login-scanner-container")!.style.display = "none";
-  document.getElementById("btn-start-login-scan")!.style.display = "block";
-});
+bindLoginCamera(import.meta.env.BASE_URL);
 
 let syncing: Promise<void> | null = null;
 type LibrarySummary = { class_id: string | null; class_name: string; total: number };
@@ -66,13 +41,17 @@ const dayRange = () => {
   const end = new Date(start); end.setDate(end.getDate() + 1);
   return { start: start.toISOString(), end: end.toISOString() };
 };
+let summaryVersion=0;
 async function loadDailySummary() {
+  const revision=++summaryVersion;
   const { start, end } = dayRange();
   try {
     const rows = await portal.request<LibrarySummary[]>(`/library/summary?occurred_from=${encodeURIComponent(start)}&occurred_to=${encodeURIComponent(end)}`);
+    if(revision!==summaryVersion)return;
     todayVisits.textContent = String(rows.reduce((total, row) => total + row.total, 0));
     activeClasses.textContent = String(rows.filter(row => row.total > 0).length);
   } catch {
+    if(revision!==summaryVersion)return;
     todayVisits.textContent = "—";
     activeClasses.textContent = "—";
   }
@@ -120,65 +99,16 @@ function switchView(view: "scan" | "success") {
 }
 document.getElementById("btn-next-scan")?.addEventListener("click", () => switchView("scan"));
 
+let visitBusy = false;
 async function processVisit(uid: string, isFromCamera: boolean = false) {
+  if (visitBusy) return;
+  visitBusy = true;
+  const submit = form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+  submit.disabled = true;
+  status.value = "Menyimpan kunjungan…";
   const key = queueKey();
-  const cacheKey = `library_cache_${portal.context?.id ?? "none"}_${uid}`;
   const visit: Visit = { event_id: crypto.randomUUID(), card_uid: uid, occurred_at: new Date().toISOString(), local_sequence: Date.now(), metadata: { terminal: "library-pwa" } };
   
-  // 1. FAST PATH (Optimistic UI)
-  let cachedStr = localStorage.getItem(cacheKey);
-  if (cachedStr) { try { const entry = JSON.parse(cachedStr); if (!entry.cached_at || Date.now()-entry.cached_at>86400000) { localStorage.removeItem(cacheKey); cachedStr=null; } } catch { localStorage.removeItem(cacheKey); cachedStr=null; } }
-  if (cachedStr) {
-    try {
-      const cached = JSON.parse(cachedStr);
-      
-      if (isFromCamera) {
-        triggerHapticFeedback();
-        const flash = document.getElementById("camera-shutter-flash");
-        if (flash) {
-          flash.classList.remove("flash-active");
-          void flash.offsetWidth;
-          flash.classList.add("flash-active");
-        }
-      }
-      
-      document.getElementById("success-student-name")!.textContent = cached.student_name ?? "Siswa";
-      document.getElementById("success-student-class")!.textContent = cached.class_name ?? "—";
-      document.getElementById("success-visit-time")!.textContent = `Tercatat pukul ${new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit" }).format(new Date())}`;
-      
-      const dupEl = document.getElementById("duplicate-warning");
-      if (dupEl) dupEl.style.display = "none";
-
-      const avatarEl = document.getElementById("student-avatar");
-      if (avatarEl) {
-        if (cached.photo_url) {
-          renderPortrait(avatarEl, cached.photo_url);
-        } else {
-          avatarEl.innerHTML = `<div class="avatar-fallback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke-linecap="round"/><circle cx="12" cy="7" r="4"/></svg></div>`;
-        }
-      }
-      
-      switchView("success");
-      if (!isFromCamera) triggerHapticFeedback();
-      if (scanTimeout) clearTimeout(scanTimeout);
-      scanTimeout = window.setTimeout(() => switchView("scan"), 5000);
-      
-      // Fire background request silently
-      portal.request<{duplicate?:boolean}>("/library/visits", { method: "POST", body: JSON.stringify(visit) })
-        .then((res) => {
-          if (res.duplicate && dupEl) dupEl.style.display = "block";
-          void loadDailySummary();
-        })
-        .catch(err => {
-          if (err instanceof PortalError && err.status < 500) return;
-          save([...queue(key), visit], key);
-          status.value = "Koneksi tertunda — kunjungan tersimpan di perangkat";
-        });
-        
-      return; // Fast path done
-    } catch (e) {}
-  }
-
   // 2. SLOW PATH (Network)
   if (isFromCamera) {
     triggerHapticFeedback();
@@ -194,15 +124,6 @@ async function processVisit(uid: string, isFromCamera: boolean = false) {
   try {
     const result = await portal.request<{student_name?:string;class_name?:string;duplicate?:boolean;photo_url?:string}>("/library/visits", { method: "POST", body: JSON.stringify(visit) });
     if (isFromCamera) showLoadingOverlay(false);
-    
-    // Save to Cache
-    try {
-      localStorage.setItem(cacheKey, JSON.stringify({
-        student_name: result.student_name,
-        class_name: result.class_name,
-        cached_at: Date.now()
-      }));
-    } catch (e) {}
     
     document.getElementById("success-student-name")!.textContent = result.student_name ?? "Siswa";
     document.getElementById("success-student-class")!.textContent = result.class_name ?? "—";
@@ -222,6 +143,7 @@ async function processVisit(uid: string, isFromCamera: boolean = false) {
       }
     }
     
+    status.value = result.duplicate ? "Kunjungan sudah tercatat." : "Kunjungan berhasil disimpan.";
     switchView("success");
     void loadDailySummary();
     if (!isFromCamera) triggerHapticFeedback();
@@ -246,6 +168,8 @@ async function processVisit(uid: string, isFromCamera: boolean = false) {
     
     save([...queue(key), visit], key); 
     status.value = "Koneksi tertunda — kunjungan tersimpan di perangkat";
+  } finally {
+    visitBusy = false; submit.disabled = false;
   }
 }
 
@@ -303,56 +227,15 @@ function triggerHapticFeedback() {
 document.querySelector<HTMLButtonElement>("#sync")!.onclick = () => void sync().catch(showError);
 window.addEventListener("online", () => { if (portal.connected) void sync().catch(showError); });
 
-let html5QrCode: any = null;
 let isScanning = false;
 let currentZoom = 1;
 let initialTouchDistance = 0;
 let initialZoomOnTouch = 1;
 
-function getActiveCameraTrack(): MediaStreamTrack | null {
-  const videoEl = document.querySelector<HTMLVideoElement>("#qr-reader video");
-  if (!videoEl || !videoEl.srcObject) return null;
-  const stream = videoEl.srcObject as MediaStream;
-  const tracks = stream.getVideoTracks();
-  return tracks[0] ?? null;
-}
-
-async function setCameraZoom(zoomLevel: number) {
-  currentZoom = Math.max(1, Math.min(5, zoomLevel));
-  const track = getActiveCameraTrack();
-  if (track) {
-    try {
-      const caps = (track.getCapabilities ? track.getCapabilities() : {}) as any;
-      if (caps.zoom) {
-        const min = caps.zoom.min || 1;
-        const max = caps.zoom.max || 5;
-        const targetZoom = Math.max(min, Math.min(max, currentZoom));
-        await track.applyConstraints({ advanced: [{ zoom: targetZoom } as any] });
-      }
-    } catch { /* Hardware zoom fallback to CSS scale below */ }
-  }
-
-  const qrContainer = document.getElementById("qr-reader");
-  if (qrContainer) {
-    const mediaEls = qrContainer.querySelectorAll<HTMLVideoElement | HTMLCanvasElement>("video, canvas");
-    mediaEls.forEach(media => {
-      media.style.transform = currentZoom > 1 ? `scale(${currentZoom.toFixed(2)})` : "none";
-      media.style.transformOrigin = "center center";
-      media.style.transition = "transform 0.12s ease-out";
-    });
-  }
-
-  const zoomBox = document.getElementById("zoom-controls");
-  if (zoomBox) {
-    zoomBox.querySelectorAll<HTMLButtonElement>(".zoom-btn").forEach(btn => {
-      const val = Number(btn.getAttribute("data-zoom"));
-      btn.classList.toggle("active", Math.abs(val - currentZoom) < 0.3);
-    });
-  }
-}
+async function setCameraZoom(value:number) {currentZoom=value;await camera.setZoom(value);}
 
 function setupScannerPinchZoom() {
-  const stage = document.querySelector(".scanner-stage");
+  const stage = document.querySelector<HTMLElement>(".scanner-viewport");
   if (!stage) return;
 
   const handleTouchStart = (e: TouchEvent) => {
@@ -396,78 +279,12 @@ document.querySelectorAll<HTMLButtonElement>(".zoom-btn").forEach(btn => {
 
 setupScannerPinchZoom();
 
-async function stopCameraScanner() {
-  if (html5QrCode && isScanning) {
-    try { await html5QrCode.stop(); } catch (e) {}
-    isScanning = false;
-    currentZoom = 1;
-    document.getElementById("qr-reader")!.style.display = "none";
-    document.getElementById("zoom-controls")!.style.display = "none";
-    const ph = document.getElementById("scanner-placeholder");
-    if (ph) ph.style.display = "block";
-    document.getElementById("btn-toggle-camera")!.textContent = "Buka Kamera Scanner";
-  }
-}
-
-async function startCameraScanner() {
-  if (!html5QrCode) {
-    const { Html5Qrcode } = await import("html5-qrcode");
-    html5QrCode = new Html5Qrcode("qr-reader");
-  }
-  try {
-    const ph = document.getElementById("scanner-placeholder");
-    if (ph) ph.style.display = "none";
-    document.getElementById("qr-reader")!.style.display = "block";
-    const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-      let lastScannedText = "";
-      let lastScannedTime = 0;
-      
-      const onScanSuccess = async (decodedText: string) => {
-        // Prevent rapid duplicate scans of the same code within 5 seconds
-        const now = Date.now();
-        if (decodedText === lastScannedText && (now - lastScannedTime) < 5000) {
-          return;
-        }
-        lastScannedText = decodedText;
-        lastScannedTime = now;
-        
-        // Prevent scanning if success overlay, loading, or error overlay is visible
-        if (document.getElementById("view-success")?.style.display === "flex" || 
-            document.getElementById("error-overlay")?.style.display === "flex" ||
-            document.getElementById("loading-overlay")?.style.display === "flex") {
-          return;
-        }
-
-        try {
-          const url = new URL(decodedText);
-          if (url.hash.includes("token=") || url.searchParams.has("token")) {
-            await stopCameraScanner();
-            window.location.href = decodedText;
-            return;
-          }
-        } catch {}
-  
-        void processVisit(decodedText, true);
-      };
-
-    try {
-      await html5QrCode.start({ facingMode: { exact: "environment" } }, config, onScanSuccess, () => {});
-    } catch (e) {
-      await html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess, () => {});
-    }
-
-    isScanning = true;
-    document.getElementById("btn-toggle-camera")!.textContent = "Tutup Kamera";
-    document.getElementById("zoom-controls")!.style.display = "flex";
-    void setCameraZoom(1);
-  } catch (err) {
-    status.value = "Kamera tidak dapat diakses atau tidak ditemukan.";
-    status.className = "error";
-    document.getElementById("qr-reader")!.style.display = "none";
-    const ph = document.getElementById("scanner-placeholder");
-    if (ph) ph.style.display = "block";
-  }
-}
+const camera = new QRCamera({readerId:"qr-reader",toggleId:"btn-toggle-camera",stageId:"scanner-stage",placeholderId:"scanner-placeholder",statusId:"scan-status",errorId:"status",zoomId:"zoom-controls",once:false,canRead:()=>!visitBusy && document.getElementById("view-success")!.style.display!=="flex" && document.getElementById("error-overlay")!.style.display!=="flex",onState:phase=>{isScanning=phase==="active";},onDecode:async value=>{await processVisit(value,true);}});
+async function stopCameraScanner(){await camera.stop();currentZoom=1;}
+async function startCameraScanner(){await camera.start();}
+document.getElementById("btn-switch-camera")!.addEventListener("click",()=>{void camera.flip();});
+document.addEventListener("visibilitychange",()=>{if(document.hidden)void stopCameraScanner();});
+window.addEventListener("pagehide",()=>{void stopCameraScanner();});
 
 document.getElementById("btn-toggle-camera")!.addEventListener("click", () => {
   if (isScanning) stopCameraScanner();

@@ -1,0 +1,290 @@
+{
+  "result": "PASS",
+  "geometry": [
+    {
+      "width": 1920,
+      "scrollWidth": 1920,
+      "workspace": {
+        "x": 76,
+        "y": 0,
+        "width": 1844,
+        "height": 1080,
+        "top": 0,
+        "right": 1920,
+        "bottom": 1080,
+        "left": 76
+      },
+      "columns": "320px 1440px",
+      "sidebar": {
+        "width": 76,
+        "expanded": false
+      }
+    },
+    {
+      "width": 1440,
+      "scrollWidth": 1440,
+      "workspace": {
+        "x": 76,
+        "y": 0,
+        "width": 1364,
+        "height": 955.5625,
+        "top": 0,
+        "right": 1440,
+        "bottom": 955.5625,
+        "left": 76
+      },
+      "columns": "320px 960.656px",
+      "sidebar": {
+        "width": 76,
+        "expanded": false
+      }
+    },
+    {
+      "width": 1280,
+      "scrollWidth": 1280,
+      "workspace": {
+        "x": 76,
+        "y": 0,
+        "width": 1204,
+        "height": 848.390625,
+        "top": 0,
+        "right": 1280,
+        "bottom": 848.390625,
+        "left": 76
+      },
+      "columns": "320px 807.688px",
+      "sidebar": {
+        "width": 76,
+        "expanded": false
+      }
+    },
+    {
+      "width": 1024,
+      "scrollWidth": 1024,
+      "workspace": {
+        "x": 76,
+        "y": 0,
+        "width": 948,
+        "height": 1153.75,
+        "top": 0,
+        "right": 1024,
+        "bottom": 1153.75,
+        "left": 76
+      },
+      "columns": "902.969px",
+      "sidebar": {
+        "width": 76,
+        "expanded": false
+      }
+    },
+    {
+      "width": 768,
+      "scrollWidth": 768,
+      "workspace": {
+        "x": 76,
+        "y": 0,
+        "width": 692,
+        "height": 1387.625,
+        "top": 0,
+        "right": 768,
+        "bottom": 1387.625,
+        "left": 76
+      },
+      "columns": "658.219px",
+      "sidebar": {
+        "width": 76,
+        "expanded": false
+      }
+    },
+    {
+      "width": 600,
+      "scrollWidth": 600,
+      "workspace": {
+        "x": 0,
+        "y": 0,
+        "width": 600,
+        "height": 1486.796875,
+        "top": 0,
+        "right": 600,
+        "bottom": 1486.796875,
+        "left": 0
+      },
+      "columns": "576px",
+      "sidebar": {
+        "width": 260,
+        "expanded": false
+      }
+    },
+    {
+      "width": 390,
+      "scrollWidth": 390,
+      "workspace": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 1426.484375,
+        "top": 0,
+        "right": 390,
+        "bottom": 1426.484375,
+        "left": 0
+      },
+      "columns": "366px",
+      "sidebar": {
+        "width": 260,
+        "expanded": false
+      }
+    },
+    {
+      "width": 320,
+      "scrollWidth": 320,
+      "workspace": {
+        "x": 0,
+        "y": 0,
+        "width": 320,
+        "height": 1419.40625,
+        "top": 0,
+        "right": 320,
+        "bottom": 1419.40625,
+        "left": 0
+      },
+      "columns": "296px",
+      "sidebar": {
+        "width": 260,
+        "expanded": false
+      }
+    },
+    {
+      "route": "/academic-years",
+      "width": 1280,
+      "scrollWidth": 1280
+    },
+    {
+      "route": "/academic-years",
+      "width": 390,
+      "scrollWidth": 390
+    },
+    {
+      "route": "/devices",
+      "width": 1280,
+      "scrollWidth": 1280
+    },
+    {
+      "route": "/devices",
+      "width": 390,
+      "scrollWidth": 390
+    },
+    {
+      "route": "/cards",
+      "width": 1280,
+      "scrollWidth": 1280
+    },
+    {
+      "route": "/cards",
+      "width": 390,
+      "scrollWidth": 390
+    },
+    {
+      "route": "/pwa-portals",
+      "width": 1280,
+      "scrollWidth": 1280
+    },
+    {
+      "route": "/pwa-portals",
+      "width": 390,
+      "scrollWidth": 390
+    },
+    {
+      "route": "/attendance",
+      "width": 1280,
+      "scrollWidth": 1280
+    },
+    {
+      "route": "/attendance",
+      "width": 390,
+      "scrollWidth": 390
+    },
+    {
+      "route": "/reports",
+      "width": 1280,
+      "scrollWidth": 1280
+    },
+    {
+      "route": "/reports",
+      "width": 390,
+      "scrollWidth": 390
+    },
+    {
+      "route": "/waste",
+      "width": 1280,
+      "scrollWidth": 1280
+    },
+    {
+      "route": "/waste",
+      "width": 390,
+      "scrollWidth": 390
+    },
+    {
+      "route": "/library",
+      "width": 1280,
+      "scrollWidth": 1280
+    },
+    {
+      "route": "/library",
+      "width": 390,
+      "scrollWidth": 390
+    },
+    {
+      "route": "/extracurricular",
+      "width": 1280,
+      "scrollWidth": 1280
+    },
+    {
+      "route": "/extracurricular",
+      "width": 390,
+      "scrollWidth": 390
+    },
+    {
+      "route": "/led",
+      "width": 1280,
+      "scrollWidth": 1280
+    },
+    {
+      "route": "/led",
+      "width": 390,
+      "scrollWidth": 390
+    },
+    {
+      "route": "/",
+      "width": 1280,
+      "scrollWidth": 1280
+    },
+    {
+      "route": "/",
+      "width": 390,
+      "scrollWidth": 390
+    }
+  ],
+  "timings": [
+    {
+      "case": "return-to-students",
+      "elapsed_ms": 183,
+      "additional_requests": 0
+    }
+  ],
+  "request_count": 37,
+  "cases": [
+    "hover expand and collapse",
+    "stable workspace width",
+    "consistent SVG icons",
+    "mobile drawer and Escape",
+    "12 menu routes",
+    "8 student viewports",
+    "warm navigation without new student request",
+    "stale search ignored",
+    "QR roster request removed",
+    "mutation invalidates cache",
+    "dark theme",
+    "rapid navigation race",
+    "Excel loads only on demand"
+  ]
+}

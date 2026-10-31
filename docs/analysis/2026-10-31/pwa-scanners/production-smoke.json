@@ -1,0 +1,47 @@
+{
+  "result": "PASS",
+  "verified_at": "2026-10-31T06:30:34.923Z",
+  "base": "https://www.aksis.co.id",
+  "checks": [
+    {
+      "route": "waste",
+      "result": "PASS",
+      "script": "/waste/assets/index-r50x83tv.js",
+      "css": "/waste/assets/index-nJRJ6oKG.css",
+      "logo_bytes": 20402,
+      "engine": "8 fps, QR-only",
+      "service_worker": "v11"
+    },
+    {
+      "route": "library",
+      "result": "PASS",
+      "script": "/library/assets/index-Coe4PNlA.js",
+      "css": "/library/assets/index-DCfrWpy5.css",
+      "logo_bytes": 20402,
+      "engine": "8 fps, QR-only",
+      "service_worker": "v11"
+    },
+    {
+      "route": "extracurricular",
+      "result": "PASS",
+      "script": "/extracurricular/assets/index-AEoe8ZxH.js",
+      "css": "/extracurricular/assets/index-Cng2vxSc.css",
+      "logo_bytes": 20402,
+      "engine": "8 fps, QR-only",
+      "service_worker": "v11"
+    },
+    {
+      "path": "/api/v1/students/resolve",
+      "status": 401
+    },
+    {
+      "path": "/api/v1/library/visits",
+      "status": 401
+    },
+    {
+      "path": "/api/v1/extracurriculars/22222222-2222-4222-8222-222222222222/sessions/33333333-3333-4333-8333-333333333333/scan",
+      "status": 401
+    }
+  ],
+  "method": "Public HTTP assets and authentication boundaries; no business transactions written"
+}

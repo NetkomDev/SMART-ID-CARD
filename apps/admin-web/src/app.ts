@@ -1685,31 +1685,125 @@ async function devicesPage(): Promise<void> {
   } catch (error) { if (isCancelled(error)) return; shell(errorState(error), "Perangkat", "Status IoT gate, terminal, LED, dan card station sekolah."); }
 }
 async function attendancePage(): Promise<void> {
-  shell(`<section class="stats-grid">${Array.from({ length: 2 }, () => skeleton(1)).join("")}</section>`, "Kehadiran", "Log presensi gerbang yang sudah tervalidasi dan idempotent.");
+  shell(`<section class="stats-grid">${Array.from({ length: 3 }, () => skeleton(1)).join("")}</section>`, "Kehadiran", "Pengaturan jam presensi sekolah dan log kehadiran guru piket & gerbang.");
   try {
-    const [summaryRes, logsRes] = await Promise.all([
+    const [summaryRes, logsRes, rulesRes] = await Promise.all([
       api<{ total_present: number, total_late: number }>("/attendance/summary"),
-      api<Attendance[]>("/attendance?page=1&page_size=50")
+      api<Attendance[]>("/attendance?page=1&page_size=50"),
+      api<{ check_in_start: string; check_in_end: string; check_out_start: string; timezone: string }>("/attendance/rules").catch(() => ({
+        data: { check_in_start: "06:30", check_in_end: "07:30", check_out_start: "14:00", timezone: "Asia/Makassar" }
+      }))
     ]);
     const summary = summaryRes.data;
     const logs = logsRes.data;
+    const currentRules = rulesRes.data;
 
     const logRows = logs.map(item => {
       const student = relation(item.students);
-      return `<tr><td><strong>${escapeHtml(student?.full_name ?? "Siswa")}</strong><small>${escapeHtml(student?.student_number)}</small></td><td>${escapeHtml(relation(item.classes)?.name ?? "—")}</td><td>${item.direction === "CHECK_IN" ? "Masuk" : "Pulang"}</td><td>${formatTime(item.occurred_at_local)}</td><td><span class="status ${item.is_late ? "warning" : "success"}">${item.is_late ? "Terlambat" : "Tepat waktu"}</span></td></tr>`;
+      let statusBadge = "";
+      if (item.direction === "CHECK_IN") {
+        statusBadge = item.is_late
+          ? `<span class="status warning">Terlambat</span>`
+          : `<span class="status success">Tepat waktu</span>`;
+      } else {
+        statusBadge = item.is_early_departure
+          ? `<span class="status warning">Pulang Cepat</span>`
+          : `<span class="status neutral">Pulang</span>`;
+      }
+
+      const noteText = item.notes ? `<div style="font-size:0.78rem;color:#b45309;margin-top:2px;font-style:italic;">"${escapeHtml(item.notes)}"</div>` : "";
+      const scannerBadge = item.scanner_name ? `<div style="font-size:0.75rem;color:var(--muted);margin-top:2px;">Petugas: ${escapeHtml(item.scanner_name)}</div>` : "";
+
+      return `<tr>
+        <td><strong>${escapeHtml(student?.full_name ?? "Siswa")}</strong><small>${escapeHtml(student?.student_number)}</small></td>
+        <td>${escapeHtml(relation(item.classes)?.name ?? "—")}</td>
+        <td><strong>${item.direction === "CHECK_IN" ? "Masuk" : "Pulang"}</strong>${scannerBadge}</td>
+        <td>${formatTime(item.occurred_at_local)}</td>
+        <td>${statusBadge}${noteText}</td>
+      </tr>`;
     }).join("");
 
     shell(`<section class="stats-grid">
       <article class="stat-card lime"><div><span>Kehadiran Hari Ini</span><strong>${summary.total_present} Siswa</strong></div><span class="trend">✓</span></article>
       <article class="stat-card ${summary.total_late > 0 ? 'red' : 'sage'}"><div><span>Terlambat Hari Ini</span><strong>${summary.total_late} Siswa</strong></div><span class="trend">!</span></article>
+      <article class="stat-card blue"><div><span>Jam Datang & Pulang</span><strong>${currentRules.check_in_end} / ${currentRules.check_out_start}</strong></div><span class="trend">⏰</span></article>
     </section>
+
+    <!-- Panel Pengaturan Jam Pelajaran & Jam Presensi -->
+    <section class="dashboard-grid single-column" style="margin-bottom: 24px;">
+      <article class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>Pengaturan Jam Pelajaran & Batas Presensi</h2>
+            <p>Ditetapkan oleh admin sekolah dan otomatis disinkronkan ke seluruh smartphone guru piket dan satpam.</p>
+          </div>
+        </div>
+        <form id="attendance-rules-form" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; align-items: flex-end; padding: 12px 0;">
+          <label>Jam Datang (Mulai)
+            <input type="time" id="rule-check-in-start" value="${escapeHtml(currentRules.check_in_start)}" required style="width:100%;padding:8px 12px;border:1.5px solid var(--line);border-radius:8px;" />
+          </label>
+          <label>Batas Jam Datang (Sampai / Lewat = Terlambat)
+            <input type="time" id="rule-check-in-end" value="${escapeHtml(currentRules.check_in_end)}" required style="width:100%;padding:8px 12px;border:1.5px solid var(--line);border-radius:8px;" />
+          </label>
+          <label>Jam Pulang Resmi (Sebelum = Pulang Cepat)
+            <input type="time" id="rule-check-out-start" value="${escapeHtml(currentRules.check_out_start)}" required style="width:100%;padding:8px 12px;border:1.5px solid var(--line);border-radius:8px;" />
+          </label>
+          <div>
+            <button type="submit" id="btn-save-rules" class="button primary wide" style="margin-bottom: 2px;">Simpan Jam Presensi</button>
+          </div>
+        </form>
+        <p id="rules-save-status" style="font-size:0.85rem;margin-top:8px;font-weight:600;display:none;"></p>
+      </article>
+    </section>
+
     <section class="dashboard-grid single-column">
       <article class="panel">
-        <div class="panel-head"><h2>Riwayat Kehadiran (50 Terakhir)</h2><p>Log presensi gerbang yang tervalidasi</p></div>
-        ${logRows ? `<div class="table-wrap"><table><thead><tr><th>Siswa</th><th>Kelas</th><th>Arah</th><th>Waktu</th><th>Keterangan</th></tr></thead><tbody>${logRows}</tbody></table></div>` : emptyState("Data belum tersedia", "Tambahkan data pertama untuk memulai.")}
+        <div class="panel-head"><h2>Riwayat Kehadiran (50 Terakhir)</h2><p>Log presensi multi-scanner guru piket & gerbang yang tervalidasi</p></div>
+        ${logRows ? `<div class="table-wrap"><table><thead><tr><th>Siswa</th><th>Kelas</th><th>Arah & Petugas</th><th>Waktu</th><th>Status & Keterangan</th></tr></thead><tbody>${logRows}</tbody></table></div>` : emptyState("Data belum tersedia", "Belum ada presensi tercatat hari ini.")}
       </article>
-    </section>`, "Kehadiran", "Log presensi gerbang yang sudah tervalidasi dan idempotent.");
-  } catch (error) { if (isCancelled(error)) return; shell(errorState(error), "Kehadiran", "Log presensi gerbang yang sudah tervalidasi dan idempotent."); }
+    </section>`, "Kehadiran", "Pengaturan jam presensi sekolah dan log kehadiran guru piket & gerbang.");
+
+    afterPagePaint(() => {
+      const rulesForm = document.getElementById("attendance-rules-form") as HTMLFormElement | null;
+      const saveStatus = document.getElementById("rules-save-status");
+      const saveBtn = document.getElementById("btn-save-rules") as HTMLButtonElement | null;
+
+      rulesForm?.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        if (!saveBtn || !saveStatus) return;
+        saveBtn.disabled = true;
+        saveBtn.textContent = "Menyimpan...";
+        saveStatus.style.display = "none";
+
+        try {
+          const inStart = (document.getElementById("rule-check-in-start") as HTMLInputElement).value;
+          const inEnd = (document.getElementById("rule-check-in-end") as HTMLInputElement).value;
+          const outStart = (document.getElementById("rule-check-out-start") as HTMLInputElement).value;
+
+          await api("/attendance/rules", {
+            method: "PUT",
+            body: JSON.stringify({
+              check_in_start: inStart,
+              check_in_end: inEnd,
+              check_out_start: outStart,
+              timezone: currentRules.timezone || "Asia/Makassar"
+            })
+          });
+
+          saveStatus.style.display = "block";
+          saveStatus.style.color = "var(--green, #16a34a)";
+          saveStatus.textContent = "✓ Jam presensi berhasil diperbarui dan disinkronkan ke seluruh portal guru piket.";
+        } catch (err) {
+          saveStatus.style.display = "block";
+          saveStatus.style.color = "var(--red, #ef4444)";
+          saveStatus.textContent = `Gagal menyimpan: ${(err as Error).message}`;
+        } finally {
+          saveBtn.disabled = false;
+          saveBtn.textContent = "Simpan Jam Presensi";
+        }
+      });
+    });
+  } catch (error) { if (isCancelled(error)) return; shell(errorState(error), "Kehadiran", "Pengaturan jam presensi sekolah dan log kehadiran guru piket & gerbang."); }
 }
 
 function studentImportPage(): void {
@@ -2877,6 +2971,7 @@ async function pwaPortalsPage() {
       return a.name.localeCompare(b.name, "id", { numeric: true, sensitivity: "base" });
     });
     const definitions = [
+      { key: "attendance", role: "GATE_STAFF", name: "Piket Kehadiran", icon: "✓", description: "Multi-scanner presensi QR smartphone untuk guru piket & satpam sekolah (bisa banyak HP sekaligus, offline & silent sync).", port: 4178 },
       { key: "waste", role: "WASTE_STAFF", name: "Piket Bank Sampah", icon: "♻", description: "Satu QR untuk piket dan setoran siswa di kelas yang dipilih.", port: 4175 },
       { key: "library", role: "LIBRARY_STAFF", name: "Perpustakaan", icon: "▤", description: "Langsung buka terminal pencatatan kunjungan perpustakaan sekolah.", port: 4177 },
       { key: "extracurricular", role: "TEACHER", name: "Ekstrakurikuler", icon: "☆", description: "Akses kegiatan, sesi, dan presensi ekstrakurikuler sekolah.", port: 4176 },
@@ -2907,6 +3002,7 @@ async function pwaPortalsPage() {
       <section class="panel" style="margin-top:24px"><div class="panel-head"><div><h2>Akses portal yang diterbitkan</h2><p>QR berlaku sampai dinonaktifkan. QR orang tua hanya membuka formulir pendaftaran; data anak memerlukan NISN dan tanggal lahir. QR portal petugas memberikan akses sesuai perannya. <b>Demi keamanan (enkripsi searah), QR tidak dapat ditampilkan ulang.</b> Jika hilang, hapus dan buat QR baru.</p></div></div><div id="portal-access-list">Memuat akses…</div></section>`,
       "Portal PWA & QR", "Kelola pintu masuk aplikasi sekolah tanpa akun dan password pengguna.");
     const configured: Record<string, string | undefined> = {
+      attendance: import.meta.env.VITE_ATTENDANCE_URL,
       waste: import.meta.env.VITE_WASTE_URL, library: import.meta.env.VITE_LIBRARY_URL,
       extracurricular: import.meta.env.VITE_EXTRACURRICULAR_URL, parent: import.meta.env.VITE_PARENT_URL
     };

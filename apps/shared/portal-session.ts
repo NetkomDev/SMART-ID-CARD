@@ -1,4 +1,4 @@
-export type PortalRole = "WASTE_STAFF" | "LIBRARY_STAFF" | "TEACHER" | "PARENT";
+export type PortalRole = "WASTE_STAFF" | "LIBRARY_STAFF" | "TEACHER" | "PARENT" | "GATE_STAFF";
 export type PortalContext = { id: string; school_id: string; school_name: string; role_code: PortalRole; metadata: { class_id?: string; student_id?: string } };
 type Session = { access_token: string; refresh_token: string; expires_at?: number };
 type SavedAccess = { session: Session; portal: PortalContext };
@@ -9,6 +9,7 @@ export class PortalError extends Error {
 /** Persist the renewable session, never the printed QR secret. Keys are per portal. */
 export class PortalSession {
   private key: string;
+  private reads = new Map<string, Promise<unknown>>();
   private refreshing: Promise<void> | null = null;
   private pendingToken: string | null = null;
   constructor(private role: PortalRole, private base = "/api/v1") { this.key = `aksis.portal.${role}.v1`; }
@@ -23,6 +24,7 @@ export class PortalSession {
   get connected(): boolean { return Boolean(this.saved()); }
   private save(value: SavedAccess) { localStorage.setItem(this.key, JSON.stringify(value)); }
   clear() {
+    this.reads.clear();
     const id = this.saved()?.portal.id;
     if (id) for (const key of Object.keys(localStorage)) if (key.startsWith(`library_cache_${id}_`)) localStorage.removeItem(key);
     // Queued transactions remain scoped to the old portal, never reassigned or silently deleted.
@@ -51,6 +53,7 @@ export class PortalSession {
       const access = await this.publicRequest<SavedAccess>("/auth/qr/login", { token: this.pendingToken, role_code: this.role });
       if (access.portal.role_code !== this.role) throw new PortalError("QR tidak sesuai aplikasi ini.", 403, "PORTAL_MISMATCH");
       this.save(access); this.pendingToken = null;
+      return true; // Login already returned a server-validated portal context.
     }
     if (!this.saved()) return false;
     const portal = await this.request<PortalContext>("/auth/qr/context");
@@ -66,9 +69,10 @@ export class PortalSession {
       if (saved.session.access_token !== staleAccessToken) return;
       try {
         const session = await this.publicRequest<Session>("/auth/refresh", { refresh_token: saved.session.refresh_token });
+        if (this.saved()?.portal.id !== saved.portal.id || this.saved()?.session.refresh_token !== saved.session.refresh_token) throw new PortalError("Akses portal berubah. Buka ulang aplikasi.",403,"PORTAL_MISMATCH");
         this.save({ ...saved, session });
       } catch (error) {
-        if (error instanceof PortalError && error.status === 401) this.clear();
+        if (error instanceof PortalError && error.status === 401 && this.saved()?.portal.id === saved.portal.id) this.clear();
         throw error;
       }
     };
@@ -78,6 +82,18 @@ export class PortalSession {
     return this.refreshing;
   }
   async request<T>(path: string, init: RequestInit = {}, retry = true): Promise<T> {
+    const saved = this.saved();
+    if ((init.method ?? "GET").toUpperCase() !== "GET") {
+      this.reads.clear();
+      try { return await this.perform<T>(path,init,retry); } finally { this.reads.clear(); }
+    }
+    if (init.signal || init.headers || !saved) return this.perform<T>(path,init,retry);
+    const key = `${saved.portal.id}:${saved.portal.school_id}:${saved.session.access_token}:${path}`;
+    const pending = this.reads.get(key); if (pending) return pending as Promise<T>;
+    const work = this.perform<T>(path,init,retry).finally(()=>{if(this.reads.get(key)===work)this.reads.delete(key);});
+    this.reads.set(key,work); return work;
+  }
+  private async perform<T>(path: string, init: RequestInit = {}, retry = true): Promise<T> {
     const saved = this.saved();
     if (!saved) throw new PortalError("Pindai QR dari admin sekolah untuk membuka aplikasi.", 401, "AUTH_REQUIRED");
     const headers = new Headers(init.headers);
@@ -94,6 +110,7 @@ export class PortalSession {
       headers.set("x-device-id", deviceId);
     }
     const response = await fetch(`${this.base}${path}`, { ...init, headers });
+    if (this.saved()?.portal.id !== saved.portal.id || this.saved()?.portal.school_id !== saved.portal.school_id) throw new PortalError("Akses portal berubah. Muat ulang aplikasi.",403,"PORTAL_MISMATCH");
     if (response.status === 401) {
       const body = await response.clone().json().catch(() => null);
       if (body?.error?.code === "PORTAL_ACCESS_INVALID") { this.clear(); return this.parse<T>(response); }

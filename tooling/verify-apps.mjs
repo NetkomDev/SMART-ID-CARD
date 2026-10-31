@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-const apps = ["api", "admin-web", "parent-pwa", "waste-pwa", "extracurricular-pwa", "library-terminal", "led-gateway", "command-center", "card-writer", "operations-console"];
+const apps = ["api", "admin-web", "parent-pwa", "waste-pwa", "extracurricular-pwa", "attendance-pwa", "library-terminal", "led-gateway", "command-center", "card-writer", "operations-console"];
 const mode = process.argv[2];
 if (!["typecheck", "build"].includes(mode)) throw Error("Expected typecheck or build");
 for (const app of apps) {

@@ -8,7 +8,7 @@ Berdasarkan permintaan pemilik:
 1. **Redesain Sidebar:** Sidebar modern dengan auto show/hide (expand/collapse) saat disorot kursor mouse (*hover*) atau fokus keyboard.
 2. **Ikon Menu Relevan & Proporsional:** Ikon menu SVG seragam dan proporsional (22px) yang tampil ideal baik dalam keadaan collapsed (rail) maupun expanded.
 3. **Penataan Isi Halaman Presisi:** Setiap halaman/menu menyesuaikan ukuran tampilan secara presisi di berbagai resolusi layar tanpa horizontal scroll overflow.
-4. **Optimasi Performa Interkoneksi Database/Supabase:** Konten tampil instan saat navigasi antar menu dengan in-memory cache, penggabungan bootstrap query, pembersihan query tidak perlu, dan lazy-loading modul berat.
+4. **Optimasi Performa Interkoneksi Database/Supabase:** Mempercepat konten saat navigasi antar menu dengan in-memory cache, penggabungan bootstrap query, pembersihan query tidak perlu, dan lazy-loading modul berat.
 
 ---
 
@@ -16,13 +16,13 @@ Berdasarkan permintaan pemilik:
 
 | Komponen | Implementasi & Hasil |
 | --- | --- |
-| **Sidebar Desktop** | Didesain dengan mode rail (lebar tetap 76px) yang melebar secara halus (*expand* ke 260px) saat disorot kursor mouse (`:hover`) atau saat menerima fokus navigasi keyboard (`:focus-within`). |
+| **Sidebar Desktop** | Didesain dengan mode rail (lebar tetap 76px) yang melebar secara halus (*expand* ke 260px) saat disorot kursor mouse atau saat menerima fokus navigasi keyboard. |
 | **Stabilitas Workspace** | Sidebar melebar di atas lapisan konten (*overlay flyout*) tanpa mendorong, mengecilkan, atau mengubah posisi `left` dari area kerja/workspace utama (tetap presisi 76px). |
 | **Ikon Menu** | Mengganti campuran simbol dan emoji dengan ikon SVG vektor modern berukuran konsisten 22x22px yang terpusat rapi di rail collapsed dan berdampingan serasi dengan label teks saat expanded. |
-| **Sidebar Mobile (< 768px)** | Di layar ponsel dan tablet kecil, sidebar disembunyikan sebagai off-canvas drawer yang dapat dibuka via tombol menu burger dan ditutup kembali via tombol `Escape` atau backdrop click. |
+| **Sidebar Mobile (≤ 760px)** | Di layar ponsel dan tablet kecil, sidebar disembunyikan sebagai off-canvas drawer yang dapat dibuka via tombol menu burger dan ditutup kembali via tombol `Escape` atau backdrop click. |
 | **Presisi Layout Konten** | Grid layout pada seluruh 12 rute menu ditata ulang secara responsif (multi-kolom fleksibel di desktop, 1 kolom di tablet portrait dan mobile). Tidak ada kebocoran horizontal scroll (`scrollWidth <= viewportWidth`). |
 | **In-Memory Read Cache** | Menambahkan mekanisme `read-cache` singkat di memori klien dengan pemisahan per sesi akun dan sekolah aktif. Navigasi kembali ke menu yang baru saja dibuka berlangsung instan (~150 ms) tanpa request jaringan tambahan. |
-| **Invalidasi Mutasi Data** | Setiap aksi mutasi (tambah, edit, simpan, atau hapus) secara otomatis membersihkan cache terkait sehingga data di layar selalu sinkron dengan database Supabase. |
+| **Invalidasi Mutasi Data** | Setiap aksi mutasi (tambah, edit, simpan, atau hapus) secara otomatis membersihkan cache terkait sehingga pemuatan ulang setelah perubahan mengambil data server terbaru. Perubahan dari perangkat lain mengikuti masa berlaku cache 15 detik atau tombol Perbarui. |
 | **Penggabungan Bootstrap Query** | Data sekolah aktif dan konteks izin/hak akses digabungkan langsung dalam satu endpoint `/schools/current`, menghemat 1 round-trip HTTP di awal pemuatan. |
 | **Optimasi Halaman QR Portal** | Menghapus permintaan pengunduhan seluruh roster data siswa di halaman `/pwa-portals` yang sebelumnya memperlambat loading. |
 | **Pencegahan Race Condition Pencarian** | Query pencarian input teks kini dilengkapi request sequencing; respons pencarian lama yang tertunda tidak akan menimpa hasil ketikan terbaru pengguna. |
@@ -50,7 +50,7 @@ Pengujian otomatis end-to-end dengan `node tooling/test-admin-workspace.mjs` diu
 - **Pengujian Responsif 12 Rute Menu:**
   - Rute yang diuji: `/`, `/students`, `/academic-years`, `/devices`, `/cards`, `/pwa-portals`, `/attendance`, `/reports`, `/waste`, `/library`, `/extracurricular`, `/led`.
   - Resolusi layar yang diuji: 1920x1080, 1440x900, 1280x720, 1024x600, 768x1024, 600x960, 390x844, 320x740.
-  - Hasil: `scrollWidth <= viewportWidth` pada semua rute dan resolusi (bebas horizontal overflow).
+  - Halaman siswa diuji pada delapan resolusi di atas; menu lainnya diuji pada lebar 1280 dan 390 piksel. Hasil: `scrollWidth <= viewportWidth` pada seluruh kasus. Tabel lebar tetap dapat digulir di dalam panel.
 - **Pengujian Kecepatan & Navigasi:**
   - Waktu kembali ke `/students`: ~156 ms dengan 0 network request tambahan.
   - Lazy load modul XLSX: 0 request XLSX pada loading awal, baru di-load saat tombol unduh Excel ditekan.

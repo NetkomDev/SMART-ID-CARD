@@ -1,11 +1,15 @@
+import { QRCamera, bindLoginCamera } from "../../shared/qr-camera";
+import { renderPortrait } from "../../shared/portrait";
 import { gateIntro, gateHelp, schoolLabel } from "../../shared/portal-ui";
 
 import { PortalError, PortalSession } from "../../shared/portal-session";
 import { setupInstallPrompt, offerInstall } from "../../shared/install-prompt";
 import "./style.css";
+import "../../shared/scanner.css";
 
 const portal = new PortalSession("TEACHER", import.meta.env.VITE_API_BASE_URL ?? "/api/v1");
 setupInstallPrompt("Ekstrakurikuler", import.meta.env.BASE_URL, import.meta.env.PROD);
+try { for (const key of Object.keys(localStorage)) if (key.startsWith("ekskul_cache_")) localStorage.removeItem(key); } catch { /* Historical profile cache is no longer used. */ }
 
 const entry = document.getElementById("view-login")!;
 const accessForm = document.getElementById('form-login')!;
@@ -28,101 +32,35 @@ let enrollmentKey = "";
 let selecting = false, submitting = false;
 type SessionSummary = { total: number; present: number; excused: number; absent: number };
 
+let summaryVersion=0;
 async function loadSessionSummary() {
   if (!currentEkskulId || !currentSessionId) return;
+  const revision=++summaryVersion,activity=currentEkskulId,session=currentSessionId;
   try {
     const summary = await request<SessionSummary>(`/extracurriculars/${currentEkskulId}/sessions/${currentSessionId}/summary`);
+    if(revision!==summaryVersion||activity!==currentEkskulId||session!==currentSessionId)return;
     document.getElementById("session-present")!.textContent = String(summary.present);
     document.getElementById("session-excused")!.textContent = String(summary.excused);
     document.getElementById("session-total")!.textContent = String(summary.total);
   } catch {
+    if(revision!==summaryVersion||activity!==currentEkskulId||session!==currentSessionId)return;
     document.getElementById("session-present")!.textContent = "—";
     document.getElementById("session-excused")!.textContent = "—";
     document.getElementById("session-total")!.textContent = "—";
   }
 }
 
-let loginScanner: any = null;
-document.getElementById("btn-start-login-scan")?.addEventListener("click", async () => {
-  document.getElementById("btn-start-login-scan")!.style.display = "none";
-  document.getElementById("btn-login-retry")!.style.display = "none";
-  document.getElementById("login-scanner-container")!.style.display = "block";
-  try {
-    if (!loginScanner) {
-      const { Html5Qrcode } = await import("html5-qrcode");
-      loginScanner = new Html5Qrcode("login-qr-reader");
-    }
-    await loginScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: (w: number, h: number) => ({ width: Math.min(250, w * .8, h * .8), height: Math.min(250, w * .8, h * .8) }) }, (decoded: string) => {
-      try {
-        const url = new URL(decoded);
-        if (url.hash.includes("token=") || url.searchParams.has("token")) {
-          void loginScanner?.stop().catch(() => {});
-          window.location.href = decoded;
-        }
-      } catch { /* ignore invalid URLs */ }
-    }, () => undefined);
-  } catch (error) {
-    document.getElementById("login-error")!.textContent = "Kamera tidak dapat diakses untuk memindai QR.";
-    document.getElementById("login-scanner-container")!.style.display = "none";
-    document.getElementById("btn-start-login-scan")!.style.display = "block";
-  }
-});
-document.getElementById("btn-cancel-login-scan")?.addEventListener("click", async () => {
-  if (loginScanner) { try { await loginScanner.stop(); } catch {} }
-  document.getElementById("login-scanner-container")!.style.display = "none";
-  document.getElementById("btn-start-login-scan")!.style.display = "block";
-});
+bindLoginCamera(import.meta.env.BASE_URL);
 
-let html5QrCode: any = null;
 let isScanning = false;
 let currentZoom = 1;
 let initialTouchDistance = 0;
 let initialZoomOnTouch = 1;
 
-function getActiveCameraTrack(): MediaStreamTrack | null {
-  const videoEl = document.querySelector<HTMLVideoElement>("#qr-reader video");
-  if (!videoEl || !videoEl.srcObject) return null;
-  const stream = videoEl.srcObject as MediaStream;
-  const tracks = stream.getVideoTracks();
-  return tracks[0] ?? null;
-}
-
-async function setCameraZoom(zoomLevel: number) {
-  currentZoom = Math.max(1, Math.min(5, zoomLevel));
-  const track = getActiveCameraTrack();
-  if (track) {
-    try {
-      const caps = (track.getCapabilities ? track.getCapabilities() : {}) as any;
-      if (caps.zoom) {
-        const min = caps.zoom.min || 1;
-        const max = caps.zoom.max || 5;
-        const targetZoom = Math.max(min, Math.min(max, currentZoom));
-        await track.applyConstraints({ advanced: [{ zoom: targetZoom } as any] });
-      }
-    } catch { /* Hardware zoom fallback to CSS scale below */ }
-  }
-
-  const qrContainer = document.getElementById("qr-reader");
-  if (qrContainer) {
-    const mediaEls = qrContainer.querySelectorAll<HTMLVideoElement | HTMLCanvasElement>("video, canvas");
-    mediaEls.forEach(media => {
-      media.style.transform = currentZoom > 1 ? `scale(${currentZoom.toFixed(2)})` : "none";
-      media.style.transformOrigin = "center center";
-      media.style.transition = "transform 0.12s ease-out";
-    });
-  }
-
-  const zoomBox = document.getElementById("zoom-controls");
-  if (zoomBox) {
-    zoomBox.querySelectorAll<HTMLButtonElement>(".zoom-btn").forEach(btn => {
-      const val = Number(btn.getAttribute("data-zoom"));
-      btn.classList.toggle("active", Math.abs(val - currentZoom) < 0.3);
-    });
-  }
-}
+async function setCameraZoom(value:number) {currentZoom=value;await camera.setZoom(value);}
 
 function setupScannerPinchZoom() {
-  const stage = document.querySelector(".scanner-card");
+  const stage = document.querySelector<HTMLElement>(".scanner-viewport");
   if (!stage) return;
 
   const handleTouchStart = (e: TouchEvent) => {
@@ -166,63 +104,12 @@ document.querySelectorAll<HTMLButtonElement>(".zoom-btn").forEach(btn => {
 
 setupScannerPinchZoom();
 
-async function stopCameraScanner() {
-  if (html5QrCode && isScanning) {
-    try { await html5QrCode.stop(); } catch (e) {}
-    isScanning = false;
-    currentZoom = 1;
-    document.getElementById("qr-reader")!.style.display = "none";
-    document.getElementById("zoom-controls")!.style.display = "none";
-    const ph = document.getElementById("scanner-placeholder");
-    if (ph) ph.style.display = "block";
-    document.getElementById("btn-toggle-camera")!.textContent = "Buka Kamera Scanner";
-  }
-}
-
-async function startCameraScanner() {
-  if (!html5QrCode) {
-    const { Html5Qrcode } = await import("html5-qrcode");
-    html5QrCode = new Html5Qrcode("qr-reader");
-  }
-  try {
-    const ph = document.getElementById("scanner-placeholder");
-    if (ph) ph.style.display = "none";
-    document.getElementById("qr-reader")!.style.display = "block";
-    const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-    const onScanSuccess = async (decodedText: string) => {
-      triggerHapticFeedback();
-      const flash = document.getElementById("camera-shutter-flash");
-      if (flash) {
-        flash.classList.remove("flash-active");
-        void flash.offsetWidth;
-        flash.classList.add("flash-active");
-      }
-      
-      const input = document.getElementById("scan-input") as HTMLInputElement;
-      input.value = decodedText;
-      await stopCameraScanner();
-      document.getElementById("form-scan")!.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
-    };
-
-    try {
-      await html5QrCode.start({ facingMode: { exact: "environment" } }, config, onScanSuccess, () => {});
-    } catch (e) {
-      await html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess, () => {});
-    }
-
-    isScanning = true;
-    document.getElementById("btn-toggle-camera")!.textContent = "Tutup Kamera";
-    document.getElementById("zoom-controls")!.style.display = "flex";
-    void setCameraZoom(1);
-  } catch (err: any) {
-    document.getElementById("scan-error")!.textContent = !window.isSecureContext
-      ? "Kamera diblokir browser karena diakses via HTTP (bukan localhost/HTTPS)."
-      : "Kamera tidak dapat diakses (izin ditolak atau tidak ditemukan).";
-    document.getElementById("qr-reader")!.style.display = "none";
-    const ph = document.getElementById("scanner-placeholder");
-    if (ph) ph.style.display = "block";
-  }
-}
+const camera = new QRCamera({readerId:"qr-reader",toggleId:"btn-toggle-camera",stageId:"scanner-stage",placeholderId:"scanner-placeholder",statusId:"scan-status",errorId:"scan-error",zoomId:"zoom-controls",once:true,canRead:()=>!submitting && Boolean(currentSessionId) && document.getElementById("success-overlay")!.style.display!=="flex" && document.getElementById("enrollment-overlay")!.style.display!=="flex",onState:phase=>{isScanning=phase==="active";},onDecode:async value=>{triggerHapticFeedback();const input=document.getElementById("scan-input") as HTMLInputElement;input.value=value;document.getElementById("form-scan")!.dispatchEvent(new Event("submit",{cancelable:true,bubbles:true}));}});
+async function stopCameraScanner(){await camera.stop();currentZoom=1;}
+async function startCameraScanner(){await camera.start();}
+document.getElementById("btn-switch-camera")!.addEventListener("click",()=>{void camera.flip();});
+document.addEventListener("visibilitychange",()=>{if(document.hidden)void stopCameraScanner();});
+window.addEventListener("pagehide",()=>{void stopCameraScanner();});
 
 document.getElementById("btn-toggle-camera")?.addEventListener("click", () => {
   if (isScanning) stopCameraScanner();
@@ -441,7 +328,7 @@ async function selectEkskul(id: string, name: string, isSilent = false) {
     document.getElementById("enrollment-overlay")!.style.display = "none";
     document.getElementById("error-overlay")!.style.display = "none";
     switchView("scan");
-    document.getElementById("scan-status")!.textContent = "Siap memindai identitas siswa";
+    document.getElementById("scan-status")!.textContent = "Aktifkan kamera atau masukkan nomor siswa";
     void loadSessionSummary();
   } catch (err: any) {
     alert("Gagal memuat atau membuat sesi: " + err.message);
@@ -475,124 +362,38 @@ document.getElementById("form-scan")!.addEventListener("submit", async (e) => {
   const query = input.value.trim();
   if (!query || submitting || !currentSessionId) return;
   submitting = true;
-
+  const button = document.querySelector<HTMLButtonElement>('#form-scan button[type="submit"]')!;
+  button.disabled = true;
   errorEl.textContent = "";
   document.getElementById("enrollment-overlay")!.style.display = "none";
   document.getElementById("error-overlay")!.style.display = "none";
   const toast = document.getElementById("processing-toast")!;
-
-  // 1. FAST PATH: Check Local Cache (Optimistic UI)
-  const cacheKey = `ekskul_cache_${currentEkskulId}_${query}`;
-  const cachedStr = localStorage.getItem(cacheKey);
-  if (cachedStr) {
-    try {
-      const student = JSON.parse(cachedStr);
-      pendingStudent = student;
-      input.value = "";
-      
-      // Instantly show success UI
-      const avatarEl = document.getElementById("student-avatar");
-      if (avatarEl) {
-        if (student.photo_url) {
-          avatarEl.innerHTML = `<div style="flex: 1; align-self: stretch; width: 100%; height: 100%; background-image: url('${student.photo_url}'); background-size: cover; background-position: center; background-repeat: no-repeat; border-radius: 13px;"></div>`;
-        } else {
-          avatarEl.innerHTML = `<div class="avatar-fallback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke-linecap="round"/><circle cx="12" cy="7" r="4"/></svg></div>`;
-        }
-      }
-      
-      document.getElementById("success-student-name")!.textContent = student.full_name;
-      document.getElementById("success-time")!.textContent = new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit" }).format(new Date());
-      if (navigator.vibrate) navigator.vibrate(50);
-      
-      const overlay = document.getElementById("success-overlay")!;
-      overlay.style.display = "flex";
-      if (scanTimeout) clearTimeout(scanTimeout);
-      scanTimeout = window.setTimeout(() => overlay.style.display = "none", 5000);
-      
-      // Fire background request silently
-      request(`/extracurriculars/${currentEkskulId}/sessions/${currentSessionId}/attendance`, {
-        method: "POST", body: JSON.stringify({ student_id: student.id, status: "PRESENT" })
-      }).then(() => {
-        void loadSessionSummary();
-      }).catch(err => console.error("Background sync failed:", err));
-      
-      submitting = false;
-      return; // DONE! Lightning fast.
-    } catch (e) {
-      // If JSON parse fails, ignore and fallback to slow path
-    }
-  }
-
-  // 2. SLOW PATH: Network Request
   toast.style.display = "flex";
-
   try {
-    const students = /^[a-f0-9]{48}$/.test(query)
-      ? [await request<{id:string;full_name:string;photo_url?:string}>("/cards/resolve", {method:"POST",body:JSON.stringify({qr_key:query})})]
-      : await request<Array<{id:string;full_name:string;photo_url?:string}>>(`/students?search=${encodeURIComponent(query)}`);
-    if (students.length !== 1) throw new Error(students.length ? "Masukkan NIS/NISN lengkap agar siswa tidak tertukar." : "Siswa tidak ditemukan.");
-    const student = students[0]!;
-    pendingStudent = student;
-    enrollmentKey = crypto.randomUUID();
-    input.value = "";
-    errorEl.textContent = "";
-
-    // Record attendance directly
-    try {
-      await request(`/extracurriculars/${currentEkskulId}/sessions/${currentSessionId}/attendance`, {
-        method: "POST", body: JSON.stringify({
-          student_id: student.id, status: "PRESENT"
-        })
-      });
-      // Cache for future fast-scans
-      try {
-        localStorage.setItem(cacheKey, JSON.stringify(student));
-      } catch (e) { /* ignore */ }
-      
-      const avatarEl = document.getElementById("student-avatar");
-      if (avatarEl) {
-        if (student.photo_url) {
-          avatarEl.innerHTML = `<div style="flex: 1; align-self: stretch; width: 100%; height: 100%; background-image: url('${student.photo_url}'); background-size: cover; background-position: center; background-repeat: no-repeat; border-radius: 13px;"></div>`;
-        } else {
-          avatarEl.innerHTML = `<div class="avatar-fallback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke-linecap="round"/><circle cx="12" cy="7" r="4"/></svg></div>`;
-        }
-      }
-      
-      document.getElementById("success-student-name")!.textContent = student.full_name;
-      document.getElementById("success-time")!.textContent = new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit" }).format(new Date());
-      
-      if (navigator.vibrate) navigator.vibrate(50);
-      
-      const overlay = document.getElementById("success-overlay")!;
-      overlay.style.display = "flex";
-      toast.style.display = "none";
-      void loadSessionSummary();
-      
-      if (scanTimeout) clearTimeout(scanTimeout);
-      scanTimeout = window.setTimeout(() => {
-        overlay.style.display = "none";
-      }, 5000);
-      
-      
-    } catch (err: any) {
-      // If error is FK violation or related to membership, trigger Fast Enrollment
-      if (err instanceof PortalError && err.code === "EXTRACURRICULAR_MEMBER_REQUIRED") {
-        if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
-        document.getElementById("unregistered-student-name")!.textContent = student.full_name;
-        document.getElementById("enrollment-overlay")!.style.display = "flex";
-      } else {
-        throw err;
-      }
+    const result = await request<{student:{id:string;full_name:string;photo_url?:string},needs_enrollment:boolean}>(`/extracurriculars/${currentEkskulId}/sessions/${currentSessionId}/scan`, {method:"POST",body:JSON.stringify({identity:query})});
+    const student = result.student;
+    pendingStudent = student; enrollmentKey = crypto.randomUUID(); input.value = "";
+    if (result.needs_enrollment) {
+      document.getElementById("unregistered-student-name")!.textContent = student.full_name;
+      document.getElementById("enrollment-overlay")!.style.display = "flex";
+      return;
     }
-  } catch (err: any) {
-    errorEl.textContent = err.message;
-    const errorMsgEl = document.getElementById("error-overlay-msg");
-    if (errorMsgEl) errorMsgEl.textContent = err.message;
+    const avatar = document.getElementById("student-avatar")!;
+    renderPortrait(avatar,student.photo_url);
+    document.getElementById("success-student-name")!.textContent = student.full_name;
+    document.getElementById("success-time")!.textContent = new Intl.DateTimeFormat("id-ID",{hour:"2-digit",minute:"2-digit"}).format(new Date());
+    if (navigator.vibrate) navigator.vibrate(50);
+    const overlay = document.getElementById("success-overlay")!;
+    overlay.style.display = "flex";
+    void loadSessionSummary();
+    if (scanTimeout) clearTimeout(scanTimeout);
+    scanTimeout = window.setTimeout(()=>overlay.style.display="none",5000);
+  } catch(error) {
+    const text = error instanceof Error ? error.message : "Presensi belum dapat disimpan. Coba kembali.";
+    errorEl.textContent = text;
+    document.getElementById("error-overlay-msg")!.textContent = text;
     document.getElementById("error-overlay")!.style.display = "flex";
-  } finally { 
-    submitting = false; 
-    toast.style.display = "none";
-  }
+  } finally {submitting=false;button.disabled=false;toast.style.display="none";}
 });
 
 document.getElementById("btn-cancel-enroll")!.addEventListener("click", () => {
@@ -630,7 +431,7 @@ document.getElementById("btn-confirm-enroll")!.addEventListener("click", async (
     const avatarEl = document.getElementById("student-avatar");
     if (avatarEl) {
       if (pendingStudent.photo_url) {
-        avatarEl.innerHTML = `<div style="flex: 1; align-self: stretch; width: 100%; height: 100%; background-image: url('${pendingStudent.photo_url}'); background-size: cover; background-position: center; background-repeat: no-repeat; border-radius: 13px;"></div>`;
+        renderPortrait(avatarEl,pendingStudent.photo_url);
       } else {
         avatarEl.innerHTML = `<div class="avatar-fallback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke-linecap="round"/><circle cx="12" cy="7" r="4"/></svg></div>`;
       }

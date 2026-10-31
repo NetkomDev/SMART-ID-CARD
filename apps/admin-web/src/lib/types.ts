@@ -17,7 +17,8 @@ export type SchoolClass = { id: string; code: string; name: string; grade_level?
 export type Card = { id: string; card_serial: string; card_uid: string; student_id: string; status: string; expires_at?: string | null; students?: unknown };
 export type Device = { id: string; device_code: string; device_type: string; name: string; location?: string | null; status: string; last_seen_at?: string | null; firmware_version?: string | null; online?: boolean };
 export type Attendance = {
-  id: string; direction: "CHECK_IN" | "CHECK_OUT"; is_late: boolean; occurred_at_local: string;
+  id: string; direction: "CHECK_IN" | "CHECK_OUT"; is_late: boolean; is_early_departure?: boolean; occurred_at_local: string;
+  notes?: string | null; scanner_name?: string | null;
   students?: { full_name: string; student_number: string } | null;
   classes?: { name: string } | null;
   devices?: { name: string; device_code: string } | null;

@@ -12,6 +12,7 @@
     "dev:parent": "vite --config apps/parent-pwa/vite.config.ts",
     "dev:waste": "vite --config apps/waste-pwa/vite.config.ts",
     "dev:extracurricular": "vite --config apps/extracurricular-pwa/vite.config.ts",
+    "dev:attendance": "vite --config apps/attendance-pwa/vite.config.ts",
     "dev:library": "vite --config apps/library-terminal/vite.config.ts",
     "dev:led": "vite --config apps/led-gateway/vite.config.ts",
     "dev:command": "vite --config apps/command-center/vite.config.ts",
@@ -23,6 +24,7 @@
     "build:parent": "vite build --config apps/parent-pwa/vite.config.ts",
     "build:waste": "vite build --config apps/waste-pwa/vite.config.ts",
     "build:extracurricular": "vite build --config apps/extracurricular-pwa/vite.config.ts",
+    "build:attendance": "vite build --config apps/attendance-pwa/vite.config.ts",
     "build:library": "vite build --config apps/library-terminal/vite.config.ts",
     "build:led": "vite build --config apps/led-gateway/vite.config.ts",
     "build:command": "vite build --config apps/command-center/vite.config.ts",
@@ -51,7 +53,9 @@
     "format:check": "prettier --check apps/api/src/routes/parent-session.ts apps/api/src/routes/password-recovery.ts apps/api/src/routes/reporting.ts apps/shared/parent-session.ts apps/shared/operator-session.ts",
     "test:browser:command": "node tooling/test-command-center.mjs",
     "test:browser:parent:onboarding": "node tooling/test-parent-onboarding.mjs",
-    "test:browser:admin": "node tooling/test-admin-workspace.mjs"
+    "test:browser:admin": "node tooling/test-admin-workspace.mjs",
+    "test:browser:scanners": "node tooling/test-pwa-scanners.mjs",
+    "test:browser:camera": "node tooling/test-pwa-camera-device.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",

@@ -279,13 +279,13 @@ body{background:radial-gradient(ellipse at 0 15%,#dcf5e7,transparent 50%),radial
   -webkit-overflow-scrolling: touch;
 }
 .zoom-controls-bar {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 8px !important;
-  margin: 10px 0 6px !important;
-  z-index: 10 !important;
-  position: relative !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 10px 0 6px;
+  z-index: 10;
+  position: relative;
 }
 
 .zoom-btn {

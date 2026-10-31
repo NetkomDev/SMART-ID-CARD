@@ -72,3 +72,16 @@ describe("persistent QR portal access", () => {
     expect(fetchMock.mock.calls.filter(c => c[0].endsWith("/auth/refresh"))).toHaveLength(1);
   });
 });
+
+describe("scanner network concurrency",()=>{
+ it("shares only in-flight reads, then fetches fresh data again",async()=>{
+  storage.set("aksis.portal.WASTE_STAFF.v1",JSON.stringify(access));
+  fetchMock.mockImplementation(async()=>{await new Promise(r=>setTimeout(r,5));return response({count:1});});
+  const client=new PortalSession("WASTE_STAFF");await Promise.all([client.request('/summary'),client.request('/summary')]);expect(fetchMock).toHaveBeenCalledTimes(1);await client.request('/summary');expect(fetchMock).toHaveBeenCalledTimes(2);
+ });
+ it("does not restore an old portal after it was cleared during refresh",async()=>{
+  storage.set("aksis.portal.WASTE_STAFF.v1",JSON.stringify(access));let resolve!:(value:Response)=>void;let started!:()=>void;const ready=new Promise<void>(r=>started=r);
+  fetchMock.mockImplementation(async(url:string)=>{if(url.endsWith('/auth/refresh')){started();return new Promise<Response>(r=>resolve=r);}return unauthorized();});
+  const client=new PortalSession("WASTE_STAFF"),request=client.request('/summary');await ready;client.clear();resolve(response({access_token:'new',refresh_token:'new-refresh'}));await expect(request).rejects.toMatchObject({code:'PORTAL_MISMATCH'});expect(client.connected).toBe(false);
+ });
+});

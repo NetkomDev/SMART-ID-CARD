@@ -16,7 +16,7 @@
   <div class="activity-shell">
     <header class="aksis-pwa-header">
       <div class="brand">
-        <img src="/logo.png" alt="AKSIS Logo">
+        <img src="/brand-mark.webp" alt="AKSIS Logo">
         <div class="brand-text">
           <div class="brand-title">AKSIS</div>
           <div class="brand-subtitle">Ekstrakurikuler</div>
@@ -68,33 +68,17 @@
           </div>
         </div>
 
-        <div class="scanner-stage">
-          <div class="scanner-heading">
-            <div>
-              <strong>Scan QR Siswa</strong>
-              <span>Arahkan kamera ke QR kartu siswa</span>
-            </div>
-            <button id="btn-switch-camera" type="button" class="camera-switch" style="display:none" aria-label="Ganti kamera">↻ <span>Kamera belakang</span></button>
-          </div>
-          <div id="qr-reader" style="display:none"></div>
-          <div id="zoom-controls" class="zoom-controls-bar" style="display:none;">
-            <button type="button" class="zoom-btn active" data-zoom="1">1x</button>
-            <button type="button" class="zoom-btn" data-zoom="2">2x</button>
-            <button type="button" class="zoom-btn" data-zoom="3">3x</button>
-          </div>
-          <div id="camera-shutter-flash" class="camera-shutter-flash"></div>
-          <div id="scanner-placeholder">
-            <div class="scan-reticle" aria-hidden="true">
-              <svg viewBox="0 0 80 80" fill="none"><path d="M24 5H5v19M56 5h19v19M5 56v19h19M75 56v19H56" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><path d="M20 20h14v14H20zM46 20h14v14H46zM20 46h14v14H20zM46 46h6v6h8v8H46z" stroke="currentColor" stroke-width="3"/></svg>
-              <span class="scan-line"></span>
-            </div>
-            <p id="scanner-hint">Presensi mudah, rapi, dan otomatis.</p>
-          </div>
-          <button id="btn-toggle-camera" type="button" class="camera-button">
-            Buka Kamera Scanner
-          </button>
-          <div class="scan-state"><span class="live-dot"></span><span id="scan-status">Siap memindai identitas siswa</span></div>
-        </div>
+        <div class="scanner-stage" id="scanner-stage" data-camera-state="off">
+  <div class="scanner-heading"><div><small class="scanner-eyebrow">IDENTITAS SISWA</small><strong>Pindai QR kartu</strong><span>Letakkan QR di tengah bingkai</span></div><button id="btn-switch-camera" type="button" class="camera-switch" aria-label="Ganti kamera"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 6M4 12l2 6a7 7 0 0 0 12-1"/></svg><span>Ganti kamera</span></button></div>
+  <div class="scanner-viewport">
+    <div id="qr-reader" style="display:none"></div>
+    <div id="scanner-placeholder"><div class="scan-reticle" aria-hidden="true"><svg viewBox="0 0 80 80" fill="none"><path d="M25 7H7v18m48-18h18v18M7 55v18h18m48-18v18H55" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M23 23h12v12H23zm22 0h12v12H45zM23 45h12v12H23zm22 0h5v5h7v7H45z" fill="currentColor"/></svg></div><p id="scanner-hint">Aktifkan kamera untuk mulai memindai</p></div>
+    <div id="camera-shutter-flash" class="camera-shutter-flash"></div>
+    <div id="zoom-controls" class="zoom-controls-bar" style="display:none"><button type="button" class="zoom-btn active" data-zoom="1">1×</button><button type="button" class="zoom-btn" data-zoom="2">2×</button><button type="button" class="zoom-btn" data-zoom="3">3×</button></div>
+  </div>
+  <button id="btn-toggle-camera" type="button" class="camera-button" aria-pressed="false">Aktifkan kamera</button>
+  <div class="scan-state" role="status" aria-live="polite"><span class="live-dot" aria-hidden="true"></span><span id="scan-status">Kamera nonaktif · input nomor siswa tersedia</span></div>
+</div>
         
         <div class="scan-divider"><span>Atau cari manual</span></div>
         <form id="form-scan" class="manual-input-card">

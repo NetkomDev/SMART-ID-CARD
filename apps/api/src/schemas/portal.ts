@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const portalRoles = ["WASTE_STAFF", "LIBRARY_STAFF", "TEACHER", "PARENT"] as const;
+export const portalRoles = ["WASTE_STAFF", "LIBRARY_STAFF", "TEACHER", "PARENT", "GATE_STAFF"] as const;
 export const qrGenerateSchema = z.object({
   school_id: z.uuid(),
   role_code: z.enum(portalRoles),

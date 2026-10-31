@@ -1,5 +1,7 @@
+import { QRCamera, bindLoginCamera } from "../../shared/qr-camera";
 import { gateIntro, gateHelp, escapePortal as esc } from "../../shared/portal-ui";
 import "./style.css";
+import "../../shared/scanner.css";
 import { PortalError, PortalSession } from "../../shared/portal-session";
 import { setupInstallPrompt, offerInstall } from "../../shared/install-prompt";
 import { calculateWasteMeasurement, type WasteType, type WasteUnit } from "./waste-calculation.js";
@@ -16,37 +18,7 @@ login.classList.add("portal-gate");
 login.innerHTML = gateIntro("Piket Bank Sampah", "Catat setoran dan lihat kontribusi sekolah melalui akses resmi dari admin.");
 login.append(loginForm); login.insertAdjacentHTML("beforeend", gateHelp);
 
-let loginScanner: any = null;
-el("btn-start-login-scan").addEventListener("click", async () => {
-  el("btn-start-login-scan").style.display = "none";
-  el("btn-login-retry").style.display = "none";
-  el("login-scanner-container").style.display = "block";
-  try {
-    if (!loginScanner) {
-      const { Html5Qrcode } = await import("html5-qrcode");
-      loginScanner = new Html5Qrcode("login-qr-reader");
-    }
-    await loginScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: (w: number, h: number) => ({ width: Math.min(250, w * .8, h * .8), height: Math.min(250, w * .8, h * .8) }) }, (decoded: string) => {
-      try {
-        const url = new URL(decoded);
-        if (url.hash.includes("token=") || url.searchParams.has("token")) {
-          void loginScanner?.stop().catch(() => {});
-          window.location.href = decoded;
-        }
-      } catch { /* ignore invalid URLs */ }
-    }, () => undefined);
-  } catch (error) {
-    el("login-error").textContent = "Kamera tidak dapat diakses untuk memindai QR.";
-    el("login-scanner-container").style.display = "none";
-    el("btn-start-login-scan").style.display = "block";
-  }
-});
-el("btn-cancel-login-scan").addEventListener("click", async () => {
-  if (loginScanner) { try { await loginScanner.stop(); } catch {} }
-  el("login-scanner-container").style.display = "none";
-  el("btn-start-login-scan").style.display = "block";
-});
-el("form-login").addEventListener("submit", (e) => { e.preventDefault(); void init(); });
+bindLoginCamera(import.meta.env.BASE_URL);
 
 type View = "login" | "scan" | "input" | "success" | "ranking";
 type Student = { id: string; full_name: string; nisn?: string | null; student_number: string; photo_url?: string | null };
@@ -61,8 +33,8 @@ type Dashboard = {
 let view: View = "login", classId = "", className = "", student: Student | null = null;
 let dashboard: Dashboard | null = null, dashboardRequest = 0;
 let activePortalId = "";
-let scanning = false, cameraBusy = false, cameraStart: Promise<void> | null = null, facing: "environment" | "user" = "environment";
-let scanner: any = null, resolving = false, saving = false;
+let scanning = false, cameraBusy = false, facing: "environment" | "user" = "environment";
+let resolving = false, saving = false;
 type PendingDeposit = { event_id: string; class_id: string; student_id: string; organic_kg: number; inorganic_kg: number; source: string };
 let pending: PendingDeposit | null = null;
 const pendingKey = () => `aksis.waste.pending.${portal.context?.id ?? ""}`;
@@ -150,52 +122,10 @@ let currentZoom = 1;
 let initialTouchDistance = 0;
 let initialZoomOnTouch = 1;
 
-function getActiveCameraTrack(): MediaStreamTrack | null {
-  const videoEl = document.querySelector<HTMLVideoElement>("#qr-reader video");
-  if (!videoEl || !videoEl.srcObject) return null;
-  const stream = videoEl.srcObject as MediaStream;
-  const tracks = stream.getVideoTracks();
-  return tracks[0] ?? null;
-}
-
-async function setCameraZoom(zoomLevel: number) {
-  currentZoom = Math.max(1, Math.min(5, zoomLevel));
-  const track = getActiveCameraTrack();
-  if (track) {
-    try {
-      const caps = (track.getCapabilities ? track.getCapabilities() : {}) as any;
-      if (caps.zoom) {
-        const min = caps.zoom.min || 1;
-        const max = caps.zoom.max || 5;
-        const targetZoom = Math.max(min, Math.min(max, currentZoom));
-        await track.applyConstraints({
-          advanced: [{ zoom: targetZoom } as any]
-        });
-      }
-    } catch { /* Hardware zoom fallback to CSS scale below */ }
-  }
-
-  const qrContainer = el("qr-reader");
-  if (qrContainer) {
-    const mediaEls = qrContainer.querySelectorAll<HTMLVideoElement | HTMLCanvasElement>("video, canvas");
-    mediaEls.forEach(media => {
-      media.style.transform = currentZoom > 1 ? `scale(${currentZoom.toFixed(2)})` : "none";
-      media.style.transformOrigin = "center center";
-      media.style.transition = "transform 0.12s ease-out";
-    });
-  }
-
-  const zoomBox = el("zoom-controls");
-  if (zoomBox) {
-    zoomBox.querySelectorAll<HTMLButtonElement>(".zoom-btn").forEach(btn => {
-      const val = Number(btn.getAttribute("data-zoom"));
-      btn.classList.toggle("active", Math.abs(val - currentZoom) < 0.3);
-    });
-  }
-}
+async function setCameraZoom(value:number) {currentZoom=value;await camera.setZoom(value);}
 
 function setupScannerPinchZoom() {
-  const stage = el("scanner-stage");
+  const stage = document.querySelector<HTMLElement>(".scanner-viewport");
   if (!stage) return;
 
   const handleTouchStart = (e: TouchEvent) => {
@@ -235,9 +165,9 @@ function setupScannerPinchZoom() {
     }
   };
 
-  window.addEventListener("touchstart", handleTouchStart, { passive: false });
-  window.addEventListener("touchmove", handleTouchMove, { passive: false });
-  window.addEventListener("touchend", handleTouchEnd);
+  stage.addEventListener("touchstart", handleTouchStart, { passive: false });
+  stage.addEventListener("touchmove", handleTouchMove, { passive: false });
+  stage.addEventListener("touchend", handleTouchEnd);
 }
 
 function hideNotFoundModal() {
@@ -250,50 +180,12 @@ function showLoadingOverlay(show: boolean) {
   if (overlay) overlay.style.display = show ? "flex" : "none";
 }
 
-async function stopCamera() {
-  if (scanning && scanner) { try { await scanner.stop(); } catch { /* Already stopped by browser. */ } }
-  scanning = false;
-  currentZoom = 1;
-  const zoomControls = el("zoom-controls");
-  if (zoomControls) zoomControls.style.display = "none";
-  el("qr-reader").style.display = "none";
-  el("scanner-placeholder").hidden = false;
-  el("btn-toggle-camera").textContent = "Buka Kamera Scanner";
-}
-async function startCamera() {
-  if (cameraBusy || scanning) return;
-  cameraBusy = true;
-  el<HTMLButtonElement>("btn-toggle-camera").disabled = true;
-  cameraStart = (async () => {
-    try {
-      if (!scanner) {
-        const { Html5Qrcode } = await import("html5-qrcode");
-        scanner = new Html5Qrcode("qr-reader");
-      }
-      el("scan-error").style.display = "none";
-      el("scan-error").textContent = "";
-      el("qr-reader").style.display = "block";
-      el("scanner-placeholder").hidden = true;
-      await scanner.start({ facingMode: facing }, { fps: 10, qrbox: (w: number, h: number) => ({ width: Math.min(220, w * .7, h * .7), height: Math.min(220, w * .7, h * .7) }) }, (decoded: string) => {
-        if (resolving || view === "input") return;
-        triggerCameraFlash();
-        void stopCamera();
-        void resolveStudent(decoded);
-      }, () => undefined);
-      scanning = true;
-      el("btn-toggle-camera").textContent = "Tutup Kamera";
-      const zoomControls = el("zoom-controls");
-      if (zoomControls) zoomControls.style.display = "flex";
-      void setCameraZoom(1);
-    } catch {
-      el("scan-error").style.display = "block";
-      el("scan-error").textContent = "Kamera tidak tersedia. Izinkan akses kamera atau masukkan nomor siswa.";
-      el("qr-reader").style.display = "none";
-      el("scanner-placeholder").hidden = false;
-    } finally { cameraBusy = false; el<HTMLButtonElement>("btn-toggle-camera").disabled = false; }
-  })();
-  await cameraStart; cameraStart = null;
-}
+const camera = new QRCamera({readerId:"qr-reader",toggleId:"btn-toggle-camera",stageId:"scanner-stage",placeholderId:"scanner-placeholder",statusId:"scan-status",errorId:"scan-error",zoomId:"zoom-controls",once:true,canRead:()=>view==="scan"&&!resolving&&!pending,onState:phase=>{scanning=phase==="active";},onDecode:async value=>{triggerCameraFlash();await resolveStudent(value);}});
+async function stopCamera(){await camera.stop();currentZoom=1;}
+async function startCamera(){if(cameraBusy||scanning)return;cameraBusy=true;try{await camera.start(facing);}finally{cameraBusy=false;}}
+document.addEventListener("visibilitychange",()=>{if(document.hidden)void stopCamera();});
+window.addEventListener("pagehide",()=>{void stopCamera();});
+
 function switchView(next: View) {
   view = next;
   hideNotFoundModal();
@@ -313,7 +205,7 @@ function switchView(next: View) {
   el("btn-toggle-camera").hidden = false;
   el("btn-switch-camera").hidden = false;
   el("scanner-hint").textContent = "Kartu kecil, langkah besar untuk bumi yang lebih bersih.";
-  el("scan-status").textContent = next === "input" ? "✓ Siswa terdeteksi · siap mencatat setoran" : "Siap memindai identitas siswa";
+  el("scan-status").textContent = next === "input" ? "✓ Siswa terdeteksi · siap mencatat setoran" : "Kamera nonaktif · input nomor siswa tersedia";
   document.body.classList.toggle("show-ranking", next === "ranking");
   const subEl = document.getElementById("header-subtitle");
   if (subEl) subEl.textContent = "Piket Sampah";
@@ -506,38 +398,7 @@ async function resolveStudent(scannedText?: string) {
   el<HTMLButtonElement>("btn-ranking").disabled = true;
 
   try {
-    let resolvedStudent: Student | null = null;
-
-    // 1. Try card resolve RPC endpoint first (handles hex QR keys, card UIDs, card serials, etc.)
-    try {
-      const cardRes = await portal.request<Student>("/cards/resolve", {
-        method: "POST",
-        body: JSON.stringify({ qr_key: query })
-      });
-      if (cardRes && cardRes.id) {
-        resolvedStudent = cardRes;
-      }
-    } catch {
-      // Fallback below
-    }
-
-    // 2. Fallback: Search students by NISN / NIS / Name
-    if (!resolvedStudent) {
-      try {
-        const list = await portal.request<Student[]>(`/students?search=${encodeURIComponent(query)}`);
-        if (Array.isArray(list) && list.length === 1) {
-          resolvedStudent = list[0]!;
-        } else if (Array.isArray(list) && list.length > 1) {
-          throw new Error("Lebih dari satu siswa cocok. Masukkan NIS / NISN lengkap.");
-        }
-      } catch (err: any) {
-        if (err?.message?.includes("Lebih dari satu")) throw err;
-      }
-    }
-
-    if (!resolvedStudent) {
-      throw new Error("Kartu / siswa tidak ditemukan di sekolah ini.");
-    }
+    const resolvedStudent = await portal.request<Student>("/students/resolve", { method:"POST", body:JSON.stringify({identity:query}) });
 
     // If scanned via camera, keep manual search input box untouched!
     if (!scannedText) {

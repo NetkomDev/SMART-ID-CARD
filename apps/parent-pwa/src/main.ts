@@ -31,6 +31,9 @@ type ParentTodayData = {
     status: "HADIR" | "TERLAMBAT" | "PULANG" | "BELUM_HADIR" | "SAKIT" | "IZIN" | "ALASAN_LAIN";
     check_in: string;
     check_out: string;
+    note?: string | null;
+    is_late?: boolean;
+    is_early_departure?: boolean;
   };
   waste?: {
     today_kg: number;
@@ -806,6 +809,13 @@ function renderDashboardUI(children: Child[], selected: Child, data: ParentToday
               </span>
             </div>
           </div>
+
+          ${attendance.note ? `
+            <div class="attendance-note-badge" style="margin-top:-14px;margin-bottom:6px;padding:6px 10px;background:#fef3c7;border:1px solid #fde68a;border-radius:10px;font-size:0.75rem;color:#92400e;line-height:1.3;display:flex;align-items:center;gap:6px;">
+              <span style="font-size:0.9rem;">⚠️</span>
+              <span style="font-weight:600;">${esc(attendance.note)}</span>
+            </div>
+          ` : ""}
         </div>
 
         <!-- Card 2: Waste Points -->
@@ -1188,7 +1198,8 @@ function calculateAttendanceFallback(events: ParentTodayData["events"], timezone
   else if (checkIn) status = "HADIR";
 
   const fmt = (iso?: string) => iso ? new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: timezone }).format(new Date(iso)) : "—";
-  return { status, check_in: fmt(checkIn?.occurred_at), check_out: fmt(checkOut?.occurred_at) };
+  const note = isLate ? "Hari ini Terlambat" : null;
+  return { status, check_in: fmt(checkIn?.occurred_at), check_out: fmt(checkOut?.occurred_at), note, is_late: isLate, is_early_departure: false };
 }
 
 function calculateWasteFallback(events: ParentTodayData["events"]) {

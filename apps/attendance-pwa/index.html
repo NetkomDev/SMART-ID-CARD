@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="referrer" content="no-referrer">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#064e3b">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <title>Piket Kehadiran · AKSIS</title>
+</head>
+<body>
+  <header class="aksis-pwa-header">
+    <div class="brand">
+      <img src="/brand-mark.webp" alt="AKSIS Logo">
+      <div class="brand-text">
+        <div class="brand-title">AKSIS</div>
+        <div class="brand-subtitle">Piket Kehadiran</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <span id="network-badge" class="badge-status online" title="Status koneksi">● Online</span>
+      <span id="queue-badge" class="badge-counter" style="display:none;" title="Antrean sinkronisasi">0 antre</span>
+    </div>
+  </header>
+
+  <main id="app-container">
+    <nav id="workspace-nav" hidden aria-label="Navigasi Petugas Piket">
+      <div class="school-header-row">
+        <div class="school-context">
+          <span class="live-dot" aria-hidden="true"></span>
+          <span id="school-name">Memuat sekolah...</span>
+        </div>
+        <div class="scanner-identity-row">
+          <span id="scanner-name-display" class="scanner-tag">Guru Piket</span>
+          <button id="btn-edit-scanner-name" type="button" class="btn-text-small" title="Ubah nama petugas piket">Ubah</button>
+        </div>
+      </div>
+    </nav>
+
+    <!-- VIEW ERROR / ACCESS DENIED -->
+    <section id="view-error" hidden>
+      <h1>Akses Ditolak</h1>
+      <p id="error-msg">Pindai QR akses Piket Kehadiran dari dashboard admin sekolah.</p>
+    </section>
+
+    <!-- VIEW LOGIN (Scan Portal QR) -->
+    <section id="view-login" style="display:none">
+      <form id="form-login">
+        <p id="login-error" role="status"></p>
+        <button type="submit" id="btn-login-retry" style="display:none">Coba lagi</button>
+        <div id="login-scanner-container" style="display:none; margin-top: 1rem;">
+          <div id="login-qr-reader"></div>
+          <button type="button" id="btn-cancel-login-scan" class="btn-text">Batal Scan</button>
+        </div>
+        <button type="button" id="btn-start-login-scan" style="margin-top: 1rem;">Pindai QR Akses Piket</button>
+      </form>
+    </section>
+
+    <!-- VIEW SCAN MAIN -->
+    <section id="view-scan" style="display:none">
+      <!-- Direction Mode Selector (Check-In vs Check-Out) -->
+      <div class="direction-toggle-bar">
+        <button type="button" id="btn-dir-in" class="dir-btn active">
+          <span class="dir-icon">☀️</span>
+          <span class="dir-text">
+            <strong>Datang / Masuk</strong>
+            <small id="hint-dir-in">Batas: --:--</small>
+          </span>
+        </button>
+        <button type="button" id="btn-dir-out" class="dir-btn">
+          <span class="dir-icon">🏠</span>
+          <span class="dir-text">
+            <strong>Pulang</strong>
+            <small id="hint-dir-out">Mulai: --:--</small>
+          </span>
+        </button>
+      </div>
+
+      <!-- Live Notification Banner -->
+      <div id="scan-feedback-banner" class="scan-feedback-banner" style="display:none;" role="alert">
+        <div class="feedback-icon" id="feedback-icon">✓</div>
+        <div class="feedback-body">
+          <strong id="feedback-title">Presensi Tercatat</strong>
+          <span id="feedback-message">Siswa berhasil dipresensi.</span>
+        </div>
+      </div>
+
+      <!-- Camera Scanner Viewport -->
+      <div class="scanner-stage" id="scanner-stage" data-camera-state="off">
+        <div class="scanner-heading">
+          <div>
+            <small class="scanner-eyebrow">MULTI-SCANNER AKTIF</small>
+            <strong id="stage-title">Pindai ID Card Siswa</strong>
+            <span>Arahkan kamera ke QR kartu siswa</span>
+          </div>
+          <button id="btn-switch-camera" type="button" class="camera-switch" aria-label="Ganti kamera">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+              <path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 6M4 12l2 6a7 7 0 0 0 12-1"/>
+            </svg>
+            <span>Ganti</span>
+          </button>
+        </div>
+        <div class="scanner-viewport">
+          <div id="qr-reader" style="display:none"></div>
+          <div id="scanner-placeholder">
+            <div class="scan-reticle" aria-hidden="true">
+              <svg viewBox="0 0 80 80" fill="none">
+                <path d="M25 7H7v18m48-18h18v18M7 55v18h18m48-18v18H55" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+                <path d="M23 23h12v12H23zm22 0h12v12H45zM23 45h12v12H23zm22 0h5v5h7v7H45z" fill="currentColor"/>
+              </svg>
+            </div>
+            <p id="scanner-hint">Aktifkan kamera untuk mulai memindai</p>
+          </div>
+          <div id="camera-shutter-flash" class="camera-shutter-flash"></div>
+          <div id="zoom-controls" class="zoom-controls-bar" style="display:none">
+            <button type="button" class="zoom-btn active" data-zoom="1">1×</button>
+            <button type="button" class="zoom-btn" data-zoom="2">2×</button>
+            <button type="button" class="zoom-btn" data-zoom="3">3×</button>
+          </div>
+        </div>
+        <button id="btn-toggle-camera" type="button" class="camera-button" aria-pressed="false">Aktifkan kamera</button>
+        <div class="scan-state" role="status" aria-live="polite">
+          <span class="live-dot" aria-hidden="true"></span>
+          <span id="scan-status">Kamera nonaktif · Input manual tersedia</span>
+        </div>
+      </div>
+
+      <!-- Manual Input Fallback -->
+      <form id="form-scan" class="manual-scan-form">
+        <label for="scan-input">Atau ketik NIS / NISN / No. Kartu</label>
+        <div class="manual-scan">
+          <input id="scan-input" type="text" inputmode="numeric" maxlength="64" placeholder="Nomor siswa / NISN" autocomplete="off" required>
+          <button type="submit">Catat →</button>
+        </div>
+      </form>
+
+      <!-- Scan History List (Today's local scans) -->
+      <div class="history-section">
+        <div class="history-header">
+          <h3>Riwayat Pindai HP Ini Hari Ini</h3>
+          <span id="scan-count-badge" class="count-badge">0 siswa</span>
+        </div>
+        <ul id="local-scan-list" class="scan-history-list">
+          <li class="empty-history">Belum ada pemindaian sesi ini.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- MODAL: SISWA TERLAMBAT / PULANG CEPAT (KETERANGAN) -->
+    <div id="modal-reason" class="modal-reason-overlay" style="display:none;">
+      <div class="modal-reason-card">
+        <div class="reason-icon-wrap" id="reason-icon-wrap">
+          <span id="reason-badge-icon">⏰</span>
+        </div>
+        <h3 id="reason-modal-title">Siswa Terlambat</h3>
+        <p id="reason-modal-desc">Siswa datang melewati batas jam kehadiran. Masukkan alasan / keterangan:</p>
+        
+        <div class="student-mini-banner">
+          <strong id="reason-student-name">Nama Siswa</strong>
+          <span id="reason-student-class">Kelas</span>
+        </div>
+
+        <!-- Quick Chips Selection -->
+        <div class="quick-chips-wrap" id="quick-chips-container">
+          <!-- Populated dynamically via JS -->
+        </div>
+
+        <form id="form-reason">
+          <label for="reason-input-text" class="reason-label">Keterangan / Alasan:</label>
+          <input id="reason-input-text" type="text" maxlength="120" placeholder="Ketik alasan atau pilih chip di atas..." autocomplete="off">
+          
+          <div class="reason-actions">
+            <button type="submit" id="btn-save-reason" class="btn-primary-reason">Simpan Presensi</button>
+            <button type="button" id="btn-skip-reason" class="btn-secondary-reason">Lewati Keterangan</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL: EDIT SCANNER NAME -->
+    <div id="modal-scanner-name" class="modal-reason-overlay" style="display:none;">
+      <div class="modal-reason-card">
+        <h3>Identitas Guru Piket / Petugas</h3>
+        <p>Nama Anda dicatat pada setiap data presensi yang dipindai melalui HP ini.</p>
+        <form id="form-scanner-name">
+          <input id="input-scanner-name" type="text" maxlength="60" placeholder="Cth: Pak Budi (Guru Piket)" required>
+          <div class="reason-actions">
+            <button type="submit" class="btn-primary-reason">Gunakan Nama Ini</button>
+            <button type="button" id="btn-close-scanner-name" class="btn-secondary-reason">Batal</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <footer>
+      <span>AKSIS · Presensi Multi-Scanner Guru Piket</span>
+    </footer>
+  </main>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

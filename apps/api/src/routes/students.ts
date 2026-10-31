@@ -1,3 +1,4 @@
+import { resolvePortalStudent, studentIdentitySchema } from "../lib/portal-student.js";
 import { Router } from "express";
 import { z } from "zod";
 import { ApiError, fromDatabaseError } from "../lib/errors.js";
@@ -57,6 +58,10 @@ router.get("/", requirePermission("student.read"), validate({ query: studentQuer
   });
 
   sendData(res, formattedData, 200, { page, page_size: pageSize, total: count ?? 0 });
+}));
+
+router.post("/resolve", requirePermission("student.read"), validate({body:studentIdentitySchema}), asyncHandler(async(req,res)=>{
+  sendData(res, await resolvePortalStudent(req, req.body.identity));
 }));
 
 router.get("/:id", requirePermission("student.read"), validate({ params: idParamsSchema }), asyncHandler(async (req, res) => {

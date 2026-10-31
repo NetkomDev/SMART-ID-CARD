@@ -7,7 +7,7 @@ const classes=Array.from({length:12},(_,i)=>({id:`class-${i}`,code:`X${i}`,name:
 const school={id:'school-a',code:'SMAN3WTP',name:'SMA Negeri 3 Watampone',timezone:'Asia/Makassar',context:{school_id:'school-a',membership_id:'member-a',roles:['SCHOOL_ADMIN'],permissions:[]}};
 const errors=[],requests=[],geometry=[],timings=[],spreadsheets=[];let delay=100;
 try{
- const page=await browser.newPage();await page.setViewport({width:1440,height:900});page.on('pageerror',e=>errors.push(e.message));
+ const page=await browser.newPage();await page.setBypassServiceWorker(true);await page.setViewport({width:1440,height:900});page.on('pageerror',e=>errors.push(e.message));
  await page.evaluateOnNewDocument(()=>{localStorage.setItem('aksis-theme','light');sessionStorage.setItem('aksis.admin.session',JSON.stringify({access_token:'fixture',refresh_token:'fixture'}));sessionStorage.setItem('aksis.admin.school','school-a');});
  await page.setRequestInterception(true);page.on('request',async req=>{
  const url=new URL(req.url()),p=url.pathname;if(p.includes('xlsx')&&/\.(js|mjs)$/.test(p))spreadsheets.push(p);if(!p.startsWith('/api/v1/'))return req.continue();requests.push(p+url.search);let data=[];

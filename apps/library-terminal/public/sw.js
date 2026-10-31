@@ -1,5 +1,5 @@
 const BASE = new URL(self.registration.scope).pathname;
-const CACHE = `aksis-portal-${BASE}-v10`;
+const CACHE = `aksis-portal-${BASE}-v11`;
 
 self.addEventListener("install", event => {
   self.skipWaiting();
@@ -12,7 +12,7 @@ self.addEventListener("install", event => {
         const html = await response.text();
         const assets = [...html.matchAll(/(?:src|href)=["']([^"']+)["']/g)]
           .map(match => new URL(match[1], self.registration.scope))
-          .filter(url => url.origin === self.location.origin && url.pathname.startsWith(BASE) && /\.(js|css|png|webmanifest|svg)$/.test(url.pathname));
+          .filter(url => url.origin === self.location.origin && url.pathname.startsWith(BASE) && /\.(js|css|png|webp|webmanifest|svg)$/.test(url.pathname));
         
         const urlsToCache = [...new Set([...assets.map(url => url.href), `${BASE}icon-192.png`, `${BASE}icon-512.png`, `${BASE}manifest.webmanifest`])];
         await Promise.allSettled(urlsToCache.map(url => cache.add(url).catch(() => undefined)));

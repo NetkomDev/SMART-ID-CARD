@@ -1,3 +1,5 @@
+import type { Request } from "express";
+import { resolvePortalStudent, studentIdentitySchema } from "../lib/portal-student.js";
 import { Router } from "express";
 import { ApiError, fromDatabaseError } from "../lib/errors.js";
 import { sendData } from "../lib/responses.js";
@@ -72,28 +74,44 @@ router.post("/:id/members/fast-enroll", requirePermission("extracurricular.manag
   sendData(res, { ...existing, duplicate: true });
 }));
 
-router.post("/:id/sessions/:sessionId/attendance", requirePermission("extracurricular.attendance"), validate({ params: sessionParamsSchema, body: recordAttendanceSchema }), asyncHandler(async (req, res) => {
+async function recordActivityAttendance(req: Request, studentId: string, status: string, notes?: string) {
   const { data: member, error: memberError } = await req.auth!.client.from("extracurricular_members")
     .select("id,status").eq("school_id", req.tenant!.schoolId).eq("extracurricular_id", req.params.id)
-    .eq("student_id", req.body.student_id).maybeSingle();
+    .eq("student_id", studentId).maybeSingle();
   if (memberError) throw fromDatabaseError(memberError);
   if (!member) throw new ApiError(409, "EXTRACURRICULAR_MEMBER_REQUIRED", "Siswa belum terdaftar sebagai anggota kegiatan.");
   if (member.status !== "ACTIVE") throw new ApiError(409, "CONFLICT", "Keanggotaan siswa tidak aktif. Hubungi pengelola kegiatan.");
-  const { data, error } = await req.auth!.client.from("extracurricular_attendance").insert({ ...req.body,
+  const { data, error } = await req.auth!.client.from("extracurricular_attendance").insert({ student_id: studentId, status, notes: notes ?? null,
     school_id: req.tenant!.schoolId, extracurricular_id: req.params.id, session_id: req.params.sessionId,
     recorded_by: req.auth!.user.id
   }).select("*").single();
   if (error?.code === "23505") {
     const { data: existing, error: lookupError } = await req.auth!.client.from("extracurricular_attendance").select("*")
       .eq("school_id", req.tenant!.schoolId).eq("session_id", req.params.sessionId).eq("extracurricular_id", req.params.id)
-      .eq("student_id", req.body.student_id).maybeSingle();
+      .eq("student_id", studentId).maybeSingle();
     if (lookupError) throw fromDatabaseError(lookupError);
-    if (existing && existing.status === req.body.status && (existing.notes ?? null) === (req.body.notes ?? null)) {
-      sendData(res, { ...existing, duplicate: true }); return;
+    if (existing && existing.status === status && (existing.notes ?? null) === (notes ?? null)) {
+      return { data: { ...existing, duplicate: true }, status: 200 };
     }
   }
   if (error) throw fromDatabaseError(error);
-  sendData(res, data, 201);
+  return { data, status: 201 };
+}
+
+router.post("/:id/sessions/:sessionId/attendance", requirePermission("extracurricular.attendance"), validate({ params: sessionParamsSchema, body: recordAttendanceSchema }), asyncHandler(async (req, res) => {
+  const result = await recordActivityAttendance(req, req.body.student_id, req.body.status, req.body.notes);
+  sendData(res, result.data, result.status);
+}));
+
+router.post("/:id/sessions/:sessionId/scan", requirePermission("student.read"), requirePermission("extracurricular.attendance"), validate({params:sessionParamsSchema,body:studentIdentitySchema}), asyncHandler(async(req,res)=>{
+  const student = await resolvePortalStudent(req, req.body.identity);
+  try {
+    const result = await recordActivityAttendance(req,student.id,"PRESENT");
+    sendData(res,{student,attendance:result.data,needs_enrollment:false},result.status);
+  } catch(error) {
+    if (error instanceof ApiError && error.code === "EXTRACURRICULAR_MEMBER_REQUIRED") { sendData(res,{student,needs_enrollment:true}); return; }
+    throw error;
+  }
 }));
 
 router.get("/:id/sessions/:sessionId/summary", requirePermission("extracurricular.read"), validate({ params: sessionParamsSchema }), asyncHandler(async (req, res) => {
