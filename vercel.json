@@ -25,12 +25,12 @@
       "destination": "/extracurricular/index.html"
     },
     {
-      "source": "/attendance",
-      "destination": "/index.html"
+      "source": "/attendance/",
+      "destination": "/pwa-attendance/index.html"
     },
     {
       "source": "/attendance/(.*)",
-      "destination": "/attendance/index.html"
+      "destination": "/pwa-attendance/$1"
     },
     {
       "source": "/library/(.*)",
