@@ -125,7 +125,9 @@ try {
   console.log('✓ Scanner name modal closed');
 
   // Check that teacher name badge appears in UI
-  const badgeName = await page.$eval('#scanner-name-display', el => el.textContent.trim());
+  const badgeName = await page.$eval('#scanner-name-display', el => {
+    return el.querySelector('.teacher-name-text')?.textContent.trim() || el.textContent.trim();
+  });
   console.log('Badge name:', badgeName);
   assert.equal(badgeName, 'Pak Budi (Guru Piket)');
 
@@ -135,6 +137,25 @@ try {
   console.log('Install prompt status: nativePromptCalled =', nativePromptCalled, ', installModalShown =', installModalShown, ', dialogExists =', dialogExists);
   assert(nativePromptCalled || installModalShown || dialogExists, 'PWA install was offered/prompted to user');
 
+  // Close install dialog if opened by fallback
+  await page.evaluate(() => {
+    const d = document.querySelector('#aksis-install');
+    if (d) d.remove();
+  });
+
+  // Test: tapping teacher chip re-opens modal-scanner-name (replacing obsolete Ubah button)
+  await page.evaluate(() => document.getElementById('scanner-name-display').click());
+  await page.waitForFunction(() => {
+    const m = document.getElementById('modal-scanner-name');
+    return m && getComputedStyle(m).display === 'flex';
+  });
+  console.log('✓ Tapping teacher name successfully opened edit modal');
+  await page.evaluate(() => document.getElementById('btn-close-scanner-name').click());
+  await page.waitForFunction(() => {
+    const m = document.getElementById('modal-scanner-name');
+    return m && getComputedStyle(m).display === 'none';
+  });
+
   // Check background device registration
   console.log('Registered device in backend:', registeredDevice);
   assert(registeredDevice !== null, 'Device registration was sent to backend');
@@ -142,8 +163,8 @@ try {
   assert(registeredDevice.device_id.length > 10, 'Valid device_id');
 
   // Take screenshot
-  await page.screenshot({ path: '/tmp/attendance-install-prompt.png', fullPage: true });
-  console.log('✓ Screenshot saved to /tmp/attendance-install-prompt.png');
+  await page.screenshot({ path: '/tmp/attendance-updated-ui.png', fullPage: true });
+  console.log('✓ Screenshot saved to /tmp/attendance-updated-ui.png');
 
   console.log('ALL ATTENDANCE INSTALL PROMPT TESTS PASSED!');
 } finally {

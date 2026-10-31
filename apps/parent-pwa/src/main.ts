@@ -715,6 +715,9 @@ function renderDashboardUI(children: Child[], selected: Child, data: ParentToday
   };
 
   const attendance = data.attendance ?? calculateAttendanceFallback(data.events, data.timezone);
+  const displayCheckOut = (attendance.check_in && attendance.check_in !== "—" && (!attendance.check_out || attendance.check_out === "—"))
+    ? "Tidak absen pulang"
+    : (attendance.check_out || "—");
   const waste = data.waste ?? calculateWasteFallback(data.events);
   const library = data.library ?? calculateLibraryFallback(data.events);
   const extracurricular = data.extracurricular ?? calculateEkskulFallback(data.events, data.timezone);
@@ -803,9 +806,9 @@ function renderDashboardUI(children: Child[], selected: Child, data: ParentToday
             </div>
             <div class="time-box" style="text-align: right; align-items: flex-end;">
               <label>Jam Pulang</label>
-              <span>
+              <span style="${displayCheckOut === 'Tidak absen pulang' ? 'font-size: 0.82rem; font-weight: 700; color: #b45309;' : ''}">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                ${esc(attendance.check_out)}
+                ${esc(displayCheckOut)}
               </span>
             </div>
           </div>
@@ -1199,7 +1202,9 @@ function calculateAttendanceFallback(events: ParentTodayData["events"], timezone
 
   const fmt = (iso?: string) => iso ? new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: timezone }).format(new Date(iso)) : "—";
   const note = isLate ? "Hari ini Terlambat" : null;
-  return { status, check_in: fmt(checkIn?.occurred_at), check_out: fmt(checkOut?.occurred_at), note, is_late: isLate, is_early_departure: false };
+  const inStr = fmt(checkIn?.occurred_at);
+  const outStr = checkOut ? fmt(checkOut.occurred_at) : (checkIn ? "Tidak absen pulang" : "—");
+  return { status, check_in: inStr, check_out: outStr, note, is_late: isLate, is_early_departure: false };
 }
 
 function calculateWasteFallback(events: ParentTodayData["events"]) {

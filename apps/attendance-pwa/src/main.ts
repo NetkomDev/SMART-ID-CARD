@@ -46,7 +46,8 @@ let data: Snapshot | undefined,
   pending: ScanRecord | undefined,
   syncBusy = false,
   lastSync = 0,
-  locked = false;
+  locked = false,
+  manualDirection = false;
 let calibratedAt = performance.now(),
   serverAt = Date.now(),
   wallAt = Date.now();
@@ -141,6 +142,26 @@ document.addEventListener("visibilitychange", () => {
 window.addEventListener("pagehide", () => {
   void camera.stop();
 });
+function autoDetectDirection(): Direction {
+  if (!data?.rules) return "CHECK_IN";
+  const { time: currentTime } = schoolTime(now(), data.rules.timezone);
+  const [endH, endM] = (data.rules.check_in_end || "07:30").split(":").map(Number);
+  const [outH, outM] = (data.rules.check_out_start || "14:00").split(":").map(Number);
+  const endMin = (endH ?? 7) * 60 + (endM ?? 30);
+  const outMin = (outH ?? 14) * 60 + (outM ?? 0);
+  const midMin = Math.round((endMin + outMin) / 2);
+
+  const [curH, curM] = currentTime.split(":").map(Number);
+  const curMin = (curH ?? 0) * 60 + (curM ?? 0);
+
+  return curMin >= midMin ? "CHECK_OUT" : "CHECK_IN";
+}
+function updateDirection(forceAuto = false) {
+  if (forceAuto || !manualDirection) {
+    direction = autoDetectDirection();
+  }
+  renderDirection();
+}
 function renderDirection() {
   for (const [id, value] of [
     ["btn-dir-in", "CHECK_IN"],
@@ -152,12 +173,14 @@ function renderDirection() {
 }
 el("btn-dir-in").onclick = () => {
   if (!pending) {
+    manualDirection = true;
     direction = "CHECK_IN";
     renderDirection();
   }
 };
 el("btn-dir-out").onclick = () => {
   if (!pending) {
+    manualDirection = true;
     direction = "CHECK_OUT";
     renderDirection();
   }
@@ -177,7 +200,11 @@ async function render() {
   el("network-badge").textContent = navigator.onLine ? "● Online" : "● Offline";
   el("network-badge").className =
     `badge-status ${navigator.onLine ? "online" : "offline"}`;
-  el("scanner-name-display").textContent = name() || "Isi nama petugas";
+  const nameDisplay = el("scanner-name-display");
+  const nameTextEl = nameDisplay.querySelector<HTMLElement>(".teacher-name-text");
+  const teacherName = name() || "Isi nama petugas";
+  if (nameTextEl) nameTextEl.textContent = teacherName;
+  else nameDisplay.textContent = teacherName;
   const day = data ? schoolTime(now(), data.rules.timezone).day : "";
   const visible = history.filter(
     (v) =>
@@ -242,20 +269,63 @@ async function render() {
     el("hint-dir-out").textContent = `Mulai ${data.rules.check_out_start}`;
   }
 }
+const LATE_CHIPS = [
+  "Macet di jalan",
+  "Ban bocor / kendaraan rusak",
+  "Hujan lebat / cuaca buruk",
+  "Bangun kesiangan",
+  "Keperluan keluarga",
+  "Sakit di jalan",
+];
+const EARLY_CHIPS = [
+  "Sakit di sekolah (UKS)",
+  "Izin keperluan keluarga mendesak",
+  "Dispensasi kegiatan lomba / dinas",
+  "Jemputan orang tua datang lebih awal",
+];
+
 function reason(value: ScanRecord) {
   pending = value;
   el("reason-modal-title").textContent = value.is_late
     ? "Siswa Terlambat"
     : "Pulang Lebih Cepat";
-  el("reason-modal-desc").textContent =
-    "Isi keterangan sesuai kondisi siswa. Waktu pemindaian pertama tetap disimpan.";
+  el("reason-modal-desc").textContent = value.is_late
+    ? `Siswa datang melewati batas jam kehadiran (${data?.rules.check_in_end ?? "07:15"}). Masukkan alasan / keterangan terlambat:`
+    : `Siswa pulang sebelum jam kepulangan resmi (${data?.rules.check_out_start ?? "14:30"}). Masukkan alasan pulang cepat:`;
   el("reason-student-name").textContent = value.student_name;
   el("reason-student-class").textContent = value.class_name ?? "";
   input("reason-input-text").value = value.notes;
-  el("quick-chips-container").innerHTML = "";
+
+  const chipsWrap = el("quick-chips-container");
+  chipsWrap.innerHTML = "";
+  const chips = value.is_late ? LATE_CHIPS : EARLY_CHIPS;
+  chips.forEach((text) => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "chip-btn";
+    chip.textContent = text;
+    chip.onclick = () => {
+      input("reason-input-text").value = text;
+      input("reason-input-text").focus();
+      chipsWrap.querySelectorAll(".chip-btn").forEach((c) => c.classList.remove("selected"));
+      chip.classList.add("selected");
+    };
+    chipsWrap.appendChild(chip);
+  });
+
   el("modal-reason").style.display = "flex";
   input("reason-input-text").focus();
 }
+function showOutOfHours(student: Student, message: string) {
+  el("out-of-hours-title").textContent = "Bukan Waktu Sekolah";
+  el("out-of-hours-desc").textContent = message;
+  el("out-of-hours-student-name").textContent = student.full_name;
+  el("out-of-hours-student-class").textContent = student.class_name ?? "";
+  el("modal-out-of-hours").style.display = "flex";
+}
+el("btn-close-out-of-hours").onclick = () => {
+  el("modal-out-of-hours").style.display = "none";
+};
 el("btn-skip-reason").onclick = () => {
   pending = undefined;
   el("modal-reason").style.display = "none";
@@ -289,7 +359,13 @@ function editName() {
   el("modal-scanner-name").style.display = "flex";
   input("input-scanner-name").focus();
 }
-el("btn-edit-scanner-name").onclick = editName;
+el("scanner-name-display").onclick = editName;
+el("scanner-name-display").onkeydown = (e) => {
+  if (e.key === "Enter" || e.key === " ") {
+    e.preventDefault();
+    editName();
+  }
+};
 el("btn-close-scanner-name").onclick = () => {
   el("modal-scanner-name").style.display = "none";
 };
@@ -357,13 +433,36 @@ async function scan(raw: string) {
       throw new Error(
         "Jam HP berubah. Hubungkan internet dan muat ulang untuk menyamakan waktu.",
       );
+    if (!manualDirection) {
+      updateDirection();
+    }
     const time = now(),
       student = resolveStudent(data!.students, raw, time);
     if (!student)
       throw new Error(
         "QR/NISN tidak ditemukan pada data sekolah di HP ini. Perbarui data saat online atau periksa kartu siswa.",
       );
-    const day = schoolTime(time, data!.rules.timezone).day;
+    const { day, time: clockTime } = schoolTime(time, data!.rules.timezone);
+
+    // Audit hari libur (Minggu) dan waktu sebelum jam kedatangan
+    const weekday = new Intl.DateTimeFormat("en-US", {
+      timeZone: data!.rules.timezone,
+      weekday: "short",
+    }).format(new Date(time));
+    const isSunday = weekday === "Sun";
+    const isBeforeCheckIn =
+      direction === "CHECK_IN" && clockTime < data!.rules.check_in_start;
+
+    if (isSunday || isBeforeCheckIn) {
+      showOutOfHours(
+        student,
+        isSunday
+          ? "Hari Minggu adalah hari libur sekolah. Presensi kehadiran tidak aktif pada hari libur."
+          : `Waktu saat ini (${clockTime}) belum memasuki jam kedatangan yang ditetapkan admin sekolah (${data!.rules.check_in_start}–${data!.rules.check_in_end}). Presensi belum dapat dicatat.`,
+      );
+      return;
+    }
+
     const local = (await records(scope)).find(
       (v) =>
         v.student_id === student.id &&
@@ -634,29 +733,45 @@ async function start() {
         ).toISOString(),
       );
     }
-    await refreshState();
-    el("view-login").style.display = "none";
-    el("view-scan").style.display = "block";
-    el("workspace-nav").hidden = false;
-    el("school-name").textContent = portal.context.school_name;
-    if (!usable())
-      feedback(
-        "error",
-        "Persiapan offline belum siap",
-        "Hubungkan internet untuk mengunduh data siswa dan jam sekolah.",
-      );
-    if (data)
-      direction =
-        schoolTime(now(), data.rules.timezone).time >=
-        data.rules.check_out_start
-          ? "CHECK_OUT"
-          : "CHECK_IN";
-    renderDirection();
-    await render();
-    if (!name()) {
-      editName();
+    if (data && usable()) {
+      // Instantly open scanner view from previously cached snapshot
+      el("view-login").style.display = "none";
+      el("view-scan").style.display = "block";
+      el("workspace-nav").hidden = false;
+      el("school-name").textContent = portal.context.school_name;
+      updateDirection();
+      await render();
+      if (!name()) {
+        editName();
+      } else {
+        offerInstall();
+      }
+      // Force background update if online without blocking scanner
+      if (navigator.onLine) {
+        void refreshState().catch((err) =>
+          console.warn("Background refresh state error:", err),
+        );
+      }
     } else {
-      offerInstall();
+      // First time on this device or expired snapshot: fetch initial data
+      await refreshState();
+      el("view-login").style.display = "none";
+      el("view-scan").style.display = "block";
+      el("workspace-nav").hidden = false;
+      el("school-name").textContent = portal.context.school_name;
+      if (!usable())
+        feedback(
+          "error",
+          "Persiapan offline belum siap",
+          "Hubungkan internet untuk mengunduh data siswa dan jam sekolah.",
+        );
+      updateDirection();
+      await render();
+      if (!name()) {
+        editName();
+      } else {
+        offerInstall();
+      }
     }
     if (localStorage.getItem("aksis_attendance_queue_v1"))
       feedback(
@@ -676,15 +791,6 @@ el("form-login").onsubmit = (e) => {
   void start();
 };
 el("btn-login-retry").style.display = "inline-block";
-el("btn-refresh-data").onclick = () => {
-  void refreshData().catch(() =>
-    feedback(
-      "error",
-      "Data belum diperbarui",
-      "Hubungkan internet dan coba kembali.",
-    ),
-  );
-};
 el("btn-export").onclick = async () => {
   const value = {
     scope,
@@ -715,6 +821,9 @@ setInterval(() => {
 setInterval(() => {
   void refreshState();
 }, 60000);
+setInterval(() => {
+  if (!manualDirection) updateDirection();
+}, 30000);
 void start();
 
 window.addEventListener("storage", (event) => {

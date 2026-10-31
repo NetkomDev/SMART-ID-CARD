@@ -100,51 +100,121 @@ body {
   padding: 16px 14px 40px;
 }
 
-.school-header-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
+.piket-header-card {
   background: white;
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: 18px;
+  padding: 14px 16px;
   margin-bottom: 14px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 4px 12px rgba(6, 78, 59, 0.05);
+}
+
+.piket-header-main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.piket-school-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
 }
 
 .school-context {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-weight: 700;
-  font-size: 0.92rem;
+  font-weight: 800;
+  font-size: 1.05rem;
   color: #064e3b;
+  line-height: 1.25;
 }
 
-.scanner-identity-row {
-  display: flex;
+.piket-school-name {
+  word-break: break-word;
+}
+
+.piket-teacher-chip {
+  display: inline-flex;
   align-items: center;
   gap: 6px;
-}
-
-.scanner-tag {
-  background: var(--accent-light);
-  color: #065f46;
-  padding: 3px 8px;
-  border-radius: 6px;
-  font-size: 0.76rem;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 9999px;
+  padding: 4px 10px;
+  font-size: 0.82rem;
   font-weight: 700;
+  color: #065f46;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s ease;
 }
 
-.btn-text-small {
-  background: none;
-  border: none;
-  color: #0284c7;
+.piket-teacher-chip:hover, .piket-teacher-chip:focus-visible {
+  background: #d1fae5;
+  border-color: #6ee7b7;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+
+.teacher-icon {
+  font-size: 0.85rem;
+}
+
+.teacher-name-text {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.teacher-edit-hint {
   font-size: 0.75rem;
-  font-weight: 600;
-  cursor: pointer;
-  text-decoration: underline;
-  padding: 0;
+  color: #059669;
+  opacity: 0.8;
+}
+
+.piket-status-strip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.badge-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  border-radius: 9999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.badge-status.online {
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.badge-status.offline {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.offline-status {
+  margin: 10px 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.35;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 8px;
 }
 
 /* Direction Toggle */

@@ -25,24 +25,25 @@
   </header>
 
   <main id="app-container">
-    <div class="connection-strip">
-      <span id="network-badge" class="badge-status online" title="Status koneksi">● Online</span>
-      <span id="queue-badge" class="badge-counter" style="display:none;" title="Antrean sinkronisasi">0 antre</span>
-    </div>
-    <p class="offline-help">Antar-HP offline, duplikat diperiksa saat sinkron. Waktu pindai paling awal digunakan.</p>
-    <p id="offline-status" class="offline-status" role="status">Persiapan data offline...</p>
-    <button id="btn-refresh-data" type="button" class="refresh-data">Perbarui data siswa</button>
-    <nav id="workspace-nav" hidden aria-label="Navigasi Petugas Piket">
-      <div class="school-header-row">
-        <div class="school-context">
-          <span class="live-dot" aria-hidden="true"></span>
-          <span id="school-name">Memuat sekolah...</span>
+    <nav id="workspace-nav" hidden aria-label="Navigasi Petugas Piket" class="piket-header-card">
+      <div class="piket-header-main">
+        <div class="piket-school-info">
+          <div class="school-context">
+            <span class="live-dot" aria-hidden="true"></span>
+            <span id="school-name" class="piket-school-name">Memuat sekolah...</span>
+          </div>
+          <div id="scanner-name-display" class="piket-teacher-chip" role="button" tabindex="0" title="Ketuk untuk ubah nama petugas">
+            <span class="teacher-icon">👤</span>
+            <span class="teacher-name-text">Guru Piket</span>
+            <span class="teacher-edit-hint" aria-hidden="true">✎</span>
+          </div>
         </div>
-        <div class="scanner-identity-row">
-          <span id="scanner-name-display" class="scanner-tag">Guru Piket</span>
-          <button id="btn-edit-scanner-name" type="button" class="btn-text-small" title="Ubah nama petugas piket">Ubah</button>
+        <div class="piket-status-strip">
+          <span id="network-badge" class="badge-status online" title="Status koneksi">● Online</span>
+          <span id="queue-badge" class="badge-counter" style="display:none;" title="Antrean sinkronisasi">0 antre</span>
         </div>
       </div>
+      <p id="offline-status" class="offline-status" role="status">Persiapan data offline...</p>
     </nav>
 
     <!-- VIEW ERROR / ACCESS DENIED -->
@@ -182,6 +183,26 @@
             <button type="button" id="btn-skip-reason" class="btn-secondary-reason">Batal</button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <!-- MODAL: BUKAN WAKTU SEKOLAH (DILUAR JAM / HARI MINGGU) -->
+    <div id="modal-out-of-hours" class="modal-reason-overlay" style="display:none;">
+      <div class="modal-reason-card" role="dialog" aria-modal="true">
+        <div class="reason-icon-wrap" style="background:#fee2e2;color:#dc2626;">
+          <span style="font-size:2rem;">⛔</span>
+        </div>
+        <h3 id="out-of-hours-title">Bukan Waktu Sekolah</h3>
+        <p id="out-of-hours-desc">Presensi siswa tidak dapat dilakukan di luar waktu yang telah ditetapkan admin sekolah.</p>
+        
+        <div class="student-mini-banner">
+          <strong id="out-of-hours-student-name">Nama Siswa</strong>
+          <span id="out-of-hours-student-class">Kelas</span>
+        </div>
+
+        <div class="reason-actions" style="margin-top: 1.5rem;">
+          <button type="button" id="btn-close-out-of-hours" class="btn-primary-reason" style="background:#475569; width: 100%;">Tutup</button>
+        </div>
       </div>
     </div>
 
