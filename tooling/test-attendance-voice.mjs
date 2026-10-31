@@ -20,9 +20,9 @@ try{
   window.voiceCalls=[];window.voiceBuffers=[];let lastVoiceAt=0;
   const post=Worker.prototype.postMessage;Worker.prototype.postMessage=function(message,...args){if(message?.method==='synthesize')window.voiceCalls.push(message.args[0]);return post.call(this,message,...args);};
   const start=AudioBufferSourceNode.prototype.start;AudioBufferSourceNode.prototype.start=function(...args){if(this.buffer){const samples=this.buffer.getChannelData(0);let peak=0;for(let i=0;i<samples.length;i++)peak=Math.max(peak,Math.abs(samples[i]));window.voiceBuffers.push({frames:samples.length,peak,at:args[0]??0,sampleRate:this.buffer.sampleRate});}return start.apply(this,args);};
-  if(typeof window.speechSynthesis!=='undefined'&&window.speechSynthesis){
-    const origSpeak=window.speechSynthesis.speak;
-    window.speechSynthesis.speak=function(utterance){
+  if(typeof SpeechSynthesis!=='undefined'&&SpeechSynthesis.prototype){
+    const origSpeak=SpeechSynthesis.prototype.speak;
+    SpeechSynthesis.prototype.speak=function(utterance){
       if(utterance?.text&&utterance.text.trim()){
         window.voiceCalls.push(utterance.text);
         const at=Math.max(lastVoiceAt+1.5,Date.now()/1000);
