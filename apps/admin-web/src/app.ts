@@ -2998,23 +2998,177 @@ async function pwaPortalsPage() {
         <button class="button primary wide no-print" id="generate-${d.key}">Buat QR akses</button>
         <div class="portal-actions no-print" id="actions-${d.key}" hidden></div>
       </article>`).join("")}</section>
-      <section class="panel" style="margin-top:24px"><div class="panel-head"><div><h2>Akses portal yang diterbitkan</h2><p>QR berlaku sampai dinonaktifkan. QR orang tua hanya membuka formulir pendaftaran; data anak memerlukan NISN dan tanggal lahir. QR portal petugas memberikan akses sesuai perannya. <b>Demi keamanan (enkripsi searah), QR tidak dapat ditampilkan ulang.</b> Jika hilang, hapus dan buat QR baru.</p></div></div><div id="portal-access-list">Memuat akses…</div></section>`,
+      <section class="panel" style="margin-top:24px"><div class="panel-head"><div><h2>Akses portal yang diterbitkan</h2><p>Kode QR portal yang aktif tampil permanen di halaman ini agar dapat dicetak ulang kapan saja. Anda juga dapat mengganti QR jika diperlukan atau membuka portal di browser / PWA.</p></div></div><div id="portal-access-list">Memuat akses…</div></section>`,
       "Portal PWA & QR", "Kelola pintu masuk aplikasi sekolah tanpa akun dan password pengguna.");
+
     const configured: Record<string, string | undefined> = {
       attendance: import.meta.env.VITE_ATTENDANCE_URL,
       waste: import.meta.env.VITE_WASTE_URL, library: import.meta.env.VITE_LIBRARY_URL,
       extracurricular: import.meta.env.VITE_EXTRACURRICULAR_URL, parent: import.meta.env.VITE_PARENT_URL
     };
-    const loadAccess = async () => {
-      const container = document.getElementById("portal-access-list"); if (!container) return;
+
+    // @ts-ignore
+    const QRCode = (await import("qrcode/lib/browser.js")).default;
+
+    function buildPortalUrl(key: string, port: number, token: string): string {
+      const isDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname.startsWith('192.168.') || location.hostname.startsWith('10.') || location.hostname.startsWith('172.');
+      const base = configured[key] || (isDev ? `${location.protocol}//${location.hostname}:${port}/` : `${location.origin}/${key}/`);
+      const url = new URL(base);
+      url.hash = new URLSearchParams({ token }).toString();
+      return url.toString();
+    }
+
+    type TokenItem = {
+      id: string;
+      role_code: string;
+      metadata: { class_id?: string; student_id?: string };
+      created_at: string;
+      revoked_at: string | null;
+      last_used_at?: string | null;
+      token?: string | null;
+    };
+
+    let allTokens: TokenItem[] = [];
+
+    const renderCardActive = async (d: typeof definitions[0], token: string, label: string) => {
+      const container = document.getElementById(`qr-${d.key}`);
+      const generateBtn = document.getElementById(`generate-${d.key}`) as HTMLButtonElement | null;
+      const actions = document.getElementById(`actions-${d.key}`);
+      const feedback = document.getElementById(`feedback-${d.key}`);
+      if (!container || !actions) return;
+
+      const url = buildPortalUrl(d.key, d.port, token);
+      const dataUrl = await QRCode.toDataURL(url, { width: 320, margin: 4, errorCorrectionLevel: "M" });
+
+      container.innerHTML = `<div class="qr-print-wrapper"><img src="${dataUrl}" width="135" height="135" alt="QR akses ${d.name}"/><div class="qr-label"><strong>${escapeHtml(state.school!.name)}</strong><p>${escapeHtml(d.name)}${label ? " (" + escapeHtml(label) + ")" : ""}</p></div><div class="qr-print-instructions"><strong style="font-size:0.9rem; color:#0f172a; display:block; margin-bottom:0.4rem; text-align:left;">Panduan Akses Portal:</strong><ol style="margin:0; padding-left:1.2rem; font-size:0.85rem; color:#334155; line-height:1.6; text-align:left;"><li>Pindai Kode QR di atas menggunakan kamera smartphone.</li><li>Buka tautan portal yang muncul di layar.</li><li>Simpan aplikasi ke Layar Utama (Add to Home Screen) untuk akses cepat tanpa kata sandi.</li></ol></div></div>`;
+      if (generateBtn) generateBtn.style.display = "none";
+      if (feedback) feedback.textContent = "";
+
+      actions.replaceChildren();
+      actions.hidden = false;
+
+      // 1. "Cetak"
+      const printBtn = document.createElement("button");
+      printBtn.className = "button secondary";
+      printBtn.textContent = "🖨️ Cetak";
+      printBtn.title = "Cetak kartu QR ini";
+      printBtn.onclick = () => {
+        const card = document.getElementById(`card-${d.key}`)!;
+        card.classList.add("print-active");
+        window.print();
+        card.classList.remove("print-active");
+      };
+
+      // 2. "Ganti"
+      const replaceBtn = document.createElement("button");
+      replaceBtn.className = "button warning";
+      replaceBtn.textContent = "🔄 Ganti";
+      replaceBtn.title = "Ganti QR lama dengan QR baru";
+      replaceBtn.onclick = async () => {
+        const targetLabel = label ? `${d.name} (${label})` : d.name;
+        const confirmed = await confirmModal({
+          title: `Ganti QR ${d.name}?`,
+          message: `Kode QR ${targetLabel} yang telah dibuat dan dicetak sebelumnya akan dinonaktifkan. Pengguna portal harus menggunakan atau memindai Kode QR baru yang dihasilkan. Lanjutkan?`,
+          confirmLabel: "Ya, Ganti QR",
+          cancelLabel: "Batal",
+          variant: "warning"
+        });
+        if (!confirmed) return;
+
+        replaceBtn.disabled = true;
+        if (feedback) feedback.textContent = "Mengganti dan menyiapkan QR portal baru…";
+        try {
+          const select = document.getElementById(`scope-${d.key}`) as HTMLSelectElement | null;
+          const metadata = d.key === "waste" ? { class_id: select!.value } : {};
+          await api<{ id: string; token: string }>("/auth/qr/generate", {
+            method: "POST",
+            body: JSON.stringify({ school_id: schoolId, role_code: d.role, metadata })
+          });
+          toastSuccess(`Kode QR ${targetLabel} berhasil diganti.`);
+          if (feedback) feedback.textContent = "✓ QR baru berhasil diterbitkan.";
+          await loadAll();
+        } catch (err) {
+          if (isCancelled(err)) return;
+          if (feedback) feedback.textContent = err instanceof Error ? err.message : "Gagal mengganti QR.";
+        } finally {
+          replaceBtn.disabled = false;
+        }
+      };
+
+      // 3. "Buka"
+      const openBtn = document.createElement("a");
+      openBtn.className = "button secondary";
+      openBtn.href = url;
+      openBtn.target = "_blank";
+      openBtn.rel = "noopener noreferrer";
+      openBtn.textContent = "↗ Buka";
+      openBtn.title = "Buka tautan portal di tab baru atau aplikasi PWA";
+
+      actions.append(printBtn, replaceBtn, openBtn);
+    };
+
+    const renderCardPlaceholder = (d: typeof definitions[0], message?: string) => {
+      const container = document.getElementById(`qr-${d.key}`);
+      const generateBtn = document.getElementById(`generate-${d.key}`) as HTMLButtonElement | null;
+      const actions = document.getElementById(`actions-${d.key}`);
+      const feedback = document.getElementById(`feedback-${d.key}`);
+      if (!container || !actions) return;
+
+      container.innerHTML = `<div class="qr-placeholder-content">
+        <span class="qr-placeholder-icon">📱</span>
+        <p class="qr-placeholder-text">${escapeHtml(message || (d.key === "waste" ? "Pilih kelas & buat QR akses" : "Klik tombol di bawah untuk membuat QR akses baru"))}</p>
+      </div>`;
+      if (generateBtn) {
+        generateBtn.style.display = "";
+        generateBtn.disabled = d.key === "waste" && !(document.getElementById("scope-waste") as HTMLSelectElement)?.value;
+        generateBtn.textContent = "Buat QR akses";
+      }
+      actions.replaceChildren();
+      actions.hidden = true;
+      if (feedback) feedback.textContent = "";
+    };
+
+    const updateAllCards = async () => {
+      for (const d of definitions) {
+        if (d.key === "waste") {
+          const select = document.getElementById("scope-waste") as HTMLSelectElement | null;
+          const classId = select?.value;
+          if (!classId) {
+            renderCardPlaceholder(d, "Pilih kelas & buat QR akses");
+          } else {
+            const found = allTokens.find(t => t.role_code === d.role && !t.revoked_at && t.token && t.metadata?.class_id === classId);
+            if (found && found.token) {
+              const className = classes.find(c => c.id === classId)?.name || "";
+              await renderCardActive(d, found.token, className);
+            } else {
+              renderCardPlaceholder(d, "Klik tombol di bawah untuk membuat QR akses kelas ini");
+            }
+          }
+        } else {
+          const found = allTokens.find(t => t.role_code === d.role && !t.revoked_at && t.token);
+          if (found && found.token) {
+            await renderCardActive(d, found.token, "");
+          } else {
+            renderCardPlaceholder(d);
+          }
+        }
+      }
+    };
+
+    const loadAll = async () => {
+      const container = document.getElementById("portal-access-list");
       try {
-        const result = await api<Array<{ id: string; role_code: string; metadata: { class_id?: string; student_id?: string }; created_at: string; revoked_at: string | null }>>(`/auth/qr?school_id=${schoolId}`);
-        container.innerHTML = result.data.length ? `<div class="table-wrap"><table><thead><tr><th>Portal</th><th>Lingkup</th><th>Dibuat</th><th>Status</th><th>Aksi</th></tr></thead><tbody>${result.data.map(q => {
+        const result = await api<TokenItem[]>(`/auth/qr?school_id=${schoolId}`);
+        allTokens = result.data ?? [];
+        await updateAllCards();
+        if (!container) return;
+        container.innerHTML = allTokens.length ? `<div class="table-wrap"><table><thead><tr><th>Portal</th><th>Lingkup</th><th>Dibuat</th><th>Status</th><th>Aksi</th></tr></thead><tbody>${allTokens.map(q => {
           const scope = classes.find(c => c.id === q.metadata?.class_id)?.name ?? (q.metadata?.student_id ? "Tautan siswa lama" : undefined) ?? state.school!.name;
           const portalName = definitions.find(d => d.role === q.role_code)?.name ?? q.role_code;
           const statusBadge = q.revoked_at ? `<span class="status neutral">Nonaktif</span>` : `<span class="status success">● Aktif</span>`;
           return `<tr data-row-id="${q.id}"><td><strong>${escapeHtml(portalName)}</strong></td><td>${escapeHtml(scope)}</td><td>${escapeHtml(new Date(q.created_at).toLocaleDateString("id-ID"))}</td><td class="portal-status-cell">${statusBadge}</td><td>${q.revoked_at ? "" : `<button class="button secondary" data-revoke="${q.id}" data-portal="${escapeHtml(portalName)}" data-scope="${escapeHtml(scope)}">Nonaktifkan</button>`}<button class="button danger" style="margin-left: 8px;" data-hard-delete="${q.id}" data-portal="${escapeHtml(portalName)}" data-scope="${escapeHtml(scope)}">Hapus</button></td></tr>`;
         }).join("")}</tbody></table></div>` : `<p>Belum ada QR diterbitkan untuk sekolah ini.</p>`;
+
         container.querySelectorAll<HTMLButtonElement>("[data-revoke]").forEach(button => {
           button.onclick = async () => {
             const portal = button.dataset.portal || "Portal";
@@ -3048,12 +3202,13 @@ async function pwaPortalsPage() {
                 button.style.display = "";
                 button.disabled = false;
               },
-              revalidate: () => loadAccess(),
+              revalidate: () => loadAll(),
               successMessage: "Akses portal berhasil dinonaktifkan.",
               errorPrefix: "Gagal menonaktifkan akses"
             });
           };
         });
+
         container.querySelectorAll<HTMLButtonElement>("[data-hard-delete]").forEach(button => {
           button.onclick = async () => {
             const portal = button.dataset.portal || "Portal";
@@ -3073,55 +3228,59 @@ async function pwaPortalsPage() {
               apply: () => { button.disabled = true; },
               mutation: () => api(`/auth/qr/${button.dataset.hardDelete}/hard`, { method: "DELETE" }),
               rollback: () => { reinsert(); button.disabled = false; },
-              revalidate: () => loadAccess(),
+              revalidate: () => loadAll(),
               successMessage: "Akses portal berhasil dihapus secara permanen.",
               errorPrefix: "Gagal menghapus akses"
             });
           };
         });
-      } catch (error) { if (isCancelled(error)) return; container.textContent = error instanceof Error ? error.message : "Daftar akses belum tersedia"; }
+      } catch (error) {
+        if (isCancelled(error)) return;
+        if (container) container.textContent = error instanceof Error ? error.message : "Daftar akses belum tersedia";
+      }
     };
+
+    // Attach initial generate and select listeners
     for (const definition of definitions) {
       const d = definition;
-      const button = document.getElementById(`generate-${d.key}`) as HTMLButtonElement;
+      const button = document.getElementById(`generate-${d.key}`) as HTMLButtonElement | null;
       const select = document.getElementById(`scope-${d.key}`) as HTMLSelectElement | null;
-      const feedback = document.getElementById(`feedback-${d.key}`)!;
-      const container = document.getElementById(`qr-${d.key}`)!;
-      const actions = document.getElementById(`actions-${d.key}`)!;
-      let revision = 0;
+      const feedback = document.getElementById(`feedback-${d.key}`);
+
       if (select) {
-        button.disabled = !select.value;
-        select.onchange = () => { revision++; button.disabled = !select.value; container.innerHTML = `<div class="qr-placeholder-content"><span class="qr-placeholder-icon">📱</span><p class="qr-placeholder-text">Pilih kelas & buat QR akses</p></div>`; actions.hidden = true; feedback.textContent = ""; };
+        select.onchange = () => {
+          updateAllCards();
+        };
       }
-      button.onclick = async () => {
-        const current = ++revision;
-        const metadata = d.key === "waste" ? { class_id: select!.value } : {};
-        const label = select?.selectedOptions[0]?.textContent ?? state.school!.name;
-        button.disabled = true; feedback.textContent = "Menyiapkan akses portal…";
-        try {
-          const result = await api<{ id: string; token: string }>("/auth/qr/generate", { method: "POST", body: JSON.stringify({ school_id: schoolId, role_code: d.role, metadata }) });
-          const isDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname.startsWith('192.168.') || location.hostname.startsWith('10.') || location.hostname.startsWith('172.');
-          const base = configured[d.key] || (isDev ? `${location.protocol}//${location.hostname}:${d.port}/` : `${location.origin}/${d.key}/`);
-          const url = new URL(base); url.hash = new URLSearchParams({ token: result.data.token }).toString();
-          // @ts-ignore
-          const QRCode = (await import("qrcode/lib/browser.js")).default;
-          const dataUrl = await QRCode.toDataURL(url.toString(), { width: 320, margin: 4, errorCorrectionLevel: "M" });
-          await loadAccess();
-          if (revision !== current || state.school?.id !== schoolId) return;
-          container.innerHTML = `<div class="qr-print-wrapper"><img src="${dataUrl}" width="135" height="135" alt="QR akses ${d.name}"/><div class="qr-label"><strong>${escapeHtml(state.school!.name)}</strong><p>${escapeHtml(d.name)}${d.key === "waste" ? " (" + escapeHtml(label) + ")" : ""}</p></div><div class="qr-print-instructions"><strong style="font-size:0.9rem; color:#0f172a; display:block; margin-bottom:0.4rem; text-align:left;">Panduan Akses Portal:</strong><ol style="margin:0; padding-left:1.2rem; font-size:0.85rem; color:#334155; line-height:1.6; text-align:left;"><li>Pindai Kode QR di atas menggunakan kamera smartphone.</li><li>Buka tautan portal yang muncul di layar.</li><li>Simpan aplikasi ke Layar Utama (Add to Home Screen) untuk akses cepat tanpa kata sandi.</li></ol></div></div>`;
-          feedback.textContent = "✓ QR Siap digunakan. Unduh atau cetak sebelum meninggalkan halaman.";
-          actions.replaceChildren(); actions.hidden = false;
-          const download = document.createElement("a"); download.className = "button secondary"; download.href = dataUrl; download.download = `aksis-${d.key}.png`; download.textContent = "📥 Unduh";
-          const print = document.createElement("button"); print.className = "button secondary"; print.textContent = "🖨️ Cetak";
-          print.onclick = () => { const card = document.getElementById(`card-${d.key}`)!; card.classList.add("print-active"); window.print(); card.classList.remove("print-active"); };
-          const open = document.createElement("a"); open.className = "button secondary"; open.href = url.toString(); open.target = "_blank"; open.rel = "noopener noreferrer"; open.textContent = "↗ Buka";
-          actions.append(download, print, open);
-        } catch (error) { if (isCancelled(error)) return; if (revision === current) feedback.textContent = error instanceof Error ? error.message : "QR belum berhasil dibuat. Coba kembali."; }
-        finally { if (revision === current) { button.disabled = Boolean(select && !select.value); button.textContent = "Buat QR baru"; } }
-      };
+
+      if (button) {
+        button.onclick = async () => {
+          const metadata = d.key === "waste" ? { class_id: select!.value } : {};
+          button.disabled = true;
+          if (feedback) feedback.textContent = "Menyiapkan akses portal…";
+          try {
+            await api<{ id: string; token: string }>("/auth/qr/generate", {
+              method: "POST",
+              body: JSON.stringify({ school_id: schoolId, role_code: d.role, metadata })
+            });
+            toastSuccess(`Kode QR ${d.name} berhasil dibuat.`);
+            if (feedback) feedback.textContent = "✓ QR siap digunakan.";
+            await loadAll();
+          } catch (error) {
+            if (isCancelled(error)) return;
+            if (feedback) feedback.textContent = error instanceof Error ? error.message : "QR belum berhasil dibuat. Coba kembali.";
+          } finally {
+            button.disabled = Boolean(select && !select.value);
+          }
+        };
+      }
     }
-    await loadAccess();
-  } catch (error) { if (isCancelled(error)) return; shell(errorState(error), "Portal PWA & QR", "Gagal memuat portal"); }
+
+    await loadAll();
+  } catch (error) {
+    if (isCancelled(error)) return;
+    shell(errorState(error), "Portal PWA & QR", "Gagal memuat portal");
+  }
 }
 
 export async function render(): Promise<void> {

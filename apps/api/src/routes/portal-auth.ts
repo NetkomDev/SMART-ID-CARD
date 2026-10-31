@@ -41,13 +41,27 @@ portalAuthRouter.post("/generate", requireAuth, validate({ body: qrGenerateSchem
   if (accountError || !account.user) throw new ApiError(503, "PORTAL_CREATE_FAILED", "Akun akses portal belum dapat dibuat. Periksa konfigurasi Auth server.");
   const { data, error } = await admin.rpc("provision_portal_access", {
     p_actor_id: req.auth!.user.id, p_school_id: school_id, p_user_id: account.user.id,
-    p_token_hash: hash, p_email: email, p_role_code: role_code, p_metadata: metadata
+    p_token_hash: hash, p_email: email, p_role_code: role_code, p_metadata: metadata,
+    p_token: token
   });
   if (error) {
     const cleanup = await admin.auth.admin.deleteUser(account.user.id);
     if (cleanup.error) logger.error({ userId: account.user.id }, "portal account compensation failed");
     throw databaseError(error);
   }
+
+  // Supersede/revoke previous active token(s) for the same role and scope in this school
+  let prevQuery = admin.from("qr_access_tokens")
+    .update({ revoked_at: new Date().toISOString() })
+    .eq("school_id", school_id)
+    .eq("role_code", role_code)
+    .neq("id", data)
+    .is("revoked_at", null);
+  if (role_code === "WASTE_STAFF" && metadata?.class_id) {
+    prevQuery = prevQuery.contains("metadata", { class_id: metadata.class_id });
+  }
+  await prevQuery;
+
   sendData(res, { id: data, token, role_code, school_id, metadata }, 201);
 }));
 
@@ -139,7 +153,7 @@ portalAuthRouter.get("/", requireAuth, validate({ query: z.object({ school_id: z
   if (accessError) throw databaseError(accessError);
   if (!allowed) throw new ApiError(403, "FORBIDDEN", "Hanya admin sekolah yang dapat melihat akses portal.");
   const { data, error } = await req.auth!.client.from("qr_access_tokens")
-    .select("id,role_code,metadata,created_at,revoked_at,last_used_at")
+    .select("id,role_code,metadata,created_at,revoked_at,last_used_at,token")
     .eq("school_id", req.query.school_id).order("created_at", { ascending: false }).limit(200);
   if (error) throw databaseError(error);
   sendData(res, data ?? []);
