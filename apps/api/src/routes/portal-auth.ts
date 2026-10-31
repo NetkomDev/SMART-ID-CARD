@@ -81,7 +81,12 @@ portalAuthRouter.get("/context", requireAuth, asyncHandler(async (req, res) => {
 
 portalAuthRouter.delete("/:id", requireAuth, validate({ params: idParamsSchema }), asyncHandler(async (req, res) => {
   const { error } = await req.auth!.client.rpc("revoke_portal_access", { p_token_id: req.params.id });
-  if (error) throw databaseError(error);
+  if (error) {
+    if (error.code === "23514" || error.message?.includes("PORTAL_ACTIVE_RECENTLY")) {
+      throw new ApiError(409, "PORTAL_ACTIVE_RECENTLY", error.message);
+    }
+    throw databaseError(error);
+  }
   res.status(204).send();
 }));
 
@@ -93,12 +98,37 @@ portalAuthRouter.delete("/:id/hard", requireAuth, validate({ params: idParamsSch
   const { data: allowed, error: accessError } = await req.auth!.client.rpc("can_manage_portal_access", { target_school_id: q.school_id });
   if (accessError || !allowed) throw new ApiError(403, "FORBIDDEN", "Hanya admin sekolah yang dapat menghapus akses portal.");
   
+  // 3-Month login protection: check auth.users last_sign_in_at
+  const { data: authUserData } = await admin.auth.admin.getUserById(q.auth_user_id);
+  const lastSignInAt = authUserData?.user?.last_sign_in_at;
+  if (lastSignInAt) {
+    const lastTime = new Date(lastSignInAt).getTime();
+    if (!isNaN(lastTime) && Date.now() - lastTime < 90 * 24 * 60 * 60 * 1000) {
+      throw new ApiError(409, "PORTAL_ACTIVE_RECENTLY", "Hak akses Portal tidak dapat dihapus karena pengguna masih aktif login dalam 3 bulan terakhir.");
+    }
+  }
+
+  // Delete qr_access_tokens
+  await admin.from("qr_access_tokens").delete().eq("id", req.params.id);
+  
+  // Mark school_users as REVOKED and deleted_at so Super Admin IAM stays synchronized
+  await admin.from("school_users").update({ 
+    status: "REVOKED", 
+    deleted_at: new Date().toISOString() 
+  }).eq("user_id", q.auth_user_id).eq("school_id", q.school_id);
+  
+  // Mark users as inactive and deleted
+  await admin.from("users").update({ 
+    is_active: false, 
+    deleted_at: new Date().toISOString() 
+  }).eq("id", q.auth_user_id);
+  
+  // Remove roles
+  await admin.from("school_user_roles").delete().eq("school_id", q.school_id).eq("assigned_by", q.auth_user_id);
+
   const cleanup = await admin.auth.admin.deleteUser(q.auth_user_id);
   if (cleanup.error) {
-    // Fallback: If user cannot be hard deleted due to foreign key references (e.g. they created sessions),
-    // we just delete the token and revoke their school membership to effectively destroy the credential.
-    await admin.from("qr_access_tokens").delete().eq("id", req.params.id);
-    await admin.from("school_users").update({ status: "REVOKED" }).eq("user_id", q.auth_user_id).eq("school_id", q.school_id);
+    logger.info({ userId: q.auth_user_id, error: cleanup.error }, "auth user retained with revoked membership");
   }
   
   res.status(204).send();

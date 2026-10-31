@@ -90,6 +90,10 @@ try {
       ('${testIds.schoolA}', '${testIds.membershipPortalActive}', '${testIds.roleWaste}'),
       ('${testIds.schoolB}', '${testIds.membershipPortalIdle}', '${testIds.roleTeacher}');
 
+    INSERT INTO public.qr_access_tokens(id, school_id, auth_user_id, token_hash, shadow_email, role_code) VALUES
+      ('${randomUUID()}', '${testIds.schoolA}', '${testIds.userPortalActive}', '${randomBytes(32).toString('hex')}', 'portal_waste@test.local', 'WASTE_STAFF'),
+      ('${randomUUID()}', '${testIds.schoolB}', '${testIds.userPortalIdle}', '${randomBytes(32).toString('hex')}', 'portal_teacher@test.local', 'TEACHER');
+
     -- Update auth.users last_sign_in_at directly for testing conditions
     UPDATE auth.users SET last_sign_in_at = '${nowIso}' WHERE id = '${testIds.userPortalActive}';
     UPDATE auth.users SET last_sign_in_at = '${fourMonthsAgo}' WHERE id = '${testIds.userPortalIdle}';

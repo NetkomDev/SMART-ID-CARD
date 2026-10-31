@@ -124,12 +124,83 @@ async function iamPage(root: HTMLElement, content: HTMLElement, schools: School[
     });
   };
 
-  const isLoginWithin3Months = (lastSignInAt: string | null | undefined): boolean => {
-    if (!lastSignInAt) return false;
-    const lastTime = new Date(lastSignInAt).getTime();
-    if (isNaN(lastTime)) return false;
-    const threeMonthsMs = 90 * 24 * 60 * 60 * 1000;
-    return Date.now() - lastTime < threeMonthsMs;
+  interface PortalTier {
+    level: 'tier-1' | 'tier-2' | 'tier-3' | 'safe';
+    badgeClass: string;
+    rowClass: string;
+    label: string;
+    sublabel: string;
+    locked: boolean;
+    daysAgo: number | null;
+    desc: string;
+  }
+
+  const getPortalTier = (r: Row): PortalTier | null => {
+    const isPortal = isPortalRole(r.roles ?? []) || String(r.full_name || '').startsWith('Portal ');
+    if (!isPortal) return null;
+
+    const lastTime = r.last_sign_in_at ? new Date(r.last_sign_in_at).getTime() : 0;
+    if (!lastTime || isNaN(lastTime)) {
+      return {
+        level: 'safe',
+        badgeClass: 'tier-safe',
+        rowClass: 'portal-row-tier-safe',
+        label: 'Belum Login',
+        sublabel: 'Bisa Dihapus',
+        locked: false,
+        daysAgo: null,
+        desc: 'Pengguna portal belum pernah login. Memenuhi syarat untuk dihapus atau dinonaktifkan.'
+      };
+    }
+
+    const diffMs = Date.now() - lastTime;
+    const diffDays = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+
+    if (diffDays <= 30) {
+      return {
+        level: 'tier-1',
+        badgeClass: 'tier-1',
+        rowClass: 'portal-row-tier-1',
+        label: '< 1 Bulan',
+        sublabel: `Terkunci (${diffDays} hr lalu)`,
+        locked: true,
+        daysAgo: diffDays,
+        desc: `Aktif login ${diffDays} hari lalu (< 1 bulan). Terkunci dari hapus & nonaktif sesuai kebijakan 3 bulan.`
+      };
+    } else if (diffDays <= 60) {
+      return {
+        level: 'tier-2',
+        badgeClass: 'tier-2',
+        rowClass: 'portal-row-tier-2',
+        label: '1-2 Bulan',
+        sublabel: `Terkunci (${diffDays} hr lalu)`,
+        locked: true,
+        daysAgo: diffDays,
+        desc: `Aktif login ${diffDays} hari lalu (1-2 bulan). Terkunci dari hapus & nonaktif sesuai kebijakan 3 bulan.`
+      };
+    } else if (diffDays <= 90) {
+      return {
+        level: 'tier-3',
+        badgeClass: 'tier-3',
+        rowClass: 'portal-row-tier-3',
+        label: '2-3 Bulan',
+        sublabel: `Terkunci (${diffDays} hr lalu)`,
+        locked: true,
+        daysAgo: diffDays,
+        desc: `Aktif login ${diffDays} hari lalu (2-3 bulan). Terkunci dari hapus & nonaktif sesuai kebijakan 3 bulan.`
+      };
+    } else {
+      return {
+        level: 'safe',
+        badgeClass: 'tier-safe',
+        rowClass: 'portal-row-tier-safe',
+        label: '> 3 Bulan',
+        sublabel: `Bisa Dihapus (${diffDays} hr lalu)`,
+        locked: false,
+        daysAgo: diffDays,
+        desc: `Tidak aktif selama ${diffDays} hari (> 3 bulan). Bebas dihapus atau dinonaktifkan oleh Super Admin.`
+      };
+    }
   };
 
   async function load() {
@@ -145,7 +216,7 @@ async function iamPage(root: HTMLElement, content: HTMLElement, schools: School[
     if (!alive()) return;
 
     const filterToolbar = `
-      <div class="iam-filter-toolbar" style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:1.25rem;background:#f8fafc;padding:0.75rem 1rem;border-radius:0.75rem;border:1px solid #e2e8f0;flex-wrap:wrap">
+      <div class="iam-filter-toolbar" style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:0.75rem;background:#f8fafc;padding:0.75rem 1rem;border-radius:0.75rem;border:1px solid #e2e8f0;flex-wrap:wrap">
         <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:280px">
           <span style="font-size:1.15rem" aria-hidden="true">🏢</span>
           <label for="iam-school-filter" style="font-weight:600;font-size:0.875rem;color:#334155;white-space:nowrap;margin:0">Filter Sekolah:</label>
@@ -158,6 +229,13 @@ async function iamPage(root: HTMLElement, content: HTMLElement, schools: School[
           Total: <strong style="color:#0f172a">${response.meta?.total ?? response.data.length}</strong> pengguna
         </div>
       </div>
+      <div class="iam-portal-legend" style="margin-bottom:1.25rem">
+        <span class="legend-title">🛡️ Status Hak Akses Portal:</span>
+        <span class="legend-item" style="color:#b91c1c"><span class="legend-dot red"></span> &lt; 1 Bln (Terkunci)</span>
+        <span class="legend-item" style="color:#c2410c"><span class="legend-dot orange"></span> 1-2 Bln (Terkunci)</span>
+        <span class="legend-item" style="color:#a16207"><span class="legend-dot yellow"></span> 2-3 Bln (Terkunci)</span>
+        <span class="legend-item" style="color:#15803d"><span class="legend-dot green"></span> &gt; 3 Bln / Belum Login (Bisa Dihapus)</span>
+      </div>
     `;
 
     const columns = ['Pengguna', 'Sekolah', 'Terakhir Login', 'Role & permission', 'Status', 'Aksi'];
@@ -168,24 +246,48 @@ async function iamPage(root: HTMLElement, content: HTMLElement, schools: School[
             <tr>${columns.map(c => `<th>${esc(c)}</th>`).join('')}</tr>
           </thead>
           <tbody>
-            ${response.data.map(r => `
-              <tr>
+            ${response.data.map(r => {
+              const tier = getPortalTier(r);
+              return `
+              <tr class="${tier ? tier.rowClass : ''}">
                 <td><div class="cell-scroll"><strong>${esc(r.full_name)}</strong><small style="font-family:monospace;font-size:0.75rem">${esc(r.user_id)}</small></div></td>
                 <td><div class="cell-scroll"><strong>${esc(r.school_name)}</strong></div></td>
-                <td><div class="cell-scroll">${r.last_sign_in_at ? `<span class="date-chip" style="padding:0.2rem 0.5rem;font-size:0.75rem">${esc(time(r.last_sign_in_at))}</span>` : '<span style="color:#94a3b8;font-size:0.75rem;font-style:italic">Belum pernah</span>'}</div></td>
+                <td>
+                  <div class="cell-scroll">
+                    ${r.last_sign_in_at ? `<span class="date-chip" style="padding:0.2rem 0.5rem;font-size:0.75rem">${esc(time(r.last_sign_in_at))}</span>` : '<span style="color:#94a3b8;font-size:0.75rem;font-style:italic">Belum pernah</span>'}
+                    ${tier ? `
+                      <div style="margin-top:5px">
+                        <span class="portal-tier-badge ${tier.badgeClass}" title="${esc(tier.desc)}">
+                          ${tier.locked ? '🔒' : '✓'} ${tier.label} · ${tier.sublabel}
+                        </span>
+                      </div>
+                    ` : ''}
+                  </div>
+                </td>
                 <td><div class="cell-scroll">${(r.roles ?? []).map((role: any) => `<strong>${esc(role.code)}</strong><small>${(role.permissions ?? []).join(', ')}</small>`).join('')}</div></td>
                 <td>
-                  <button type="button" class="status-toggle-btn ${r.status === 'ACTIVE' ? 'active' : 'inactive'}" data-action="toggle-status" data-id="${esc(r.id)}" title="${r.status === 'ACTIVE' ? 'Klik untuk menonaktifkan (NON ACTIVE)' : 'Klik untuk mengaktifkan (ACTIVE)'}">
-                    ${r.status === 'ACTIVE' ? 'ACTIVE ✓' : 'NON ACTIVE'}
+                  <button type="button" 
+                    class="status-toggle-btn ${r.status === 'ACTIVE' ? 'active' : 'inactive'} ${tier?.locked ? 'locked' : ''}" 
+                    data-action="toggle-status" 
+                    data-id="${esc(r.id)}" 
+                    title="${tier?.locked ? `Terkunci: aktif login ${tier.daysAgo} hari yang lalu` : (r.status === 'ACTIVE' ? 'Klik untuk menonaktifkan (NON ACTIVE)' : 'Klik untuk mengaktifkan (ACTIVE)')}">
+                    ${tier?.locked ? '🔒 ' : ''}${r.status === 'ACTIVE' ? 'ACTIVE ✓' : 'NON ACTIVE'}
                   </button>
                 </td>
                 <td>
                   <div class="sa-actions">
-                    <button type="button" class="button secondary" data-action="delete" data-id="${esc(r.id)}" title="Hapus hak akses pengguna">🗑️ Hapus</button>
+                    <button type="button" 
+                      class="button secondary ${tier?.locked ? 'button-locked' : ''}" 
+                      data-action="delete" 
+                      data-id="${esc(r.id)}" 
+                      title="${tier?.locked ? `Terkunci: aktif login ${tier.daysAgo} hari yang lalu` : 'Hapus hak akses pengguna'}">
+                      ${tier?.locked ? '🔒' : '🗑️'} Hapus
+                    </button>
                   </div>
                 </td>
               </tr>
-            `).join('') || `<tr><td colspan="${columns.length}">Tidak ada data hak akses untuk sekolah yang dipilih.</td></tr>`}
+            `;
+            }).join('') || `<tr><td colspan="${columns.length}">Tidak ada data hak akses untuk sekolah yang dipilih.</td></tr>`}
           </tbody>
         </table>
       </div>
@@ -215,14 +317,13 @@ async function iamPage(root: HTMLElement, content: HTMLElement, schools: School[
         const r = response.data.find(x => x.id === id);
         if (!r) return;
 
-        const isPortal = isPortalRole(r.roles ?? []);
-        const hasRecentLogin = isLoginWithin3Months(r.last_sign_in_at);
+        const tier = getPortalTier(r);
 
         if (action === 'delete') {
-          if (isPortal && hasRecentLogin) {
+          if (tier && tier.locked) {
             await confirmModal({
               title: "Penghapusan Akses Ditolak",
-              message: `Hak akses untuk "${r.full_name}" (${r.school_name}) tidak dapat dihapus karena pengguna terdeteksi masih pernah login pada ${time(r.last_sign_in_at)} (dalam 3 bulan terakhir).\n\nSesuai kebijakan keamanan sistem, hak akses akun dengan peran Portal (WASTE_STAFF, TEACHER, PARENT, LIBRARY_STAFF) hanya dapat dihapus jika sudah tidak pernah login lebih dari 3 bulan.`,
+              message: `Hak akses untuk "${r.full_name}" (${r.school_name}) tidak dapat dihapus karena pengguna terdeteksi masih pernah login pada ${time(r.last_sign_in_at)} (${tier.daysAgo} hari yang lalu - indikator ${tier.label}).\n\nSesuai kebijakan keamanan sistem, hak akses akun dengan peran Portal (WASTE_STAFF, TEACHER, PARENT, LIBRARY_STAFF) hanya dapat dihapus jika sudah tidak pernah login lebih dari 3 bulan (> 90 hari).`,
               variant: "warning",
               confirmLabel: "Saya Mengerti",
               cancelLabel: "Tutup"
@@ -252,10 +353,10 @@ async function iamPage(root: HTMLElement, content: HTMLElement, schools: School[
         if (action === 'toggle-status') {
           const nextStatus = r.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
 
-          if (r.status === 'ACTIVE' && isPortal && hasRecentLogin) {
+          if (r.status === 'ACTIVE' && tier && tier.locked) {
             await confirmModal({
               title: "Penonaktifan Akses Ditolak",
-              message: `Hak akses untuk "${r.full_name}" (${r.school_name}) tidak dapat dinonaktifkan karena pengguna terdeteksi masih pernah login pada ${time(r.last_sign_in_at)} (dalam 3 bulan terakhir).\n\nSesuai kebijakan keamanan sistem, hak akses akun dengan peran Portal (WASTE_STAFF, TEACHER, PARENT, LIBRARY_STAFF) hanya dapat dinonaktifkan jika sudah tidak pernah login lebih dari 3 bulan.`,
+              message: `Hak akses untuk "${r.full_name}" (${r.school_name}) tidak dapat dinonaktifkan karena pengguna terdeteksi masih pernah login pada ${time(r.last_sign_in_at)} (${tier.daysAgo} hari yang lalu - indikator ${tier.label}).\n\nSesuai kebijakan keamanan sistem, hak akses akun dengan peran Portal (WASTE_STAFF, TEACHER, PARENT, LIBRARY_STAFF) hanya dapat dinonaktifkan jika sudah tidak pernah login lebih dari 3 bulan (> 90 hari).`,
               variant: "warning",
               confirmLabel: "Saya Mengerti",
               cancelLabel: "Tutup"
