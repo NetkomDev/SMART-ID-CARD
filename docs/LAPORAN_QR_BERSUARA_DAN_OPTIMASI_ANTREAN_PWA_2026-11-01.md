@@ -56,3 +56,14 @@ Dibuat modul terstandar `NaturalVoice` yang dipakai bersama oleh seluruh PWA:
    - `npm run typecheck:all` lulus tanpa kesalahan di seluruh 11 aplikasi monorepo (`api`, `admin-web`, `parent-pwa`, `waste-pwa`, `extracurricular-pwa`, `attendance-pwa`, `library-terminal`, `led-gateway`, `command-center`, `card-writer`, `operations-console`).
 3. **Production Build**:
    - `npm run vercel-build` selesai dengan kode keluar 0 dan berhasil memaketkan seluruh bundle produksi.
+
+## 4. Bukti Deployment Produksi
+
+- **Platform Target**: Vercel (`netkom-developers-projects/aksis`)
+- **Domain Produksi**: `https://www.aksis.co.id`
+- **Deployment URL**: `https://aksis-m3f42ynnf-netkom-developers-projects.vercel.app`
+- **Hasil Verifikasi Endpoint**:
+  - `https://www.aksis.co.id/library/` -> HTTP 200 OK (elemen `voice-panel` aktif)
+  - `https://www.aksis.co.id/extracurricular/` -> HTTP 200 OK (elemen `voice-panel` aktif)
+  - `https://www.aksis.co.id/waste/` -> HTTP 200 OK (elemen `voice-panel` aktif)
+  - `https://www.aksis.co.id/attendance/` -> HTTP 200 OK (berjalan normal)
