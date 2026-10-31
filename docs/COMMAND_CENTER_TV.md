@@ -1,33 +1,40 @@
-# Command Center Admin Sekolah — Mode TV
+# Command Center Admin Sekolah — Mode TV dan Tablet
 
-Halaman Ringkasan yang sama mendukung penggunaan administrator dan tampilan ruang guru.
-Klik **Mode Layar TV** untuk menampilkan dashboard tanpa navigasi admin. Klik **Keluar layar TV** atau tekan **Esc** untuk kembali. Tombol arah kiri/kanan dan Tab dapat memindahkan fokus antara tombol keluar dan perbarui.
+Halaman Ringkasan admin mendukung mode satu layar melalui tombol **Mode Layar TV**. Tombol keluar atau **Esc** mengembalikan navigasi admin. Jika filter sedang terbuka, Esc menutup filter terlebih dahulu. Tab dapat menjangkau seluruh tombol aktif dalam dashboard.
 
-## Data dan visualisasi
+## Tata letak
 
-- Empat kartu: siswa unik tercatat, berat setoran sampah, kunjungan perpustakaan, dan kehadiran ekstrakurikuler.
-- Lima siswa paling awal hadir hari ini, berdasarkan CHECK_IN pertama per siswa; nama, kelas, dan jam hingga detik ditampilkan.
-- Podium tiga kelas dengan total kilogram sampah tertinggi hari ini (organik + anorganik).
-- Podium tiga kelas dengan jumlah kunjungan perpustakaan terbanyak hari ini. Kunjungan berulang tetap dihitung, sesuai metrik kunjungan; catatan tanpa kelas tidak masuk klasemen kelas.
-- Podium menunjukkan urutan peringkat, bukan skala berat/jumlah kunjungan; angka aktual tercantum di setiap kelas. Selisih dua teratas ditampilkan.
-- Waktu mengikuti zona sekolah. Nilai sama berbagi peringkat (contoh 1, 1, 3). Jika seri pada batas daftar, kelas diurutkan menurut nama lalu ID; siswa dengan waktu sama menurut ID catatan. Maksimal tiga kelas dan lima siswa tetap ditampilkan.
-- Status konektivitas menampilkan ringkasan lima perangkat dari API dengan cakupan daftar yang jelas.
+- Mode TV memakai lima baris grid: identitas/jam, empat metrik, tiga panel utama, pendampingan, dan footer.
+- Ukuran viewport diukur lewat `visualViewport` jika tersedia, dengan fallback `innerWidth`/`innerHeight`. Layout mengikuti resize dan perubahan orientasi.
+- Tablet landscape mempertahankan tiga pelopor serta tiga baris tiap kategori pendampingan. Baris data tidak disembunyikan lewat media query.
+- Tablet portrait memakai panel kehadiran lebar di atas panel sampah dan perpustakaan. Pada lebar 600–700 piksel, kartu metrik disusun dua kolom.
+- Ponsel di bawah 600 piksel menggunakan scroll vertikal agar konten tetap terbaca.
+- SVG perpustakaan memiliki batas sendiri; nama kelas, jumlah, dan persentase berada pada legenda HTML, sehingga tidak bertumpuk dengan judul.
 
-Endpoint baru `GET /api/v1/dashboard/rankings` membaca semua halaman data tenant sebelum menghitung peringkat. Endpoint menggunakan sesi pengguna dan RLS, memerlukan akses dashboard, presensi, sampah, dan perpustakaan. Tidak diperlukan migrasi database. API dan admin-web perlu dijalankan dengan versi terbaru bersama-sama.
+## Sumber dan arti data
 
-Pemeriksaan data dilakukan setiap 30 detik selama halaman terlihat. API kartu ringkasan memiliki cache hingga dua menit; klasemen dihitung ulang saat diminta. Waktu pembaruan keduanya ditampilkan terpisah. Waktu data dan status koneksi tetap ditampilkan; kegagalan pembaruan mempertahankan snapshot terakhir. Timer dan permintaan aktif dihentikan saat berpindah halaman/sekolah atau keluar akun.
+Empat kartu menampilkan persentase siswa hadir, kilogram setoran, jumlah kunjungan perpustakaan, dan presensi ekskul. Denominator siswa mengikuti data API; tidak diganti dengan jumlah siswa contoh.
 
-## Browser
+`GET /api/v1/dashboard/rankings` menyediakan tiga kelas setoran tertinggi, daftar kedatangan awal, seluruh kelas dengan kunjungan tercatat, serta `hourly` untuk kurva kehadiran. Kurva dihitung dari CHECK_IN pertama setiap siswa pada hari sekolah; bukan data contoh. Hari, jam, dan pengecualian event masa depan mengikuti zona sekolah.
 
-Mode layar penuh menggunakan Fullscreen API dengan dukungan prefiks WebKit. Jika browser menolak atau tidak menyediakan API tersebut, tata letak TV tetap memenuhi area halaman; bilah browser mungkin tetap terlihat. Wake Lock diminta jika tersedia, tetapi pengaturan standby perangkat tetap bergantung pada TV/browser.
+Diagram perpustakaan merangkum empat kelas dan kategori lainnya/tanpa kelas bila perlu. Semua segmen ikut denominator. Daftar terendah berlaku untuk **kelas tercatat**, bukan klaim bahwa endpoint telah menyediakan semua kelas tanpa kunjungan. Podium sampah menggunakan tinggi berdasarkan urutan peringkat; angka aktual tetap dicantumkan.
 
-Referensi: https://developer.mozilla.org/en-US/docs/Web/API/Element/requestFullscreen
+Data kosong ditampilkan sebagai nol atau pesan kosong. Data gagal dimuat tidak diganti dengan data contoh. Snapshot terakhir dapat dipertahankan saat koneksi gagal dengan status terputus/tertunda yang jelas.
 
-## Validasi
+**Demo Data** adalah pilihan eksplisit dan ditandai **DATA DEMO**. Data langsung saat ini harian; pilihan minggu/bulan/tahun hanya tersedia dalam demo, sampai backend mendukung filter periode nyata. Keluar dari demo menghapus snapshot demo sebelum mengambil data langsung.
 
-- TypeScript admin dan build produksi.
-- Unit test peringkat: zona waktu/pergantian hari, tap pertama, penjumlahan kilogram, peringkat seri, dan data kosong.
-- Test endpoint: pagination melampaui 500 catatan, pembatasan tenant, permission, dan kegagalan database.
-- Chrome lokal dengan API simulasi: layout 1920×1080 dan 1366×768, masuk/keluar fullscreen, Escape, fallback tanpa Fullscreen API, fokus keyboard, data kosong, gangguan API, dan penghentian polling saat navigasi.
-- Data simulasi hanya digunakan oleh pengujian browser, tidak ditambahkan ke aplikasi.
-- Belum diuji pada perangkat smart TV fisik.
+Status perangkat memakai ringkasan seluruh perangkat (`/devices/summary`), dengan heartbeat aktif dua menit terakhir; bukan jumlah online dari lima perangkat sampel.
+
+Pembaruan berjalan setiap 30 detik selama halaman terlihat. Jam diperbarui setiap detik. Penghentian halaman membatalkan permintaan, timer, listener, serta wake lock.
+
+## Fullscreen dan perangkat
+
+Fullscreen API standar dan prefiks WebKit didukung. Jika browser menolak fullscreen native, mode TV tetap memenuhi area viewport halaman; bilah browser tidak dapat disembunyikan oleh CSS. Wake Lock digunakan bila browser menyediakannya.
+
+## Verifikasi
+
+Jalankan `npm run test:browser:command`. Tes memakai Chrome lokal dan API fixture, tanpa akun/data produksi. Lokasi Chrome dapat ditentukan dengan `AKSIS_CHROME`, folder bukti dengan `AKSIS_CC_EVIDENCE`.
+
+Matriks viewport: 800×480, 800×600, 1024×600, 1095×618, 1280×720, 1024×768, 1366×768, 768×1024, 600×960, 1920×1080, dan 2190×1236. Tes memeriksa ukuran layar, overflow panel dan baris pendampingan, batas donut, jumlah baris terlihat, filter, keyboard, data nol, mode demo, gangguan API, fullscreen native, serta fallback tanpa `visualViewport`.
+
+Lihat [laporan perbaikan tablet](LAPORAN_PERBAIKAN_COMMAND_CENTER_TABLET_2026-10-30.md) untuk screenshot dan bukti. Verifikasi memakai emulasi viewport Chrome desktop; tablet fisik dan versi browser perangkat lama tetap perlu diuji langsung. Perubahan ini belum dipublikasikan.

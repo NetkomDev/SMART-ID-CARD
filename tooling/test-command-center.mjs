@@ -1,0 +1,96 @@
+import assert from 'node:assert/strict';
+import { createServer } from 'vite';
+import puppeteer from 'puppeteer-core';
+import { mkdir, writeFile } from 'node:fs/promises';
+const evidence = process.env.AKSIS_CC_EVIDENCE ?? '/tmp/aksis-command-center';
+await mkdir(evidence,{recursive:true});
+const server=await createServer({configFile:'apps/admin-web/vite.config.ts',server:{host:'127.0.0.1',port:4198,strictPort:false},plugins:[{name:'command-center-fixture',configureServer(server){server.middlewares.use('/__cc-test',(req,res)=>{res.setHeader('content-type','text/html');res.end(`<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body><div id="cc"></div><script type="module">
+import '/src/styles.css';import {mountCommandCenter} from '/src/dashboard/command-center.ts';
+sessionStorage.setItem('aksis.admin.school','school-a');sessionStorage.setItem('aksis.admin.session',JSON.stringify({access_token:'fixture',refresh_token:'fixture'}));
+const root=document.getElementById('cc');root.requestFullscreen=()=>Promise.reject(new Error('Fixture fallback'));
+window.disposeCC=mountCommandCenter(root,{school:{id:'school-a',name:'SMA Negeri 3 Watampone',code:'SMA3',timezone:'Asia/Makassar'},permissions:[],roles:['SCHOOL_ADMIN'],navigate:()=>{}});
+</script></body></html>`);});}}]});
+await server.listen();
+const base=`http://127.0.0.1:${server.httpServer.address().port}`;
+const browser=await puppeteer.launch({executablePath:process.env.AKSIS_CHROME??'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',headless:true});
+let empty=false,fail=false;
+try {
+const page=await browser.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
+await page.setRequestInterception(true);
+page.on('request',async req=>{
+ const path=new URL(req.url()).pathname;if(!path.startsWith('/api/v1/'))return req.continue();
+ if(fail)return req.respond({status:503,contentType:'application/json',body:JSON.stringify({success:false,error:{code:'UNAVAILABLE',message:'fixture outage'}})});
+ const now=new Date(),date=now.toLocaleDateString('en-CA',{timeZone:'Asia/Makassar'});let data;
+ const names=['Andi Muhammad Asyraaf','Nur Aisyah Dahlan','Muhammad Fathurrahman'];
+ const rows=empty?[]:names.map((name,i)=>({student_id:`s${i}`,name,class_name:`X-${i+1}`,value:i+1,rank:i+1,at:new Date(now.getTime()-100000+i*1000).toISOString()}));
+ if(path.endsWith('/today'))data={school_id:'school-a',date,timezone:'Asia/Makassar',generated_at:now.toISOString(),stale_after:new Date(+now+120000).toISOString(),metrics:{attendance:{total:500,students:empty?0:475,late:12},waste:{total_kg:empty?0:148.5,transactions:42},library:{visits:empty?0:126,students:80},extracurricular:{recorded:100,present:empty?0:94}}};
+ else if(path.endsWith('/rankings'))data={school_id:'school-a',date,timezone:'Asia/Makassar',generated_at:now.toISOString(),arrivals:rows,waste:empty?[]:[{class_id:'w1',name:'XII IPA 1',value:42.5,rank:1},{class_id:'w2',name:'XI IPS 2',value:34,rank:2},{class_id:'w3',name:'X MIPA 3',value:28.5,rank:3}],library:empty?[]:[38,29,24,18,12,5].map((value,i)=>({class_id:`l${i}`,name:['X MIPA 2','XII IPA 3','XI MIPA 1','X IPS 1','XI IPS 2','X MIPA 4'][i],value,rank:i+1})),hourly:empty?[]:[4,32,85,164,132,48,10].map((count,i)=>({hour:`${String(i+5).padStart(2,'0')}:00`,count}))};
+ else if(path.endsWith('/support'))data={school_id:'school-a',period_start:'2026-10-01',period_end:'2026-10-30',generated_at:now.toISOString(),students_count:500,...Object.fromEntries(['late','waste','library'].map(key=>[key,{rows,total:500,zero_count:0}]))};
+ else if(path.endsWith('/devices/summary'))data={active:12,total:20};
+ else data=[];
+ await req.respond({status:200,contentType:'application/json',body:JSON.stringify({success:true,data,meta:{total:1}})});
+});
+await page.setViewport({width:1024,height:600});await page.goto(base+'/__cc-test');await page.waitForSelector('.cc-arrival-list');
+await page.click('.cc-tv-button');await page.waitForSelector('.cc-tv');
+assert.ok(await page.$eval('[data-cc="devices"]',e=>e.textContent.includes('12/20')),'device totals use full summary, not five-device sample');
+const results=[];
+for(const [width,height] of [[1024,600],[800,600],[1280,720],[1095,618],[800,480],[1024,768],[768,1024],[600,960],[1366,768],[1920,1080],[2190,1236]]){
+ await page.setViewport({width,height});
+ await page.waitForFunction(()=>Math.abs(document.querySelector('.cc-tv').getBoundingClientRect().height-innerHeight)<2);
+ const geometry=await page.evaluate(()=>{
+  const root=document.querySelector('.cc-tv'),bounds=root.getBoundingClientRect();
+  const r=s=>document.querySelector(s).getBoundingClientRect().toJSON();
+  const chart=r('.cc-library-donut-svg'),box=r('.cc-library-donut-container'),heading=r('.cc-library-rank .cc-card-heading');
+  const visible=s=>[...document.querySelectorAll(s)].filter(e=>e.getClientRects().length&&getComputedStyle(e).display!=='none').length;
+  const overflows=[...root.querySelectorAll('.cc-competition > .cc-card,.cc-support,.cc-header,.cc-kpis,.cc-footer')].filter(el=>{const b=el.getBoundingClientRect();return b.bottom>bounds.bottom+1||b.right>bounds.right+1||b.left<bounds.left-1;}).map(e=>e.className);
+  const panelOverflows=[...root.querySelectorAll('.cc-competition > .cc-card')].filter(e=>e.scrollHeight>e.clientHeight+2).map(e=>[e.className,e.scrollHeight,e.clientHeight]);
+  const supportOverflows=[...root.querySelectorAll('.cc-support-grid [data-cc],.cc-support-list li')].filter(e=>e.scrollHeight>e.clientHeight+2).map(e=>[e.dataset.cc,e.scrollHeight,e.clientHeight]);
+  const supportDetails=[...root.querySelectorAll('.cc-support-count')].map(e=>({rect:e.getBoundingClientRect().toJSON(),parent:e.parentElement.getBoundingClientRect().toJSON()}));
+  const libraryChain=[...root.querySelectorAll('.cc-library-rank, [data-cc="library-ranking"], .cc-library-view')].map(e=>({className:e.className,rect:e.getBoundingClientRect().toJSON(),display:getComputedStyle(e).display,alignItems:getComputedStyle(e).alignItems,alignSelf:getComputedStyle(e).alignSelf,maxWidth:getComputedStyle(e).maxWidth}));
+  return{supportDetails,libraryChain,supportOverflows,root:r('.cc-tv'),chart,box,heading,arrivals:visible('.cc-arrival-list li'),support:['late','waste','library'].map(k=>visible(`[data-cc="support-${k}"] li`)),overflows,panelOverflows,trend:r('.cc-trend-svg'),footer:r('.cc-footer'),pageWidth:document.documentElement.scrollWidth};
+ });
+ results.push({width,height,...geometry});
+ await writeFile(`${evidence}/geometry.json`,JSON.stringify(results,null,2));
+ await page.screenshot({path:`${evidence}/${width}x${height}.png`});
+ assert.equal(Math.round(geometry.root.width),width,`viewport width ${width}x${height}`);
+ assert.equal(Math.round(geometry.root.height),height,`viewport height ${width}x${height}`);
+ assert.deepEqual(geometry.overflows,[],`outer overflow ${width}x${height}`);
+ assert.deepEqual(geometry.supportOverflows,[],`support overflow ${width}x${height}`);
+ assert.deepEqual(geometry.panelOverflows,[],`card overflow ${width}x${height}`);
+ assert.equal(geometry.arrivals,3,`all arrivals visible ${width}x${height}`);
+ assert.deepEqual(geometry.support,[3,3,3],`all support rows visible ${width}x${height}`);
+ assert.ok(geometry.chart.top>=geometry.heading.bottom,`donut does not overlap header ${width}x${height}`);
+ assert.ok(geometry.chart.top>=geometry.box.top-1&&geometry.chart.bottom<=geometry.box.bottom+1,`donut contained ${width}x${height}`);
+ assert.ok(geometry.trend.height>=50,`readable curve ${width}x${height}`);
+}
+await writeFile(`${evidence}/geometry.json`,JSON.stringify(results,null,2));
+await page.setViewport({width:1024,height:600});await page.click('[data-cc-dropdown-trigger="library"]');
+assert.equal(await page.$eval('[data-cc-menu="library"]',e=>e.hidden),false);
+await page.keyboard.press('Tab');assert.equal(await page.evaluate(()=>document.querySelector('.cc-tv').contains(document.activeElement)),true);
+await page.click('.cc-header h2');
+empty=true;await page.click('.cc-refresh');await page.waitForFunction(()=>document.querySelector('.cc-kpi-num')?.textContent==='0%');
+assert.equal(await page.$eval('[data-cc="arrivals"]',e=>e.textContent.includes('Andi')),false);
+await page.click('.cc-demo-toggle');await page.waitForFunction(()=>document.querySelector('[data-cc="live-label"]').textContent==='DATA DEMO');
+assert.equal(await page.$eval('.cc-live-badge',e=>e.dataset.state),'demo');
+await page.click('.cc-demo-toggle');await page.waitForFunction(()=>document.querySelector('[data-cc="live-label"]').textContent==='TELEMETRI LIVE');
+fail=true;await page.click('.cc-refresh');await page.waitForFunction(()=>document.querySelector('[data-cc="live-label"]').textContent==='KONEKSI TERPUTUS');
+await page.keyboard.press('Escape');assert.equal(await page.$eval('.cc',e=>e.classList.contains('cc-tv')),false);
+assert.equal(await page.$eval('body',e=>e.classList.contains('cc-tv-open')),false);
+// Legacy viewport fallback and native Fullscreen API use the same layout.
+fail=false;
+await page.evaluate(()=>Object.defineProperty(window,'visualViewport',{value:undefined,configurable:true}));
+await page.setViewport({width:960,height:540});await page.click('.cc-tv-button');
+await page.waitForFunction(()=>Math.round(document.querySelector('.cc-tv').getBoundingClientRect().height)===innerHeight);
+await page.keyboard.press('Escape');
+await page.evaluate(()=>{document.querySelector('.cc').requestFullscreen=HTMLElement.prototype.requestFullscreen;});
+await page.click('.cc-tv-button');
+const native=await page.evaluate(()=>document.fullscreenElement===document.querySelector('.cc'));
+assert.equal(native,true,'native Fullscreen API enters fullscreen');
+await page.click('.cc-tv-button');
+await page.waitForFunction(()=>!document.fullscreenElement&&!document.querySelector('.cc-tv'));
+await page.setViewport({width:390,height:844});
+assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true,'normal mobile dashboard has no horizontal overflow');
+await writeFile(`${evidence}/fullscreen.json`,JSON.stringify({native,legacyVisualViewportFallback:true},null,2));
+assert.deepEqual(errors,[]);
+console.log(`PASS: 11 viewports, full-height fallback, contained charts, 3 arrivals and 9 support rows, filters, keyboard, explicit demo, zero live data and outage. Evidence: ${evidence}`);
+}finally{await browser.close();await server.close();}

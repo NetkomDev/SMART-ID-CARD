@@ -1,0 +1,4 @@
+
+> aksis-platform@0.3.0 typecheck
+> tsc -p apps/api/tsconfig.json --noEmit
+

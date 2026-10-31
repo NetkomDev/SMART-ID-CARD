@@ -16,3 +16,5 @@ create schema if not exists extensions;
 create function extensions.gen_random_bytes(integer) returns bytea language sql volatile as $$select public.gen_random_bytes($1)$$;
 grant usage on schema extensions to anon,authenticated,service_role;
 grant execute on function extensions.gen_random_bytes(integer) to anon,authenticated,service_role;
+-- Minimal Auth sessions used by guardian recovery revocation tests.
+create table auth.sessions(id uuid primary key,user_id uuid not null references auth.users(id));

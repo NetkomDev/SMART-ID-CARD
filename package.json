@@ -48,7 +48,10 @@
     "verify": "npm run typecheck:all && npm test && npm run build:all",
     "test:db:upgrade": "AKSIS_UPGRADE_FIXTURE=supabase/tests/legacy_upgrade_fixture.sql AKSIS_RESTORE_DRILL=1 bash tooling/test-db-local.sh supabase/tests/legacy_upgrade_assertions.sql",
     "test:browser:remediation": "node tooling/test-remediation-browser.mjs",
-    "format:check": "prettier --check apps/api/src/routes/parent-session.ts apps/api/src/routes/password-recovery.ts apps/api/src/routes/reporting.ts apps/shared/parent-session.ts apps/shared/operator-session.ts"
+    "format:check": "prettier --check apps/api/src/routes/parent-session.ts apps/api/src/routes/password-recovery.ts apps/api/src/routes/reporting.ts apps/shared/parent-session.ts apps/shared/operator-session.ts",
+    "test:browser:command": "node tooling/test-command-center.mjs",
+    "test:browser:parent:onboarding": "node tooling/test-parent-onboarding.mjs",
+    "test:browser:admin": "node tooling/test-admin-workspace.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",

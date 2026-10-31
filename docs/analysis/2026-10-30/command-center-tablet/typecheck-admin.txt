@@ -1,0 +1,1 @@
+PASS: tsc -p apps/admin-web/tsconfig.json --noEmit (exit 0)

@@ -1,0 +1,86 @@
+{
+  "verified_at": "2026-10-31T00:57:32.750Z",
+  "base": "https://www.aksis.co.id",
+  "checks": [
+    {
+      "path": "/",
+      "status": 200,
+      "content_type": "text/html; charset=utf-8"
+    },
+    {
+      "path": "/parent/",
+      "status": 200,
+      "content_type": "text/html; charset=utf-8"
+    },
+    {
+      "path": "/waste/",
+      "status": 200,
+      "content_type": "text/html; charset=utf-8"
+    },
+    {
+      "path": "/extracurricular/",
+      "status": 200,
+      "content_type": "text/html; charset=utf-8"
+    },
+    {
+      "path": "/library/",
+      "status": 200,
+      "content_type": "text/html; charset=utf-8"
+    },
+    {
+      "path": "/led/",
+      "status": 200,
+      "content_type": "text/html; charset=utf-8"
+    },
+    {
+      "path": "/command/",
+      "status": 200,
+      "content_type": "text/html; charset=utf-8"
+    },
+    {
+      "path": "/card-writer/",
+      "status": 200,
+      "content_type": "text/html; charset=utf-8"
+    },
+    {
+      "path": "/operations/",
+      "status": 200,
+      "content_type": "text/html; charset=utf-8"
+    },
+    {
+      "path": "/api/v1/health",
+      "status": 200,
+      "code": "ok"
+    },
+    {
+      "path": "/api/v1/dashboard/today",
+      "status": 401,
+      "code": "AUTH_REQUIRED"
+    },
+    {
+      "path": "/assets/index-BoCydCTr.js",
+      "status": 200,
+      "sha256": "0ace756e646d50d335b9c8029920ce79167df8e0868ae14432c69a2e3e0bff73",
+      "matches_local_build": true
+    },
+    {
+      "path": "/assets/vendor-qrcode-Bn2_uxv1.js",
+      "status": 200,
+      "sha256": "f36b3e089b2744c4fc5a27544b7d3106475d4d6cadbd0e923c270bb3468d3820",
+      "matches_local_build": true
+    },
+    {
+      "path": "/assets/vendor-xlsx-BZe_PqlR.js",
+      "status": 200,
+      "sha256": "3a5da6d43d2fcb55ceb480a2267d18ec565aa958fc53ab2bd2b161480cbaf47d",
+      "matches_local_build": true
+    },
+    {
+      "path": "/assets/index-CjVA6U8_.css",
+      "status": 200,
+      "sha256": "a54969331b098dcadcbeb683641ebdfae00bb5b3a11eac4a8652b6122cdacdf0",
+      "matches_local_build": true
+    }
+  ],
+  "result": "PASS"
+}

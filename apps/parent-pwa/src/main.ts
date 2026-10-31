@@ -549,27 +549,31 @@ function openAbsencePermitModal(
   };
 }
 
-function loginView(message = "Masuk dengan akun pribadi. Hubungkan anak memakai undangan dari sekolah.", _isError = false) {
+function loginView(message = "Pindai QR Portal Orang Tua dari sekolah untuk mendaftar. Sudah punya akun? Minta QR pribadi kepada admin jika perlu masuk kembali.", _isError = false) {
   viewRevision++; dashboardVisible = false;
   parentMemoryCache.clear(); cachedChildren = null; cachedParentName = ""; selectedChildId = "";
+  const hasQR = Boolean(portal.enrollmentToken);
   root.innerHTML = `<main class="parent-content"><section class="link-card"><h1>Portal Orang Tua</h1>
-    <p id="auth-message" role="status">${esc(message)}</p>
-    <form id="parent-login"><label>Nama lengkap (untuk pendaftaran)<input name="full_name" maxlength="200" autocomplete="name"></label>
-    <label>Email<input name="email" type="email" autocomplete="email" required></label>
-    <label>Password<input name="password" type="password" minlength="8" maxlength="128" autocomplete="current-password" required></label>
-    <button>Masuk</button><button type="button" id="parent-register">Daftar akun</button><button type="button" id="parent-forgot">Lupa password</button></form>
-    <p>QR sekolah tidak lagi memberikan akses bersama ke data anak. Hubungi sekolah untuk undangan anak.</p></section></main>`;
-  const form = document.querySelector<HTMLFormElement>("#parent-login")!;
+    <p id="auth-message" role="status">${esc(hasQR && !_isError ? "Lengkapi data berikut sesuai data anak di sekolah. Tidak perlu email atau password." : message)}</p>
+    ${hasQR ? `<form id="parent-login">
+    <label>NISN anak<input name="nisn" inputmode="numeric" pattern="[0-9]{4,20}" minlength="4" maxlength="20" required></label>
+    <label>Tanggal lahir anak<input name="date_of_birth" type="date" max="${new Date().toISOString().slice(0,10)}" required></label>
+    <label>Nama lengkap orang tua / wali<input name="full_name" minlength="3" maxlength="200" autocomplete="name" required></label>
+    <label>Nomor WhatsApp orang tua / wali<input name="phone" type="tel" autocomplete="tel" inputmode="tel" maxlength="40" placeholder="081234567890" required></label>
+    <p>Nomor WA menjadi ID wali di sekolah ini. Nomor belum diverifikasi melalui WhatsApp. Simpan aplikasi di HP pribadi Anda.</p>
+    <button type="submit">Daftar dan masuk</button></form>` : `<p>Buka kamera HP untuk memindai QR dari admin sekolah. Sesi yang masih aktif akan masuk otomatis saat aplikasi dibuka.</p>`}
+    <p>Jika berganti HP atau sesi berakhir, minta QR pribadi kepada admin. QR pribadi bersifat rahasia dan berlaku sekali selama 24 jam.</p></section></main>`;
+  const form = document.querySelector<HTMLFormElement>("#parent-login");
+  if (!form) return;
   const status = document.getElementById("auth-message")!;
-  form.onsubmit = async e => { e.preventDefault(); const d = new FormData(form);
-    try { await portal.login(String(d.get("email")), String(d.get("password"))); await dashboard(); }
-    catch (error) { status.textContent = error instanceof Error ? error.message : "Gagal masuk."; }
-  };
-  for (const action of ["register", "forgot"]) document.getElementById(`parent-${action}`)!.onclick = async () => {
-    const d = new FormData(form); const body: Record<string, string> = { email: String(d.get("email") ?? "") };
-    if (action === "register") { body.password = String(d.get("password") ?? ""); body.full_name = String(d.get("full_name") ?? ""); }
-    try { const result = await portal.publicRequest<{message:string}>(action, body); status.textContent = result.message; }
-    catch (error) { status.textContent = error instanceof Error ? error.message : "Permintaan gagal."; }
+  form.onsubmit = async e => {
+    e.preventDefault(); const d = new FormData(form), button = form.querySelector<HTMLButtonElement>("button")!;
+    button.disabled = true; status.textContent = "Memeriksa data dan menyiapkan akun…";
+    try {
+      await portal.enroll({ nisn: String(d.get("nisn")), date_of_birth: String(d.get("date_of_birth")), full_name: String(d.get("full_name")), phone: String(d.get("phone")) });
+      await dashboard();
+    } catch (error) { status.textContent = error instanceof Error ? error.message : "Gagal masuk."; }
+    finally { button.disabled = false; }
   };
 }
 
@@ -1265,7 +1269,7 @@ async function profileView() {
           </div>
           <div>
             <dt style="font-size: 0.8rem; color: var(--parent-text-muted);">Status Akses</dt>
-            <dd style="margin: 2px 0 0; font-weight: 800; font-size: 1rem; color: #1c7352;">Akun individual terverifikasi</dd>
+            <dd style="margin: 2px 0 0; font-weight: 800; font-size: 1rem; color: #1c7352;">Akun pribadi orang tua</dd>
           </div>
         </dl>
         <p style="font-size: 0.85rem; color: var(--parent-text-muted); line-height: 1.5; margin-bottom: 24px;">
@@ -1273,7 +1277,7 @@ async function profileView() {
         </p>
         <div class="persistent-access-note">
           <strong>Sesi aman pada browser ini</strong>
-          <span>Akses anak mengikuti hubungan yang diverifikasi sekolah dan dapat dicabut sewaktu-waktu.</span>
+          <span>Akses mengikuti data anak yang ditautkan ke akun ini dan dapat dicabut oleh sekolah.</span>
         </div>
       </section>
     </div>

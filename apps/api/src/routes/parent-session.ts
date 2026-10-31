@@ -9,6 +9,8 @@ import { asyncHandler } from "../middleware/async-handler.js";
 import { requireAuth } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 
+import { mountParentOnboarding } from "./parent-onboarding.js";
+
 const COOKIE = "aksis_parent_v2";
 type Saved = { access_token: string; refresh_token: string; csrf: string };
 function key() {
@@ -32,10 +34,10 @@ export function readParentSession(req: Request): Saved | null {
   } catch { return null; }
 }
 function save(res: Response, value: Saved) {
-  res.cookie(COOKIE, sealSession(value), { httpOnly: true, secure: config.NODE_ENV === "production", sameSite: "strict", path: "/api/v1/parent", maxAge: 7 * 86400_000 });
+  res.cookie(COOKIE, sealSession(value), { httpOnly: true, secure: config.NODE_ENV === "production" || process.env.VERCEL === "1", sameSite: "strict", path: "/api/v1/parent", maxAge: 7 * 86400_000 });
   res.setHeader("cache-control", "no-store");
 }
-function clear(res: Response) { res.clearCookie(COOKIE, { path: "/api/v1/parent", httpOnly: true, secure: config.NODE_ENV === "production", sameSite: "strict" }); }
+function clear(res: Response) { res.clearCookie(COOKIE, { path: "/api/v1/parent", httpOnly: true, secure: config.NODE_ENV === "production" || process.env.VERCEL === "1", sameSite: "strict" }); }
 const checkOrigin: RequestHandler = (req, _res, next) => {
   if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next();
   const origin = req.header("origin");
@@ -66,7 +68,7 @@ export const parentCookieAuth: RequestHandler = (req, res, next) => {
 };
 const individual: RequestHandler = asyncHandler(async (req, _res, next) => {
   const user = req.auth!.user;
-  if (!user.email_confirmed_at || user.app_metadata?.portal_access) throw new ApiError(403, "FORBIDDEN", "Gunakan akun individual dengan email terverifikasi.");
+  if (!user.email_confirmed_at || user.app_metadata?.portal_access) throw new ApiError(403, "FORBIDDEN", "Gunakan akun pribadi orang tua dari QR sekolah atau QR pribadi admin.");
   const { error } = await req.auth!.client.rpc("ensure_parent_profile", { p_name: user.user_metadata?.full_name || user.email!.split("@")[0] });
   if (error) throw fromDatabaseError(error);
   next();
@@ -74,6 +76,11 @@ const individual: RequestHandler = asyncHandler(async (req, _res, next) => {
 const credentials = z.object({ email: z.email(), password: z.string().min(8).max(128) }).strict();
 export const parentSessionRouter = Router();
 parentSessionRouter.use(checkOrigin);
+mountParentOnboarding(parentSessionRouter, (res, session) => {
+  const csrf = randomBytes(24).toString("base64url");
+  save(res, { access_token: session.access_token, refresh_token: session.refresh_token, csrf });
+  return csrf;
+});
 parentSessionRouter.post("/login", validate({ body: credentials }), asyncHandler(async (req, res) => {
   const { data, error } = await createPublicClient().auth.signInWithPassword(req.body);
   if (error || !data.session || !data.user.email_confirmed_at || data.user.app_metadata?.portal_access) throw new ApiError(401, "INVALID_CREDENTIALS", "Email/password tidak sesuai atau email belum diverifikasi.");

@@ -24,25 +24,14 @@ router.get("/", validate({ query: paginationSchema }), asyncHandler(async (req, 
 }));
 
 router.get("/summary", asyncHandler(async (req, res) => {
-  const [classRes, countRes] = await Promise.all([
-    req.auth!.client.from("classes")
-      .select("id, name, grade_level").eq("school_id", req.tenant!.schoolId).is("deleted_at", null)
-      .order("grade_level", { ascending: true })
-      .order("name", { ascending: true }),
-    req.auth!.client.from("student_class_history")
-      .select("class_id").eq("school_id", req.tenant!.schoolId).eq("is_current", true)
-  ]);
-
-  if (classRes.error) throw fromDatabaseError(classRes.error);
-  if (countRes.error) throw fromDatabaseError(countRes.error);
-
-  const classes = classRes.data;
-  const counts = countRes.data;
-
-  const countMap = new Map<string, number>();
-  for (const row of counts ?? []) {
-    countMap.set(row.class_id, (countMap.get(row.class_id) ?? 0) + 1);
-  }
+  // Aggregate counts in PostgreSQL; do not download/cap every student history row.
+  const { data: classes, error } = await req.auth!.client.from("classes")
+    .select("id,name,grade_level,student_class_history(count)")
+    .eq("school_id", req.tenant!.schoolId).is("deleted_at", null)
+    .eq("student_class_history.is_current", true)
+    .eq("student_class_history.school_id", req.tenant!.schoolId)
+    .order("grade_level", { ascending: true }).order("name", { ascending: true });
+  if (error) throw fromDatabaseError(error);
 
   const sortedClasses = [...(classes ?? [])].sort((a, b) => {
     const gA = a.grade_level ?? 0;
@@ -51,7 +40,7 @@ router.get("/summary", asyncHandler(async (req, res) => {
     return a.name.localeCompare(b.name, "id", { numeric: true, sensitivity: "base" });
   });
 
-  sendData(res, sortedClasses.map(c => ({ ...c, student_count: countMap.get(c.id) ?? 0 })));
+  sendData(res, sortedClasses.map(({student_class_history, ...c}) => ({ ...c, student_count: student_class_history?.[0]?.count ?? 0 })));
 }));
 
 router.get("/:id", validate({ params: idParamsSchema }), asyncHandler(async (req, res) => {

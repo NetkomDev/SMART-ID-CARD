@@ -8,7 +8,8 @@ import { renderLandingPage } from "./landing";
 import { toast, toastSuccess, toastError } from "./lib/toast";
 import { optimistic, removeRowOptimistic } from "./lib/optimistic";
 import { confirmModal } from "./lib/confirm-modal";
-import * as XLSX from "xlsx";
+import { bindNavigation, menuIcon } from "./lib/navigation";
+import { invalidateReads } from "./lib/api";
 
 const savedTheme = localStorage.getItem("aksis-theme") || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
 document.documentElement.setAttribute("data-theme", savedTheme);
@@ -38,6 +39,7 @@ type AppState = {
 };
 
 const state: AppState = {};
+let disposeNavigation: (() => void) | undefined;
 let disposeDashboard: (() => void) | undefined;
 function clearDashboard() { disposeDashboard?.(); disposeDashboard = undefined; }
 
@@ -85,11 +87,22 @@ function navigate(path: string): void {
   void render();
 }
 
+function afterPagePaint(work: () => void | Promise<void>, delay = 0): void {
+  const page = document.getElementById("main-content");
+  window.setTimeout(() => {
+    if (!page?.isConnected) return;
+    void Promise.resolve().then(work).catch(error => { if (!isCancelled(error) && page.isConnected) toastError(error instanceof Error ? error.message : "Halaman belum dapat disiapkan."); });
+  }, delay);
+}
+
 function skeleton(rows = 4): string {
   return `<div class="skeleton-stack" aria-label="Memuat data">${Array.from({ length: rows }, () => '<div class="skeleton"></div>').join("")}</div>`;
 }
 
+function isCancelled(error: unknown): boolean { return error instanceof ApiClientError && error.code === "NAVIGATION_CANCELLED"; }
+
 function errorState(error: unknown): string {
+  if (error instanceof ApiClientError && error.code === "NAVIGATION_CANCELLED") throw error;
   const message = error instanceof ApiClientError ? error.message : "Data belum dapat dimuat. Periksa koneksi lalu coba lagi.";
   return `<div class="state-card state-error" role="alert"><span>!</span><div><strong>Terjadi kendala</strong><p>${escapeHtml(message)}</p></div><button class="button secondary" data-action="retry">Coba lagi</button></div>`;
 }
@@ -99,7 +112,7 @@ function emptyState(title: string, description: string): string {
 }
 
 function loginView(): void {
-  clearDashboard();
+  clearDashboard(); disposeNavigation?.(); invalidateReads();
   getApp().innerHTML = `<main class="login-page" id="main-content">
     <section class="login-story" aria-label="Tentang AKSIS">
       <div class="brand brand-light" style="display:flex;align-items:center;gap:0.75rem;"><img src="/logo.png" alt="AKSIS Logo" style="height: 200px; width: auto; object-fit: contain; filter: drop-shadow(0px 0px 4px rgba(255, 255, 255, 0.8));"></div>
@@ -165,7 +178,7 @@ function loginView(): void {
       } else {
         navigate("/");
       }
-    } catch (error) {
+    } catch (error) { if (isCancelled(error)) return;
       document.querySelector("#login-error")!.innerHTML = errorState(error);
     } finally { button.disabled = false; button.textContent = "Masuk ke AKSIS →"; }
   });
@@ -181,12 +194,12 @@ async function bootstrap(): Promise<void> {
     return;
   }
   state.allSchools = undefined;
-  const [school, context] = await Promise.all([api<School>("/schools/current"), api<AuthContext>("/schools/current/context")]);
-  state.school = school.data; state.context = context.data;
+  const school = await api<School & { context: AuthContext }>("/schools/current");
+  state.school = school.data; state.context = school.data.context;
 }
 
 function shell(content: string, title: string, subtitle: string): void {
-  clearDashboard();
+  clearDashboard(); disposeNavigation?.();
   const path = location.pathname;
   const isSuperAdmin = state.context?.roles.includes("SUPER_ADMIN");
   const isPlatformPath = path.startsWith("/platform");
@@ -197,13 +210,13 @@ function shell(content: string, title: string, subtitle: string): void {
   let sidebarNavHtml = "";
   if (isSuperAdmin) {
     sidebarNavHtml = `
-      <div style="padding:0.6rem 0.75rem 0.2rem;font-size:0.65rem;font-weight:700;letter-spacing:0.1em;color:var(--lime);text-transform:uppercase;">SUPER ADMIN PLATFORM</div>
-      ${superAdminNavItems.map(([route, label, icon]) => `<a href="${route}" data-link class="${path === route ? "active" : ""}"><span>${icon}</span>${label}</a>`).join("")}
+      <div class="nav-section">SUPER ADMIN PLATFORM</div>
+      ${superAdminNavItems.map(([route, label, icon]) => `<a href="${route}" data-link title="${label}" aria-label="${label}" ${path === route ? 'aria-current="page"' : ""} class="${path === route ? "active" : ""}"><span class="nav-icon">${menuIcon(route)}</span><span class="nav-label">${label}</span></a>`).join("")}
     `;
   } else {
     sidebarNavHtml = `
-      <div style="padding:0.8rem 0.75rem 0.2rem;font-size:0.65rem;font-weight:700;letter-spacing:0.1em;color:#8da29b;text-transform:uppercase;">OPERASIONAL SEKOLAH</div>
-      ${visibleNav.map(([route, label, icon]) => `<a href="${route}" data-link class="${path === route ? "active" : ""}"><span>${icon}</span>${label}</a>`).join("")}
+      <div class="nav-section">OPERASIONAL SEKOLAH</div>
+      ${visibleNav.map(([route, label, icon]) => `<a href="${route}" data-link title="${label}" aria-label="${label}" ${path === route ? 'aria-current="page"' : ""} class="${path === route ? "active" : ""}"><span class="nav-icon">${menuIcon(route)}</span><span class="nav-label">${label}</span></a>`).join("")}
     `;
   }
 
@@ -213,7 +226,7 @@ function shell(content: string, title: string, subtitle: string): void {
 
   getApp().innerHTML = `<div class="app-shell">
     <aside class="sidebar" id="sidebar">
-      <div class="brand" style="display:flex;align-items:center;gap:0.75rem;"><img src="/logo.png" alt="AKSIS Logo" style="height: 96px; width: auto; object-fit: contain; filter: drop-shadow(0px 0px 4px rgba(255, 255, 255, 0.8));"></div>
+      <a class="brand sidebar-brand" href="/" data-link aria-label="Beranda AKSIS"><img src="/brand-mark.webp" alt="" width="44" height="44"><span class="nav-label"><strong>AKSIS</strong><small>School Operations</small></span></a>
       <nav aria-label="Navigasi utama">
         ${sidebarNavHtml}
       </nav>
@@ -221,7 +234,7 @@ function shell(content: string, title: string, subtitle: string): void {
     </aside>
     <div class="workspace">
       <header class="topbar">
-        <button class="topbar-btn menu-button" data-action="menu" aria-label="Buka navigasi">
+        <button class="topbar-btn menu-button" data-action="menu" aria-controls="sidebar" aria-expanded="false" aria-label="Buka navigasi">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
         </button>
         ${schoolSwitchHtml}
@@ -229,8 +242,8 @@ function shell(content: string, title: string, subtitle: string): void {
           <button class="topbar-btn theme-toggle" data-action="toggle-theme" aria-label="Ubah Mode Gelap/Terang" title="Ubah Mode Gelap/Terang">
             ${getThemeIconHtml()}
           </button>
-          <button class="topbar-btn" aria-label="Notifikasi" title="Notifikasi">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+          <button class="topbar-btn" data-action="refresh" aria-label="Perbarui data" title="Perbarui data halaman">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6 7a7 7 0 0 1 12-1l2 6M4 12l2 6a7 7 0 0 0 12-1"/></svg>
           </button>
           <div class="profile-card">
             <div class="profile-avatar">${isSuperAdmin ? "👑" : escapeHtml(initials)}</div>
@@ -253,7 +266,13 @@ function bindShellEvents(): void {
   document.querySelectorAll<HTMLElement>("[data-link]").forEach((link) => link.addEventListener("click", (event) => {
     event.preventDefault(); navigate(link.getAttribute("href")!);
   }));
-  document.querySelectorAll<HTMLElement>("[data-action='menu']").forEach((button) => button.addEventListener("click", () => document.body.classList.toggle("nav-open")));
+  const warm: Record<string,string[]> = { "/students": ["/classes/summary","/students?page=1&page_size=50"], "/academic-years": ["/academic-years"], "/cards": ["/cards/summary"], "/devices": ["/devices?page=1&page_size=50"], "/extracurricular": ["/extracurriculars"], "/pwa-portals": ["/classes/summary"] };
+  document.querySelectorAll<HTMLAnchorElement>(".sidebar [data-link]").forEach(link => {
+    const prefetch = () => { if ((navigator as Navigator & {connection?:{saveData?:boolean}}).connection?.saveData) return; for (const path of warm[link.pathname] ?? []) void api(path).catch(() => undefined); };
+    link.addEventListener("pointerenter",prefetch,{once:true}); link.addEventListener("focus",prefetch,{once:true});
+  });
+  const sidebar = document.getElementById("sidebar"), toggle = document.querySelector<HTMLButtonElement>(".menu-button"), scrim = document.querySelector<HTMLElement>(".sidebar-scrim");
+  if (sidebar && toggle && scrim) disposeNavigation = bindNavigation(sidebar, toggle, scrim);
   document.querySelector<HTMLElement>("[data-action='toggle-theme']")?.addEventListener("click", () => {
     const isDark = document.documentElement.getAttribute("data-theme") === "dark";
     const newTheme = isDark ? "light" : "dark";
@@ -268,6 +287,7 @@ function bindShellEvents(): void {
     } catch { /* Local logout still clears potentially stale credentials. */ }
     clearSession(); state.context = undefined; state.school = undefined; loginView();
   });
+  document.querySelector<HTMLElement>("[data-action='refresh']")?.addEventListener("click", () => { invalidateReads(); void render(); });
   document.querySelector<HTMLElement>("[data-action='retry']")?.addEventListener("click", () => void render());
 }
 
@@ -290,7 +310,7 @@ function tablePage<T>(options: { title: string; subtitle: string; path: string; 
       const separator = options.path.includes("?") ? "&" : "?";
       const response = await api<T[]>(`${options.path}${separator}page=1&page_size=30${search ? `&search=${encodeURIComponent(search)}` : ""}`);
       document.querySelector("#table-data")!.innerHTML = response.data.length ? `<div class="table-wrap"><table><thead><tr>${options.columns.map((column) => `<th>${column}</th>`).join("")}</tr></thead><tbody>${response.data.map(options.row).join("")}</tbody></table></div><div class="table-footer">Menampilkan ${response.data.length} dari ${response.meta?.total ?? response.data.length} data</div>` : emptyState("Data belum tersedia", "Tambahkan data pertama untuk memulai.");
-    } catch (error) { document.querySelector("#table-data")!.innerHTML = errorState(error); }
+    } catch (error) { if (isCancelled(error)) return; document.querySelector("#table-data")!.innerHTML = errorState(error); }
   };
   let timer = 0;
   document.querySelector<HTMLInputElement>("#table-search")?.addEventListener("input", (event) => { window.clearTimeout(timer); timer = window.setTimeout(() => void load((event.target as HTMLInputElement).value), 300); });
@@ -301,7 +321,7 @@ async function studentsPage(): Promise<void> {
   let selectedClassId: string | null = null;
   let currentSearch = "";
 
-  shell(`<section class="dashboard-grid" style="grid-template-columns: 320px 1fr; align-items: start;">
+  shell(`<section class="dashboard-grid students-layout">
     <div style="display:flex; flex-direction:column; gap:1.5rem;">
       <article class="panel">
         <div class="panel-head">
@@ -310,10 +330,8 @@ async function studentsPage(): Promise<void> {
         </div>
         <div id="classes-data">${skeleton(4)}</div>
       </article>
-      <article class="panel">
-        <div class="panel-head">
-          <h2>Profil & Kepala Sekolah</h2>
-        </div>
+      <details class="panel school-profile">
+        <summary>Profil & Kepala Sekolah</summary>
         <form id="principal-form" class="sa-form" style="margin-top:0.5rem;display:flex;flex-direction:column;gap:1rem;">
           <label>Nama Lengkap Kepala Sekolah<input type="text" id="principal-name" placeholder="Nama beserta gelar" /></label>
           <label>NIP Kepala Sekolah<input type="text" id="principal-nip" placeholder="NIP (contoh: 19700101 199512 1 001)" /></label>
@@ -329,7 +347,7 @@ async function studentsPage(): Promise<void> {
             <button type="button" id="btn-cancel-principal" class="button secondary" style="display:none;padding:0.6rem 1rem;">Batal</button>
           </div>
         </form>
-      </article>
+      </details>
     </div>
     <article class="panel">
       <div class="panel-head" style="flex-wrap: wrap; gap: 0.75rem;">
@@ -424,9 +442,13 @@ async function studentsPage(): Promise<void> {
   // Initial population of levels dropdown
   updateLevelDropdown();
 
+  const studentPage = document.getElementById("classes-data")!;
+  let studentRequest = 0;
   const loadClasses = async () => {
+    if (!studentPage.isConnected) return;
     try {
       const res = await api<(SchoolClass & { student_count: number })[]>("/classes/summary");
+      if (!studentPage.isConnected) return;
       const rawClasses = res.data ?? [];
       
       // Sort classes sequentially from top to bottom (e.g. VII-A, VII-B, VIII-A, VIII-B, IX-A, IX-B)
@@ -455,8 +477,8 @@ async function studentsPage(): Promise<void> {
           <td>${c.student_count} siswa</td>
           <td>
             <div style="display:inline-flex;gap:0.3rem;">
-              <a href="/student-import?class_id=${c.id}&class_name=${encodeURIComponent(c.name)}" data-link class="button secondary btn-import-class" style="padding:0.2rem 0.5rem;font-size:0.75rem;" title="Import siswa khusus ke ${escapeHtml(c.name)}">📥 Import</a>
-              <button class="button danger btn-delete-class" data-id="${c.id}" data-name="${escapeHtml(c.name)}" data-count="${c.student_count}" style="padding:0.2rem 0.5rem;font-size:0.75rem;">Hapus</button>
+              <a href="/student-import?class_id=${c.id}&class_name=${encodeURIComponent(c.name)}" data-link class="button secondary btn-import-class" style="padding:0.2rem 0.5rem;font-size:0.75rem;" title="Import siswa khusus ke ${escapeHtml(c.name)}" aria-label="Import siswa ke ${escapeHtml(c.name)}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/></svg></a>
+              <button class="button danger btn-delete-class" data-id="${c.id}" data-name="${escapeHtml(c.name)}" data-count="${c.student_count}" style="padding:0.2rem 0.5rem;font-size:0.75rem;" title="Hapus kelas ${escapeHtml(c.name)}" aria-label="Hapus kelas ${escapeHtml(c.name)}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/></svg></button>
             </div>
           </td>
         </tr>`;
@@ -667,6 +689,8 @@ async function studentsPage(): Promise<void> {
   };
 
   const loadStudents = async (search = "") => {
+    if (!studentPage.isConnected) return;
+    const revision = ++studentRequest;
     currentSearch = search;
     try {
       let queryUrl = `/students?page=1&page_size=50`;
@@ -675,6 +699,7 @@ async function studentsPage(): Promise<void> {
 
       const response = await api<(Student & { class_name?: string; pob?: string; address?: string; photo_url?: string | null })[]>(queryUrl);
       
+      if (!studentPage.isConnected || revision !== studentRequest) return;
       // UI table matched with Template_dapodik_aksis: Foto, Nama Lengkap, NISN, Kelas, Tempat / Tgl Lahir, Alamat, Gender, Status, Aksi
       document.querySelector("#table-data")!.innerHTML = response.data.length
         ? `<div class="table-wrap">
@@ -697,7 +722,7 @@ async function studentsPage(): Promise<void> {
                   const hasPhoto = Boolean(item.photo_url && String(item.photo_url).trim().length > 5);
                   const initials = (item.full_name || '?').split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
                   const photoCell = hasPhoto
-                    ? `<img src="${escapeHtml(item.photo_url!)}" alt="${escapeHtml(item.full_name)}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid #e2e8f0;" />`
+                    ? `<img loading="lazy" decoding="async" src="${escapeHtml(item.photo_url!)}" alt="${escapeHtml(item.full_name)}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid #e2e8f0;" />`
                     : `<div style="width:40px;height:40px;border-radius:50%;background:#fef3c7;color:#b45309;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;border:2px dashed #fbbf24;" title="Foto belum diunggah orang tua">${initials}</div>`;
                   return `
                   <tr>
@@ -714,7 +739,7 @@ async function studentsPage(): Promise<void> {
                     </td>
                     <td>
                       <div style="display:flex;gap:4px;">
-                        <button class="button secondary btn-parent-invite" data-id="${escapeHtml(item.id)}">Undangan orang tua</button>
+                        <button class="button secondary btn-parent-invite" data-id="${escapeHtml(item.id)}">Akses orang tua</button>
                         <button class="button secondary btn-edit-student" data-student='${JSON.stringify(item).replace(/'/g, "&#39;")}' style="padding:0.2rem 0.5rem;font-size:0.75rem;">Edit</button>
                         <button class="button danger btn-delete-student" data-id="${item.id}" data-name="${escapeHtml(item.full_name)}" style="padding:0.2rem 0.5rem;font-size:0.75rem;">Hapus</button>
                       </div>
@@ -731,13 +756,46 @@ async function studentsPage(): Promise<void> {
         button.onclick = async () => {
           button.disabled = true;
           try {
-            const response = await api<{token:string;expires_at:string}>("/parent/link-tokens", {method:"POST",body:JSON.stringify({student_id:button.dataset.id,relationship:"GUARDIAN",expires_in_hours:24})});
-            const dialog = document.createElement("dialog");
-            const title = document.createElement("h2"); title.textContent = "Undangan pribadi orang tua";
-            const note = document.createElement("p"); note.textContent = "Berikan hanya kepada wali yang telah diverifikasi sekolah. Berlaku sekali selama 24 jam. Kode hanya ditampilkan sekarang.";
-            const code = document.createElement("textarea"); code.readOnly = true; code.value = response.data.token;
+            const response = await api<Array<{user_id:string;phone:string;parent_profiles:{full_name:string}}>>(`/parent/guardians?student_id=${encodeURIComponent(button.dataset.id!)}`);
+            const dialog = document.createElement("dialog"); dialog.style.cssText = "max-width:540px;width:calc(100% - 32px);max-height:85vh;overflow:auto";
+            const title = document.createElement("h2"); title.textContent = "Akses pribadi orang tua";
+            const note = document.createElement("p"); note.textContent = "Pendaftaran baru: bagikan QR sekolah dari menu Portal PWA & QR. Untuk masuk ulang, pastikan identitas wali sebelum menerbitkan QR pribadi. QR berlaku sekali selama 24 jam dan menggantikan sesi lama saat digunakan.";
+            const content = document.createElement("div");
+            if (!response.data.length) content.textContent = "Belum ada wali yang mendaftar melalui QR sekolah untuk anak ini.";
+            for (const guardian of response.data) {
+              const row = document.createElement("p"), label = document.createElement("strong"), issue = document.createElement("button");
+              label.textContent = `${guardian.parent_profiles.full_name} · ${guardian.phone} `;
+              issue.textContent = "Buat QR masuk ulang";
+              issue.onclick = async () => {
+                issue.disabled = true;
+                try {
+                  const recovery = await api<{token:string;expires_at:string}>("/parent/recovery-tokens", {method:"POST",body:JSON.stringify({user_id:guardian.user_id})});
+                  const url = new URL(import.meta.env.VITE_PARENT_URL || (location.hostname === "localhost" ? "http://localhost:4174/parent/" : "/parent/"), location.origin);
+                  url.hash = new URLSearchParams({parent_recovery:recovery.data.token}).toString();
+                  // @ts-ignore — browser entry is provided by qrcode at runtime.
+                  const QRCode = (await import("qrcode/lib/browser.js")).default;
+                  const image = document.createElement("img"); image.alt = `QR pribadi ${guardian.parent_profiles.full_name}`; image.style.cssText = "width:100%;max-width:320px";
+                  image.src = await QRCode.toDataURL(url.toString(), {width:320,margin:4});
+                  const link = document.createElement("textarea"); link.readOnly = true; link.value = url.toString(); link.style.width = "100%";
+                  const expiry = document.createElement("p"); expiry.textContent = `Rahasiakan QR ini. Berlaku sampai ${new Date(recovery.data.expires_at).toLocaleString("id-ID")}. QR sebelumnya tidak berlaku.`;
+                  content.replaceChildren(image,link,expiry);
+                } catch(error) { toastError(error instanceof Error ? error.message : "QR gagal dibuat."); issue.disabled = false; }
+              };
+              row.append(label,issue); content.append(row);
+            }
+            const invite = document.createElement("button"); invite.textContent = "Buat kode untuk menambahkan anak ke akun wali yang sudah aktif";
+            invite.onclick = async () => {
+              invite.disabled = true;
+              try {
+                const result = await api<{token:string}>("/parent/link-tokens", {method:"POST",body:JSON.stringify({student_id:button.dataset.id,relationship:"GUARDIAN",expires_in_hours:24})});
+                const code = document.createElement("textarea"); code.readOnly = true; code.value = result.data.token;
+                const help = document.createElement("p"); help.textContent = "Wali memasukkan kode ini di menu Hubungkan Anak. Sekali pakai, berlaku 24 jam. Berikan hanya kepada wali yang telah diperiksa sekolah.";
+                content.replaceChildren(help,code);
+              } catch(error) { toastError(error instanceof Error ? error.message : "Undangan gagal dibuat."); invite.disabled = false; }
+            };
             const close = document.createElement("button"); close.textContent = "Tutup"; close.onclick = () => dialog.close();
-            dialog.append(title,note,code,close); document.body.append(dialog); dialog.addEventListener("close",()=>dialog.remove()); dialog.showModal();
+            dialog.append(title,note,content,invite,close); document.body.append(dialog); dialog.addEventListener("close",()=>dialog.remove()); dialog.showModal();
+
           } catch(error) { toastError(error instanceof Error ? error.message : "Undangan gagal dibuat."); }
           finally { button.disabled=false; }
         };
@@ -775,7 +833,7 @@ async function studentsPage(): Promise<void> {
           });
         };
       });
-    } catch (error) { document.querySelector("#table-data")!.innerHTML = errorState(error); }
+    } catch (error) { if (isCancelled(error)) return; if (studentPage.isConnected && revision === studentRequest) document.querySelector("#table-data")!.innerHTML = errorState(error); }
   };
 
   let timer = 0;
@@ -1079,7 +1137,7 @@ async function academicYearsPage(): Promise<void> {
     shell(`<section class="stats-grid">
       <article class="stat-card lime"><div><span>Tahun Ajaran Aktif</span><strong>${activeYear ? escapeHtml(activeYear.name) : "Tidak ada"}</strong></div><span class="trend">📅</span></article>
     </section>
-    <section class="dashboard-grid" style="grid-template-columns: 1fr;">
+    <section class="dashboard-grid single-column">
       <article class="panel">
         <div class="panel-head">
           <div><h2>Daftar Tahun Ajaran</h2><p>Hanya satu periode yang dapat aktif pada satu waktu.</p></div>
@@ -1099,7 +1157,7 @@ async function academicYearsPage(): Promise<void> {
           
           <label>Nama Tahun Ajaran<input id="year-name" type="text" placeholder="Cth: 2026/2027" required maxlength="32" /></label>
           
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+          <div class="responsive-fields">
             <label>Tanggal Mulai<input id="year-start" type="date" required /></label>
             <label>Tanggal Selesai<input id="year-end" type="date" required /></label>
           </div>
@@ -1109,7 +1167,7 @@ async function academicYearsPage(): Promise<void> {
       </div>
     </div>`, "Tahun Ajaran", "Kelola tahun ajaran dan periode aktif.");
 
-    setTimeout(() => {
+    afterPagePaint(() => {
       const modal = document.getElementById("year-modal") as HTMLDivElement;
       document.getElementById("btn-add-year")?.addEventListener("click", () => modal.style.display = "flex");
       document.getElementById("close-year-modal")?.addEventListener("click", () => modal.style.display = "none");
@@ -1211,7 +1269,7 @@ async function academicYearsPage(): Promise<void> {
         });
       });
     }, 100);
-  } catch (error) { shell(errorState(error), "Tahun Ajaran", "Kelola tahun ajaran dan periode aktif."); }
+  } catch (error) { if (isCancelled(error)) return; shell(errorState(error), "Tahun Ajaran", "Kelola tahun ajaran dan periode aktif."); }
 }
 async function cardsPage(): Promise<void> {
   shell(`<section class="stats-grid">${Array.from({ length: 3 }, () => skeleton(1)).join("")}</section>`, "Kartu Siswa", "Pantau identitas kartu fisik (NFC) dan status lifecycle-nya.");
@@ -1219,7 +1277,7 @@ async function cardsPage(): Promise<void> {
     const { data: summary } = await api<{ active: number, pending: number, blocked: number, missing_photo?: number }>("/cards/summary");
     const missingPhoto = summary.missing_photo ?? 0;
 
-    shell(`<section class="stats-grid" style="grid-template-columns: repeat(4, 1fr);">
+    shell(`<section class="stats-grid">
       <article class="stat-card sage">
         <div class="stat-card-head">
           <div>
@@ -1280,7 +1338,7 @@ async function cardsPage(): Promise<void> {
       </div>
     </div>
 
-    <section class="dashboard-grid" style="grid-template-columns: 1fr;">
+    <section class="dashboard-grid single-column">
       <article class="panel">
         <div class="panel-head"><h2>Daftar Kartu Terdaftar</h2><p>Identitas UID dan Serial NFC</p></div>
         <div id="cards-data">${skeleton(6)}</div>
@@ -1381,7 +1439,7 @@ async function cardsPage(): Promise<void> {
     };
     
     void loadCards();
-  } catch (error) { shell(errorState(error), "Kartu Siswa", "Pantau identitas kartu fisik (NFC) dan status lifecycle-nya."); }
+  } catch (error) { if (isCancelled(error)) return; shell(errorState(error), "Kartu Siswa", "Pantau identitas kartu fisik (NFC) dan status lifecycle-nya."); }
 }
 async function devicesPage(): Promise<void> {
   shell(`<section class="stats-grid">${Array.from({ length: 3 }, () => skeleton(1)).join("")}</section>`, "Perangkat", "Status IoT gate, terminal, LED, dan card station sekolah.");
@@ -1400,7 +1458,7 @@ async function devicesPage(): Promise<void> {
       <article class="stat-card lime"><div><span>Aktif / Online</span><strong>${summary.active} Unit</strong></div><span class="trend">✓</span></article>
       <article class="stat-card ${summary.inactive > 0 ? 'red' : 'neutral'}"><div><span>Offline / Gangguan</span><strong>${summary.inactive + summary.maintenance} Unit</strong></div><span class="trend">!</span></article>
     </section>
-    <section class="dashboard-grid" style="grid-template-columns: 1fr;">
+    <section class="dashboard-grid single-column">
       <article class="panel">
         <div class="panel-head">
           <div><h2>Daftar Perangkat IoT</h2><p>Terminal presensi, Gate, dan Reader</p></div>
@@ -1420,9 +1478,9 @@ async function devicesPage(): Promise<void> {
     });
     document.querySelector<HTMLButtonElement>("[data-register-device]")?.addEventListener("click", async () => {
       try { await registerSchoolDevice(state.school!.id); await devicesPage(); }
-      catch (error) { const panel=document.querySelector(".content");if(panel)panel.insertAdjacentHTML("afterbegin",errorState(error)); }
+      catch (error) { if (isCancelled(error)) return; const panel=document.querySelector(".content");if(panel)panel.insertAdjacentHTML("afterbegin",errorState(error)); }
     });
-  } catch (error) { shell(errorState(error), "Perangkat", "Status IoT gate, terminal, LED, dan card station sekolah."); }
+  } catch (error) { if (isCancelled(error)) return; shell(errorState(error), "Perangkat", "Status IoT gate, terminal, LED, dan card station sekolah."); }
 }
 async function attendancePage(): Promise<void> {
   shell(`<section class="stats-grid">${Array.from({ length: 2 }, () => skeleton(1)).join("")}</section>`, "Kehadiran", "Log presensi gerbang yang sudah tervalidasi dan idempotent.");
@@ -1443,13 +1501,13 @@ async function attendancePage(): Promise<void> {
       <article class="stat-card lime"><div><span>Kehadiran Hari Ini</span><strong>${summary.total_present} Siswa</strong></div><span class="trend">✓</span></article>
       <article class="stat-card ${summary.total_late > 0 ? 'red' : 'sage'}"><div><span>Terlambat Hari Ini</span><strong>${summary.total_late} Siswa</strong></div><span class="trend">!</span></article>
     </section>
-    <section class="dashboard-grid" style="grid-template-columns: 1fr;">
+    <section class="dashboard-grid single-column">
       <article class="panel">
         <div class="panel-head"><h2>Riwayat Kehadiran (50 Terakhir)</h2><p>Log presensi gerbang yang tervalidasi</p></div>
         ${logRows ? `<div class="table-wrap"><table><thead><tr><th>Siswa</th><th>Kelas</th><th>Arah</th><th>Waktu</th><th>Keterangan</th></tr></thead><tbody>${logRows}</tbody></table></div>` : emptyState("Data belum tersedia", "Tambahkan data pertama untuk memulai.")}
       </article>
     </section>`, "Kehadiran", "Log presensi gerbang yang sudah tervalidasi dan idempotent.");
-  } catch (error) { shell(errorState(error), "Kehadiran", "Log presensi gerbang yang sudah tervalidasi dan idempotent."); }
+  } catch (error) { if (isCancelled(error)) return; shell(errorState(error), "Kehadiran", "Log presensi gerbang yang sudah tervalidasi dan idempotent."); }
 }
 
 function studentImportPage(): void {
@@ -1517,7 +1575,7 @@ function studentImportPage(): void {
     </form>
   </section>`, "Import Siswa", "Tambahkan data siswa secara massal berbasis kelas / paralel.");
 
-  setTimeout(async () => {
+  afterPagePaint(async () => {
     const classSelect = document.getElementById("target-class-select") as HTMLSelectElement;
     const classInfo = document.getElementById("target-class-info") as HTMLParagraphElement;
     const templateTitle = document.getElementById("template-card-title") as HTMLElement;
@@ -1532,6 +1590,7 @@ function studentImportPage(): void {
 
     try {
       const res = await api<{ id: string; name: string; student_count: number }[]>("/classes/summary");
+      if (!form.isConnected) return;
       availableClasses = res.data ?? [];
       classSelect.innerHTML = `<option value="">-- Impor Bebas / Deteksi Otomatis dari File --</option>` +
         availableClasses.map(c => `<option value="${c.id}" data-name="${escapeHtml(c.name)}"${(initialClassId === c.id || (initialClassName && initialClassName.toLowerCase() === c.name.toLowerCase())) ? " selected" : ""}>Kelas ${escapeHtml(c.name)} (${c.student_count} siswa)</option>`).join("");
@@ -1559,6 +1618,7 @@ function studentImportPage(): void {
       classSelect.addEventListener("change", updateClassSelectionState);
       updateClassSelectionState();
     } catch (e) {
+      if (isCancelled(e) || !form.isConnected) return;
       classInfo.textContent = "Gagal memuat daftar kelas master.";
     }
 
@@ -1567,7 +1627,7 @@ function studentImportPage(): void {
     let selectedTargetClassId = "";
     let selectedTargetClassName = "";
 
-    downloadExcelBtn?.addEventListener("click", () => {
+    downloadExcelBtn?.addEventListener("click", async () => {
       const selectedOpt = classSelect.options[classSelect.selectedIndex];
       const targetName = selectedOpt?.dataset?.name || "X-1";
       const templateData = [
@@ -1575,6 +1635,7 @@ function studentImportPage(): void {
         [1, "Ahmad Fauzi", "0075849301", targetName, "Watampone", "2008-05-14", "Jl. Merdeka No. 12, Watampone", "Laki-laki"],
         [2, "Nur Aisyah Dahlan", "0076928412", targetName, "Bone", "2008-08-22", "Jl. Ahmad Yani No. 45, Tanete Riattang", "Perempuan"]
       ];
+      const XLSX = await import("xlsx");
       const ws = XLSX.utils.aoa_to_sheet(templateData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Dapodik");
@@ -1609,6 +1670,7 @@ function studentImportPage(): void {
 
         try {
           const arrayBuffer = await file.arrayBuffer();
+          const XLSX = await import("xlsx");
           const wb = XLSX.read(arrayBuffer, { type: "array", cellDates: true });
           const firstSheet = wb.Sheets[wb.SheetNames[0]!];
           if (!firstSheet) throw new Error("File spreadsheet tidak memiliki lembar kerja (worksheet).");
@@ -1866,7 +1928,7 @@ function studentImportPage(): void {
 
                 toastSuccess(summaryMsg);
                 navigate(`/students${selectedTargetClassId ? `?class_id=${encodeURIComponent(selectedTargetClassId)}` : ""}`);
-              } catch (error) {
+              } catch (error) { if (isCancelled(error)) return;
                 const errMsg = error instanceof ApiClientError ? error.message : "Terjadi kendala saat meng-import data siswa.";
                 preview.innerHTML = `
                   <div style="margin-top:1.5rem;padding:1.25rem;background:#fef2f2;border:1.5px solid #fca5a5;border-radius:0.75rem;">
@@ -1919,7 +1981,7 @@ function classPromotionPage(): void {
     </form>
   </section>`, "Kenaikan Kelas", "Pindahkan ratusan siswa ke kelas baru sekaligus via Excel.");
 
-  setTimeout(async () => {
+  afterPagePaint(async () => {
     const yearSelect = document.getElementById("academic-year-select") as HTMLSelectElement;
     const form = document.getElementById("promotion-form") as HTMLFormElement;
     const fileInput = document.getElementById("csv-file") as HTMLInputElement;
@@ -1990,7 +2052,7 @@ function classPromotionPage(): void {
           }
           toastSuccess("Kenaikan kelas massal berhasil diselesaikan!");
           navigate("/students");
-        } catch (error) {
+        } catch (error) { if (isCancelled(error)) return;
           preview.innerHTML = errorState(error);
           submitBtn.disabled = false;
           submitBtn.textContent = "Coba Lagi";
@@ -2019,12 +2081,12 @@ async function wastePage(): Promise<void> {
       <article class="panel">
         <div class="panel-head"><h2>Jadwal Operasional</h2><p>Batas waktu penggunaan PWA</p></div>
         <form id="form-waste-schedule" style="margin-top: 1rem;">
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div class="responsive-fields">
             <label>Jam Buka<input type="time" name="start_time" id="waste-start" /></label>
             <label>Jam Tutup<input type="time" name="end_time" id="waste-end" /></label>
           </div>
           <p style="font-size:0.85rem; color:var(--text-light); margin-top:0.5rem; margin-bottom:1rem;">Biarkan kosong jika PWA bebas diakses 24 jam.</p>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+          <div class="responsive-fields">
             <label>Poin / kg organik<input type="number" id="waste-organic-rate" min="0" max="10000" step="0.001" placeholder="Belum diatur" /></label>
             <label>Poin / kg anorganik<input type="number" id="waste-inorganic-rate" min="0" max="10000" step="0.001" placeholder="Belum diatur" /></label>
           </div>
@@ -2076,7 +2138,7 @@ async function wastePage(): Promise<void> {
         });
       };
     }
-  } catch (error) { shell(errorState(error), "Bank Sampah", "Manajemen setoran sampah (Waste-to-Gold)."); }
+  } catch (error) { if (isCancelled(error)) return; shell(errorState(error), "Bank Sampah", "Manajemen setoran sampah (Waste-to-Gold)."); }
 }
 
 async function libraryPage(): Promise<void> {
@@ -2086,13 +2148,13 @@ async function libraryPage(): Promise<void> {
     const totalVisits = summaryRes.data.reduce((acc, r) => acc + r.total, 0);
     const summaryRows = summaryRes.data.map((r, i) => `<tr><td><strong>#${i + 1}</strong></td><td>${escapeHtml(r.class_name)}</td><td>${r.total} kunjungan</td></tr>`).join("");
     shell(`<section class="stats-grid"><article class="stat-card blue"><div><span>Total Kunjungan</span><strong>${totalVisits}</strong><small>Semua kelas bulan ini</small></div><span class="trend">▤</span></article></section>
-    <section class="dashboard-grid" style="grid-template-columns: 1fr;">
+    <section class="dashboard-grid single-column">
       <article class="panel">
         <div class="panel-head"><h2>Kunjungan Per Kelas</h2><p>Rekap bulan berjalan</p></div>
         ${summaryRows ? `<div class="table-wrap"><table><thead><tr><th>#</th><th>Kelas</th><th>Kunjungan</th></tr></thead><tbody>${summaryRows}</tbody></table></div>` : emptyState("Belum ada kunjungan", "Siswa dapat tap kartu di terminal perpustakaan.")}
       </article>
     </section>`, "Perpustakaan", "Monitor rekam jejak kunjungan siswa ke perpustakaan.");
-  } catch (error) { shell(errorState(error), "Perpustakaan", "Monitor kunjungan perpustakaan."); }
+  } catch (error) { if (isCancelled(error)) return; shell(errorState(error), "Perpustakaan", "Monitor kunjungan perpustakaan."); }
 }
 
 async function extracurricularPage(): Promise<void> {
@@ -2108,7 +2170,7 @@ async function extracurricularPage(): Promise<void> {
       <article class="stat-card blue"><div><span>Total Ekstrakurikuler</span><strong>${data.length} Kegiatan</strong></div><span class="trend">⚽</span></article>
       <article class="stat-card lime"><div><span>Ekskul Aktif</span><strong>${activeCount} Kegiatan</strong></div><span class="trend">✓</span></article>
     </section>
-    <section class="dashboard-grid" style="grid-template-columns: 1fr;">
+    <section class="dashboard-grid single-column">
       <article class="panel">
         <div class="panel-head">
           <div><h2>Daftar Ekstrakurikuler</h2><p>Data referensi kegiatan siswa</p></div>
@@ -2133,7 +2195,7 @@ async function extracurricularPage(): Promise<void> {
       </div>
     </div>`, "Ekstrakurikuler", "Kelola referensi kegiatan untuk aplikasi presensi guru.");
 
-    setTimeout(() => {
+    afterPagePaint(() => {
       const modal = document.getElementById("ekskul-modal") as HTMLDivElement;
       document.getElementById("btn-add-ekskul")?.addEventListener("click", () => modal.style.display = "flex");
       document.getElementById("close-ekskul-modal")?.addEventListener("click", () => modal.style.display = "none");
@@ -2228,14 +2290,14 @@ async function extracurricularPage(): Promise<void> {
         }
       });
     }, 100);
-  } catch (error) { shell(errorState(error), "Ekstrakurikuler", "Kelola kegiatan dan absensi ekstrakurikuler."); }
+  } catch (error) { if (isCancelled(error)) return; shell(errorState(error), "Ekstrakurikuler", "Kelola kegiatan dan absensi ekstrakurikuler."); }
 }
 async function ledPage(): Promise<void> {
   shell(`<section class="stats-grid">${Array.from({ length: 2 }, () => skeleton(1)).join("")}</section>`, "LED Board", "Manajemen tampilan teks berjalan pada LED matrix gerbang.");
   try {
     const [resContent, resGateways] = await Promise.all([
       api<any[]>("/led/content"),
-      api<any[]>("/led/gateways").catch(() => ({ data: [] }))
+      api<any[]>("/led/gateways").catch(error => { if (isCancelled(error)) throw error; return { data: [] }; })
     ]);
 
     const data = resContent.data;
@@ -2256,7 +2318,7 @@ async function ledPage(): Promise<void> {
       <article class="stat-card blue"><div><span>Pesan Aktif</span><strong>${activeCount} Pesan</strong></div><span class="trend">💬</span></article>
       <article class="stat-card ${isGatewayOnline ? 'lime' : 'red'}"><div><span>Status Gateway</span><strong>${isGatewayOnline ? 'Online' : 'Offline'}</strong></div><span class="trend">${isGatewayOnline ? '✓' : '✗'}</span></article>
     </section>
-    <section class="dashboard-grid" style="grid-template-columns: 1fr;">
+    <section class="dashboard-grid single-column">
       <article class="panel">
         <div class="panel-head">
           <div><h2>Daftar Pesan LED</h2><p>Pesan berjalan pada gerbang sekolah</p></div>
@@ -2290,7 +2352,7 @@ async function ledPage(): Promise<void> {
       </div>
     </div>`, "LED Board", "Manajemen tampilan teks berjalan pada LED matrix gerbang.");
 
-    setTimeout(() => {
+    afterPagePaint(() => {
       const modal = document.getElementById("led-modal") as HTMLDivElement;
       document.getElementById("btn-add-led")?.addEventListener("click", () => modal.style.display = "flex");
       document.getElementById("close-led-modal")?.addEventListener("click", () => modal.style.display = "none");
@@ -2374,7 +2436,7 @@ async function ledPage(): Promise<void> {
         }
       });
     }, 100);
-  } catch (error) { shell(errorState(error), "LED Board", "Manajemen tampilan teks berjalan pada LED matrix gerbang."); }
+  } catch (error) { if (isCancelled(error)) return; shell(errorState(error), "LED Board", "Manajemen tampilan teks berjalan pada LED matrix gerbang."); }
 }
 
 async function reportsPage(): Promise<void> {
@@ -2593,39 +2655,30 @@ async function reportsPage(): Promise<void> {
               w.print();
             }
           });
-        } catch (error) { content.innerHTML = errorState(error); }
+        } catch (error) { if (isCancelled(error)) return; content.innerHTML = errorState(error); }
       });
     });
-  } catch (error) { shell(errorState(error), "Laporan Wali Kelas", "Rekapitulasi data siswa per kelas."); }
+  } catch (error) { if (isCancelled(error)) return; shell(errorState(error), "Laporan Wali Kelas", "Rekapitulasi data siswa per kelas."); }
 }
 
 function placeholderPage(title: string): void { shell(`<section class="panel coming-soon"><span>◇</span><h2>${escapeHtml(title)} sedang dipersiapkan</h2><p>Fondasi API dan navigasi sudah tersedia. Modul ini akan diaktifkan pada fase berikutnya.</p><a href="/" data-link class="button secondary">Kembali ke ringkasan</a></section>`, title, "Entry point modul AKSIS berikutnya."); }
 
 async function pwaPortalsPage() {
-  getApp().innerHTML = skeleton();
+  shell(skeleton(), "Portal PWA & QR", "Kelola akses portal sekolah.");
   try {
     const schoolId = state.school!.id;
-    const [classesRes, firstStudents] = await Promise.all([
-      api<SchoolClass[]>("/classes/summary"), api<Student[]>("/students?page=1&page_size=500")
-    ]);
+    const classesRes = await api<SchoolClass[]>("/classes/summary");
     const classes = [...(classesRes.data ?? [])].sort((a, b) => {
       const gA = a.grade_level ?? 0;
       const gB = b.grade_level ?? 0;
       if (gA !== gB) return gA - gB;
       return a.name.localeCompare(b.name, "id", { numeric: true, sensitivity: "base" });
     });
-    const students = [...firstStudents.data];
-    const total = firstStudents.meta?.total ?? students.length;
-    for (let page = 2; students.length < total; page++) {
-      const result = await api<Student[]>(`/students?page=${page}&page_size=500`);
-      if (!result.data.length) break;
-      students.push(...result.data);
-    }
     const definitions = [
       { key: "waste", role: "WASTE_STAFF", name: "Piket Bank Sampah", icon: "♻", description: "Satu QR untuk piket dan setoran siswa di kelas yang dipilih.", port: 4175 },
       { key: "library", role: "LIBRARY_STAFF", name: "Perpustakaan", icon: "▤", description: "Langsung buka terminal pencatatan kunjungan perpustakaan sekolah.", port: 4177 },
       { key: "extracurricular", role: "TEACHER", name: "Ekstrakurikuler", icon: "☆", description: "Akses kegiatan, sesi, dan presensi ekstrakurikuler sekolah.", port: 4176 },
-      { key: "parent", role: "PARENT", name: "Portal Orang Tua", icon: "♡", description: "Satu QR sekolah untuk semua orang tua. Wali mencari data anak dengan NISN & Tgl Lahir.", port: 4174 }
+      { key: "parent", role: "PARENT", name: "Portal Orang Tua", icon: "♡", description: "Satu QR sekolah untuk semua orang tua. Wali mendaftar dengan NISN, tanggal lahir anak, nama lengkap, dan nomor WA. Akun setiap wali terpisah.", port: 4174 }
     ];
     shell(`<section class="panel portal-intro"><div><span class="eyebrow">AKSES TANPA USERNAME & PASSWORD</span><h2>Satu kali pindai, selanjutnya tinggal buka.</h2><p>Buat QR portal, bagikan kepada pengguna, lalu simpan aplikasi ke layar utama smartphone.</p></div><ol><li><span>1</span> Buat QR portal</li><li><span>2</span> Pindai kamera</li><li><span>3</span> Simpan di HP</li></ol></section>
       <section class="qr-grid">${definitions.map(d => `<article class="qr-card" id="card-${d.key}">
@@ -2649,7 +2702,7 @@ async function pwaPortalsPage() {
         <button class="button primary wide no-print" id="generate-${d.key}">Buat QR akses</button>
         <div class="portal-actions no-print" id="actions-${d.key}" hidden></div>
       </article>`).join("")}</section>
-      <section class="panel" style="margin-top:24px"><div class="panel-head"><div><h2>Akses portal yang diterbitkan</h2><p>QR berlaku sampai dinonaktifkan. Setiap orang yang memegang QR dapat membuka portal. <b>Demi keamanan (enkripsi searah), QR tidak dapat ditampilkan ulang.</b> Jika hilang, hapus dan buat QR baru.</p></div></div><div id="portal-access-list">Memuat akses…</div></section>`,
+      <section class="panel" style="margin-top:24px"><div class="panel-head"><div><h2>Akses portal yang diterbitkan</h2><p>QR berlaku sampai dinonaktifkan. QR orang tua hanya membuka formulir pendaftaran; data anak memerlukan NISN dan tanggal lahir. QR portal petugas memberikan akses sesuai perannya. <b>Demi keamanan (enkripsi searah), QR tidak dapat ditampilkan ulang.</b> Jika hilang, hapus dan buat QR baru.</p></div></div><div id="portal-access-list">Memuat akses…</div></section>`,
       "Portal PWA & QR", "Kelola pintu masuk aplikasi sekolah tanpa akun dan password pengguna.");
     const configured: Record<string, string | undefined> = {
       waste: import.meta.env.VITE_WASTE_URL, library: import.meta.env.VITE_LIBRARY_URL,
@@ -2660,7 +2713,7 @@ async function pwaPortalsPage() {
       try {
         const result = await api<Array<{ id: string; role_code: string; metadata: { class_id?: string; student_id?: string }; created_at: string; revoked_at: string | null }>>(`/auth/qr?school_id=${schoolId}`);
         container.innerHTML = result.data.length ? `<div class="table-wrap"><table><thead><tr><th>Portal</th><th>Lingkup</th><th>Dibuat</th><th>Status</th><th>Aksi</th></tr></thead><tbody>${result.data.map(q => {
-          const scope = classes.find(c => c.id === q.metadata?.class_id)?.name ?? students.find(s => s.id === q.metadata?.student_id)?.full_name ?? state.school!.name;
+          const scope = classes.find(c => c.id === q.metadata?.class_id)?.name ?? (q.metadata?.student_id ? "Tautan siswa lama" : undefined) ?? state.school!.name;
           const portalName = definitions.find(d => d.role === q.role_code)?.name ?? q.role_code;
           const statusBadge = q.revoked_at ? `<span class="status neutral">Nonaktif</span>` : `<span class="status success">● Aktif</span>`;
           return `<tr data-row-id="${q.id}"><td><strong>${escapeHtml(portalName)}</strong></td><td>${escapeHtml(scope)}</td><td>${escapeHtml(new Date(q.created_at).toLocaleDateString("id-ID"))}</td><td class="portal-status-cell">${statusBadge}</td><td>${q.revoked_at ? "" : `<button class="button secondary" data-revoke="${q.id}" data-portal="${escapeHtml(portalName)}" data-scope="${escapeHtml(scope)}">Nonaktifkan</button>`}<button class="button danger" style="margin-left: 8px;" data-hard-delete="${q.id}" data-portal="${escapeHtml(portalName)}" data-scope="${escapeHtml(scope)}">Hapus</button></td></tr>`;
@@ -2729,7 +2782,7 @@ async function pwaPortalsPage() {
             });
           };
         });
-      } catch (error) { container.textContent = error instanceof Error ? error.message : "Daftar akses belum tersedia"; }
+      } catch (error) { if (isCancelled(error)) return; container.textContent = error instanceof Error ? error.message : "Daftar akses belum tersedia"; }
     };
     for (const definition of definitions) {
       const d = definition;
@@ -2766,16 +2819,16 @@ async function pwaPortalsPage() {
           print.onclick = () => { const card = document.getElementById(`card-${d.key}`)!; card.classList.add("print-active"); window.print(); card.classList.remove("print-active"); };
           const open = document.createElement("a"); open.className = "button secondary"; open.href = url.toString(); open.target = "_blank"; open.rel = "noopener noreferrer"; open.textContent = "↗ Buka";
           actions.append(download, print, open);
-        } catch (error) { if (revision === current) feedback.textContent = error instanceof Error ? error.message : "QR belum berhasil dibuat. Coba kembali."; }
+        } catch (error) { if (isCancelled(error)) return; if (revision === current) feedback.textContent = error instanceof Error ? error.message : "QR belum berhasil dibuat. Coba kembali."; }
         finally { if (revision === current) { button.disabled = Boolean(select && !select.value); button.textContent = "Buat QR baru"; } }
       };
     }
     await loadAccess();
-  } catch (error) { shell(errorState(error), "Portal PWA & QR", "Gagal memuat portal"); }
+  } catch (error) { if (isCancelled(error)) return; shell(errorState(error), "Portal PWA & QR", "Gagal memuat portal"); }
 }
 
 export async function render(): Promise<void> {
-  clearDashboard();
+  clearDashboard(); disposeNavigation?.(); disposeNavigation = undefined;
   try {
     const currentPath = location.pathname;
 
@@ -2795,7 +2848,7 @@ export async function render(): Promise<void> {
       return;
     }
 
-    try { if (!state.school || !state.context) await bootstrap(); } catch { clearSession(); loginView(); return; }
+    try { if (!state.school || !state.context) await bootstrap(); } catch (error) { if (isCancelled(error)) return; clearSession(); loginView(); return; }
 
     let path = currentPath === "/login" ? "/" : currentPath;
     if (state.context?.roles.includes("SUPER_ADMIN") && !isPlatformRoute(path)) {
@@ -2829,6 +2882,7 @@ export async function render(): Promise<void> {
     else if (path === "/reports") await reportsPage();
     else placeholderPage(navItems.find(([route]) => route === path)?.[1] ?? "Halaman");
   } catch (err) {
+    if (err instanceof ApiClientError && err.code === "NAVIGATION_CANCELLED") return;
     console.error("Render error:", err);
     getApp().innerHTML = errorState(err);
   }

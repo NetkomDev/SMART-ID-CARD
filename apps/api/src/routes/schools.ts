@@ -40,6 +40,7 @@ router.get("/current", asyncHandler(async (req, res) => {
     if (fallback.error) throw fromDatabaseError(fallback.error);
     if (!fallback.data) throw new ApiError(404, "SCHOOL_NOT_FOUND", "School was not found");
     sendData(res, {
+      context: { school_id: req.tenant!.schoolId, membership_id: req.tenant!.membershipId, roles: req.tenant!.roles, permissions: req.tenant!.permissions },
       ...fallback.data,
       waste_start_time: null,
       waste_end_time: null,
@@ -49,7 +50,7 @@ router.get("/current", asyncHandler(async (req, res) => {
     return;
   }
   if (!data) throw new ApiError(404, "SCHOOL_NOT_FOUND", "School was not found");
-  sendData(res, data);
+  sendData(res, { ...data, context: { school_id: req.tenant!.schoolId, membership_id: req.tenant!.membershipId, roles: req.tenant!.roles, permissions: req.tenant!.permissions } });
 }));
 
 const schoolSettings = z.object({

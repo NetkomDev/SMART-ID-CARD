@@ -22,11 +22,17 @@ export function competitionRankings(events: { attendance: RankingEvent[]; waste:
     return sorted.map((row, i) => {
       if (i === 0 || row.value !== sorted[i - 1]!.value) rank = i + 1;
       return { ...row, value: weight ? row.value / 1000 : row.value, rank };
-    }).slice(0, 3);
+    }).slice(0, weight ? 3 : undefined);
   };
+  const hourlyCounts = Array.from({length:24},()=>0);
+  const hourFormat = new Intl.DateTimeFormat('en-GB',{timeZone:timezone,hour:'2-digit',hourCycle:'h23'});
+  for (const row of arrivals) hourlyCounts[Number(hourFormat.format(new Date(row.at)))]!++;
+  const firstHour = hourlyCounts.findIndex(count=>count>0);
+  const lastHour = hourlyCounts.reduce((last,count,index)=>count>0?index:last,0);
+  const hourly = firstHour < 0 ? [] : hourlyCounts.map((count,hour)=>({hour:`${String(hour).padStart(2,'0')}:00`,count})).slice(Math.max(0,firstHour-1),Math.min(24,lastHour+2));
   let rank = 0;
   return {
-    date, timezone, generated_at: now.toISOString(),
+    date, timezone, generated_at: now.toISOString(), hourly,
     arrivals: arrivals.slice(0, 5).map((e, i) => {
       if (i === 0 || Date.parse(e.at) !== Date.parse(arrivals[i - 1]!.at)) rank = i + 1;
       return { student_id: e.student_id, name: e.name ?? 'Siswa', class_name: e.class_name ?? 'Belum ada kelas', at: e.at, rank };

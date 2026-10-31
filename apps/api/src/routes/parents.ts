@@ -3,6 +3,7 @@ import { Router } from "express";
 import { z } from "zod";
 import sharp from "sharp";
 import { ApiError, fromDatabaseError } from "../lib/errors.js";
+import { createServiceClient } from "../lib/supabase.js";
 import { sendData } from "../lib/responses.js";
 import { asyncHandler } from "../middleware/async-handler.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -104,6 +105,30 @@ router.post("/children/:id/photo", requireAuth, validate({ params: idParamsSchem
   if (error) throw fromDatabaseError(error);
   sendData(res, { result: data, photo_provider: processed.provider }, 200);
 }));
+
+// School-admin recovery tools are scoped before using the service client.
+router.get("/guardians", requireAuth, requireTenant,
+  validate({ query: z.object({ student_id: z.uuid() }).strict() }), asyncHandler(async (req, res) => {
+    const school = req.tenant!.schoolId;
+    const { data: allowed, error: permissionError } = await req.auth!.client.rpc("can_manage_portal_access", { target_school_id: school });
+    if (permissionError) throw fromDatabaseError(permissionError);
+    if (!allowed) throw new ApiError(403, "FORBIDDEN", "Admin sekolah diperlukan.");
+    const admin = createServiceClient();
+    const { data: links, error } = await admin.from("parent_student_links").select("parent_user_id").eq("school_id", school).eq("student_id", req.query.student_id).eq("status", "ACTIVE").not("verified_at", "is", null);
+    if (error) throw fromDatabaseError(error);
+    const ids = (links ?? []).map(link => link.parent_user_id);
+    if (!ids.length) { sendData(res, []); return; }
+    const { data: identities, error: identityError } = await admin.from("parent_portal_identities").select("user_id,phone,parent_profiles(full_name)").eq("school_id", school).in("user_id", ids);
+    if (identityError) throw fromDatabaseError(identityError);
+    sendData(res, identities ?? []);
+  }));
+router.post("/recovery-tokens", requireAuth, requireTenant,
+  validate({ body: z.object({ user_id: z.uuid() }).strict() }), asyncHandler(async (req, res) => {
+    const token = randomBytes(32).toString("hex");
+    const { data: expires_at, error } = await req.auth!.client.rpc("issue_parent_recovery", { p_school: req.tenant!.schoolId, p_user: req.body.user_id, p_hash: createHash("sha256").update(token).digest("hex") });
+    if (error) throw fromDatabaseError(error);
+    sendData(res, { token, expires_at }, 201);
+  }));
 
 router.post("/link-tokens", requireAuth, requireTenant, requirePermission("parent.manage"),
   validate({ body: createParentTokenSchema }), asyncHandler(async (req, res) => {

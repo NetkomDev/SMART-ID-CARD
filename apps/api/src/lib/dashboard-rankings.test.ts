@@ -10,6 +10,8 @@ describe('daily competition rankings', () => {
     expect(result.date).toBe('2026-09-27');
     expect(result.arrivals.map(r => r.student_id)).toEqual(['midnight', 'first']);
     expect(result.arrivals[1]?.at).toBe('2026-09-26T23:00:00Z');
+    expect(result.hourly.reduce((sum, bucket) => sum + bucket.count, 0)).toBe(2);
+    expect(result.hourly.find(bucket => bucket.hour === '07:00')?.count).toBe(1);
   });
   it('adds all class deposits accurately to grams and awards equal ranks for equal totals', () => {
     const result = rank([], [event('1', undefined, { value: .1 }), event('2', undefined, { value: .2 }), event('3', undefined, { class_id: 'b', class_name: 'X B', value: .3 }), event('4', undefined, { class_id: 'c', value: .05 }), event('5', undefined, { class_id: null, value: 999 })]);
@@ -24,6 +26,7 @@ describe('daily competition rankings', () => {
     expect(rank(rows, rows, rows).arrivals).toHaveLength(5);
     expect(rank(rows, rows, rows).arrivals.every(r => r.rank === 1)).toBe(true);
     expect(rank(rows, rows, rows).waste.map(r => r.value)).toEqual([10, 9, 8]);
+    expect(rank(rows, rows, rows).library).toHaveLength(10);
   });
   it('does not fabricate winners when there are no qualifying events', () => {
     expect(rank().arrivals).toEqual([]);

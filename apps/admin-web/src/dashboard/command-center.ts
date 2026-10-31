@@ -1,7 +1,8 @@
+import { renderLibraryChart } from "./library-chart";
 import { api } from "../lib/api";
 import { getSchoolId } from "../lib/session";
-import type { Device, School } from "../lib/types";
-import { freshness, online, type Snapshot } from "./model";
+import type { School } from "../lib/types";
+import { freshness, type Snapshot } from "./model";
 import "./command-center.css";
 
 const esc = (value: unknown) => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
@@ -11,7 +12,7 @@ const weight = (value: number) => new Intl.NumberFormat("id-ID", { maximumFracti
 type ClassRank = { class_id: string; name: string; value: number; rank: number };
 type SupportGroup = { total: number; zero_count: number; rows: { student_id: string; name: string; class_name: string; value: number }[] };
 type Support = { school_id: string; period_start: string; period_end: string; generated_at: string; students_count: number; late: SupportGroup; waste: SupportGroup; library: SupportGroup };
-type Rankings = { school_id: string; date: string; timezone: string; generated_at: string; arrivals: { student_id: string; name: string; class_name: string; at: string; rank: number }[]; waste: ClassRank[]; library: ClassRank[] };
+type Rankings = { school_id: string; date: string; timezone: string; generated_at: string; arrivals: { student_id: string; name: string; class_name: string; at: string; rank: number }[]; waste: ClassRank[]; library: ClassRank[]; hourly?: HourlyPoint[] };
 
 type HourlyPoint = { hour: string; count: number };
 
@@ -274,7 +275,7 @@ function renderDonutGauge(percent: number, gradientId: string, startColor: strin
 
   return `
     <div class="cc-kpi-card">
-      <svg class="cc-gauge-svg" viewBox="0 0 90 90">
+      <div class="cc-gauge-wrap" aria-hidden="true"><svg class="cc-gauge-svg" viewBox="0 0 90 90">
         <defs>
           <linearGradient id="${gradientId}" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stop-color="${startColor}" />
@@ -299,7 +300,7 @@ function renderDonutGauge(percent: number, gradientId: string, startColor: strin
         </svg>
         <span class="cc-gauge-value">${centerText}</span>
       </div>
-      <div class="cc-kpi-info">
+      </div><div class="cc-kpi-info">
         <span class="cc-kpi-label">${esc(label)}</span>
         <strong class="cc-kpi-num">${esc(centerText)}</strong>
         <span class="cc-kpi-note">${esc(note)}</span>
@@ -312,17 +313,17 @@ function renderDonutGauge(percent: number, gradientId: string, startColor: strin
 function renderArrivalLineChart(points: HourlyPoint[]) {
   if (!points || points.length === 0) return empty("Belum ada data kurva kehadiran.");
 
-  const width = 500;
-  const height = 110;
+  const width = 440;
+  const height = 170;
   const paddingX = 35;
-  const paddingY = 20;
+  const paddingY = 28;
 
   const maxVal = Math.max(...points.map(p => p.count), 10);
   const chartW = width - paddingX * 2;
   const chartH = height - paddingY * 2;
 
   const coords = points.map((p, i) => {
-    const x = paddingX + (i / (points.length - 1)) * chartW;
+    const x = paddingX + (i / Math.max(1, points.length - 1)) * chartW;
     const y = height - paddingY - (p.count / maxVal) * chartH;
     return { x, y, ...p };
   });
@@ -340,7 +341,7 @@ function renderArrivalLineChart(points: HourlyPoint[]) {
 
   return `
     <div class="cc-chart-container">
-      <svg class="cc-trend-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">
+      <svg class="cc-trend-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Jumlah siswa datang per jam">
         <defs>
           <linearGradient id="arrivalGrad" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stop-color="#10b981" stop-opacity="0.35" />
@@ -363,13 +364,13 @@ function renderArrivalLineChart(points: HourlyPoint[]) {
         <path d="${pathD}" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" filter="url(#lineGlow)"/>
 
         <!-- Data Nodes & Tooltips -->
-        ${coords.map(c => `
+        ${coords.map((c, index) => `
           <g class="cc-chart-node" transform="translate(${c.x}, ${c.y})">
             <circle r="4" fill="#090d16" stroke="#10b981" stroke-width="2" />
             <circle class="cc-node-pulse" r="7" fill="#10b981" opacity="0.25" />
-            <text class="cc-node-val" y="-8" text-anchor="middle">${c.count}</text>
+            ${index % Math.max(1, Math.ceil(coords.length / 7)) === 0 ? `<text class="cc-node-val" y="-10" text-anchor="middle">${c.count}</text>` : ""}
           </g>
-          <text class="cc-axis-label" x="${c.x}" y="${height - 4}" text-anchor="middle">${c.hour}</text>
+          ${index % Math.max(1, Math.ceil(coords.length / 7)) === 0 || index === coords.length-1 ? `<text class="cc-axis-label" x="${c.x}" y="${height - 6}" text-anchor="middle">${c.hour}</text>` : ""}
         `).join("")}
       </svg>
     </div>
@@ -384,7 +385,7 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
   let snapshot: Snapshot | null = null, rankings: Rankings | null = null;
   let rankingFailed = false;
   let support: Support | null = null, supportFailed = false;
-  let devices: Device[] = [];
+  let deviceOnline = 0;
   let deviceTotal = 0, deviceError = false;
   let wakeLock: WakeLockSentinel | null = null;
   let useDemoData = false;
@@ -414,7 +415,7 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
         <div>
           <div class="cc-eyebrow-wrapper">
             <span class="cc-eyebrow">AKSIS • SCHOOL OPERATIONS</span>
-            <span class="cc-live-badge"><span class="cc-live-dot"></span> TELEMETRI LIVE</span>
+            <span class="cc-live-badge" data-state="loading"><span class="cc-live-dot"></span><span data-cc="live-label">MENGHUBUNGKAN</span></span>
           </div>
           <h2>Command Center</h2>
           <p>${esc(options.school.name)}</p>
@@ -562,7 +563,7 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
             </div>
           </div>
         </div>
-        <p class="cc-description" data-cc-desc="library">Distribusi & rekapitulasi kunjungan seluruh kelas (Hari ini)</p>
+        <p class="cc-description" data-cc-desc="library">Distribusi kunjungan kelas tercatat hari ini</p>
         <div data-cc="library-ranking" class="cc-ranking-content">
           ${empty("Memuat rekapitulasi perpustakaan…")}
         </div>
@@ -581,15 +582,15 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
       </div>
       <div class="cc-support-grid">
         <section>
-          <h4>Keterlambatan Terbanyak <span>(Hari)</span></h4>
+          <h4><span class="cc-support-label">Keterlambatan Terbanyak</span><span class="cc-support-unit">Hari</span></h4>
           <div data-cc="support-late">${empty("Memuat catatan…")}</div>
         </section>
         <section>
-          <h4>Setoran Trash-Bank Terendah <span>(Kg)</span></h4>
+          <h4><span class="cc-support-label">Setoran Sampah Terendah</span><span class="cc-support-unit">kg</span></h4>
           <div data-cc="support-waste">${empty("Memuat catatan…")}</div>
         </section>
         <section>
-          <h4>Kunjungan Pustaka Terendah <span>(Kali)</span></h4>
+          <h4><span class="cc-support-label">Kunjungan Pustaka Terendah</span><span class="cc-support-unit">Kali</span></h4>
           <div data-cc="support-library">${empty("Memuat catatan…")}</div>
         </section>
       </div>
@@ -616,6 +617,21 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
 
   demoBtn.onclick = () => {
     useDemoData = !useDemoData;
+    snapshot = null; rankings = null; support = null;
+    if (!useDemoData) {
+      for (const key of ["arrivals","waste","library"] as const) {
+        periodFilters[key]="today";
+        root.querySelector<HTMLElement>(`[data-cc-badge="${key}"]`)!.textContent="Hari ini";
+      }
+      root.querySelector<HTMLElement>(".cc-arrival-heading h3")!.textContent="3 Pelopor Pertama Hari Ini";
+      root.querySelector<HTMLElement>('[data-cc-desc="waste"]')!.textContent="3 kelas dengan setoran terbanyak hari ini";
+      root.querySelector<HTMLElement>('[data-cc-desc="library"]')!.textContent="Distribusi kunjungan kelas tercatat hari ini";
+      root.querySelectorAll<HTMLButtonElement>('[data-cc-period]').forEach(button=>{
+        const active=button.dataset.ccPeriod==="today";button.classList.toggle("active",active);
+        const check=button.querySelector(".cc-item-check");if(check)check.textContent=active?"✓":"";
+      });
+    }
+    root.querySelectorAll<HTMLButtonElement>('[data-cc-period]').forEach(button=>{button.disabled=!useDemoData && button.dataset.ccPeriod!=="today";button.title=button.disabled?"Rentang ini tersedia pada mode demo; data langsung saat ini harian.":"";});
     demoBtn.classList.toggle("active", useDemoData);
     void refresh();
   };
@@ -626,18 +642,22 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
       const trigger = wrapper.querySelector<HTMLButtonElement>(".cc-medallion-btn");
       const menu = wrapper.querySelector<HTMLElement>(".cc-dropdown-menu");
       if (!trigger || !menu) return;
+      trigger.setAttribute("aria-expanded","false");
+      menu.querySelectorAll("button").forEach(button=>button.setAttribute("role","menuitem"));
 
       const key = trigger.dataset.ccDropdownTrigger as "arrivals" | "waste" | "library";
 
       trigger.onclick = (e) => {
         e.stopPropagation();
         const isHidden = menu.hidden;
-        root.querySelectorAll<HTMLElement>(".cc-dropdown-menu").forEach(m => m.hidden = true);
-        root.querySelectorAll<HTMLElement>(".cc-medallion-btn").forEach(b => b.classList.remove("active"));
+        root.querySelectorAll<HTMLElement>(".cc-dropdown-menu").forEach(m => { m.hidden = true; m.closest(".cc-card")?.classList.remove("cc-filter-open"); });
+        root.querySelectorAll<HTMLElement>(".cc-medallion-btn").forEach(b => { b.classList.remove("active"); b.setAttribute("aria-expanded","false"); });
 
         if (isHidden) {
           menu.hidden = false;
           trigger.classList.add("active");
+          trigger.setAttribute("aria-expanded","true");
+          wrapper.closest(".cc-card")?.classList.add("cc-filter-open");
         }
       };
 
@@ -675,6 +695,8 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
 
           menu.hidden = true;
           trigger.classList.remove("active");
+          trigger.setAttribute("aria-expanded","false");
+          wrapper.closest(".cc-card")?.classList.remove("cc-filter-open");
 
           paintArrivalChart();
           paintRankings();
@@ -683,38 +705,36 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
     });
 
     document.addEventListener("click", () => {
-      root.querySelectorAll<HTMLElement>(".cc-dropdown-menu").forEach(m => m.hidden = true);
-      root.querySelectorAll<HTMLElement>(".cc-medallion-btn").forEach(b => b.classList.remove("active"));
+      root.querySelectorAll<HTMLElement>(".cc-dropdown-menu").forEach(m => { m.hidden = true; m.closest(".cc-card")?.classList.remove("cc-filter-open"); });
+      root.querySelectorAll<HTMLElement>(".cc-medallion-btn").forEach(b => { b.classList.remove("active"); b.setAttribute("aria-expanded","false"); });
     }, { signal: lifetime.signal });
   };
 
   setupDropdowns();
+  root.querySelectorAll<HTMLButtonElement>('[data-cc-period]').forEach(button=>{
+    button.disabled=button.dataset.ccPeriod!=="today";
+    button.title=button.disabled?"Rentang ini tersedia pada mode demo; data langsung saat ini harian.":"";
+  });
 
   function tick() {
     if (!valid()) return;
     el("clock").textContent = new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: zone() }).format(new Date());
     el("date").textContent = new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: zone() }).format(new Date());
-    const state = useDemoData ? "live" : freshness(snapshot, failed);
+    const state = useDemoData ? "demo" : freshness(snapshot, failed);
+    const badge = root.querySelector<HTMLElement>(".cc-live-badge")!;
+    badge.dataset.state = state;
+    el("live-label").textContent = { demo:"DATA DEMO", loading:"MENGHUBUNGKAN", live:"TELEMETRI LIVE", stale:"DATA TERTUNDA", offline:"KONEKSI TERPUTUS" }[state];
     el("status").dataset.state = state;
-    el("status").textContent = useDemoData ? "Mode Demo (Grafik Aktif)" : { loading: "Menghubungkan…", live: "Terhubung Live", stale: "Menunggu data…", offline: "Koneksi terputus" }[state];
+    el("status").textContent = useDemoData ? "Mode Demo · bukan data sekolah" : { demo:"Mode Demo", loading: "Menghubungkan…", live: "Terhubung Live", stale: "Menunggu data…", offline: "Koneksi terputus" }[state];
     el("updated").textContent = snapshot ? `Data ${snapshot.date} · diperbarui ${time(snapshot.generated_at)}${lastSuccess ? ` · tersinkron ${time(lastSuccess)}` : ""}` : "Data belum tersedia";
   }
 
   function paintMetrics() {
-    let m = snapshot?.metrics;
-    let isDemo = useDemoData;
+    const m = snapshot?.metrics;
 
-    // Auto demo fallback if metrics are empty/zero
-    if (!isDemo && (!m || (m.attendance.students === 0 && m.waste.total_kg === 0 && m.library.visits === 0))) {
-      const demo = getDemoData(undefined, schoolLevel);
-      m = demo.snapshot.metrics;
-      isDemo = true;
-    }
-
-    if (!m) return;
-
-    const totalStudents = m.attendance.total || 500;
-    const attPct = Math.round((m.attendance.students / totalStudents) * 100);
+    if (!m) { el("kpis").innerHTML = Array.from({length:4},()=>`<div class="cc-kpi-card"><span class="cc-kpi-note">Metrik belum tersedia</span></div>`).join(""); return; }
+    const totalStudents = m.attendance.total;
+    const attPct = totalStudents > 0 ? Math.min(100, Math.round((m.attendance.students / totalStudents) * 100)) : 0;
     const wastePct = Math.min(100, Math.round((m.waste.total_kg / 200) * 100)); // Target 200kg
     const libPct = Math.min(100, Math.round((m.library.visits / 150) * 100)); // Target 150 visits
     const eksPct = Math.min(100, Math.round((m.extracurricular.present / (m.extracurricular.recorded || 100)) * 100));
@@ -728,8 +748,8 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
     const sickSub = sickCount > 0 ? ` · 🏥 ${sickCount} sakit` : "";
 
     el("kpis").innerHTML = `
-      ${renderDonutGauge(attPct, "attGrad", "#10b981", "#34d399", iconAttendance, `${attPct}%`, "Siswa Kehadiran", `${number(m.attendance.students)} dari ${totalStudents} siswa tap gerbang${sickSub}`)}
-      ${renderDonutGauge(wastePct, "wasteGrad", "#06b6d4", "#38bdf8", iconWaste, `${m.waste.total_kg}kg`, "Bank Sampah", `${number(m.waste.transactions)} setoran terverifikasi`)}
+      ${renderDonutGauge(attPct, "attGrad", "#10b981", "#34d399", iconAttendance, totalStudents > 0 ? `${attPct}%` : "—", "Kehadiran Siswa", `${number(m.attendance.students)} dari ${totalStudents} siswa tap gerbang${sickSub}`)}
+      ${renderDonutGauge(wastePct, "wasteGrad", "#06b6d4", "#38bdf8", iconWaste, `${weight(m.waste.total_kg)} kg`, "Bank Sampah", `${number(m.waste.transactions)} setoran terverifikasi`)}
       ${renderDonutGauge(libPct, "libGrad", "#f59e0b", "#fbbf24", iconLib, `${m.library.visits}`, "Kunjungan Pustaka", `${m.library.students} pengunjung unik`)}
       ${renderDonutGauge(eksPct, "eksGrad", "#8b5cf6", "#a855f7", iconEks, `${m.extracurricular.present}`, "Presensi Ekskul", `${m.extracurricular.recorded} total partisipasi`)}
     `;
@@ -737,7 +757,7 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
 
   function paintArrivalChart() {
     const demo = getDemoData(periodFilters, schoolLevel);
-    const points = (useDemoData || !snapshot || snapshot.metrics.attendance.students === 0) ? demo.hourly : demo.hourly;
+    const points = useDemoData ? demo.hourly : (rankings?.hourly ?? []);
     el("arrival-chart").innerHTML = renderArrivalLineChart(points);
   }
 
@@ -745,22 +765,25 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
     if (!allowed("device.read")) { el("devices").textContent = "Status perangkat tidak tersedia"; return; }
     if (deviceError && !useDemoData) { el("devices").textContent = "Status perangkat belum dapat diperbarui"; return; }
     
-    const countActive = useDemoData ? 4 : devices.filter(d => online(d.last_seen_at, d.status)).length;
-    const countTotal = useDemoData ? 4 : (deviceTotal || devices.length);
+    const countActive = useDemoData ? 4 : deviceOnline;
+    const countTotal = useDemoData ? 4 : deviceTotal;
 
     el("devices").innerHTML = `
       <span class="cc-status" data-state="${countActive ? "live" : "stale"}">
         <span class="cc-online-pulse"></span> ${countActive}/${countTotal} Perangkat Online
       </span>
-      <small>Heartbeat sensor otomatis 5 menit</small>
+      <small>Heartbeat aktif dalam 2 menit terakhir</small>
     `;
   }
 
   function paintRankings() {
     const demo = getDemoData(periodFilters, schoolLevel);
     let r = rankings;
-    if (useDemoData || !r || (r.arrivals.length === 0 && r.waste.length === 0)) {
-      r = demo.rankings;
+    if (useDemoData) r = demo.rankings;
+    if (!r) {
+      el("ranking-status").textContent = rankingFailed ? "Klasemen gagal diperbarui" : "Klasemen belum tersedia";
+      for (const key of ["arrivals", "waste-ranking", "library-ranking"]) el(key).innerHTML = empty("Data klasemen belum tersedia.");
+      return;
     }
 
     el("ranking-status").textContent = `Klasemen ${r.date} · Diperbarui ${time(r.generated_at)}`;
@@ -776,7 +799,7 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
             <li class="${row.rank === 1 ? "cc-first-arrival" : ""}">
               <span class="cc-place">${row.rank === 1 ? "🥇" : row.rank === 2 ? "🥈" : row.rank === 3 ? "🥉" : row.rank}</span>
               <div>
-                <strong>${esc(row.name)}</strong>
+                <strong title="${esc(row.name)}">${esc(row.name)}</strong>
                 <span>${esc(row.class_name)}${row.rank === 1 ? " · Pelopor Utama Hari Ini" : ""}</span>
               </div>
               <time>${arrivalTime(row.at)}</time>
@@ -804,12 +827,12 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
             return `
               <div class="cc-podium-column cc-position-${row.rank - 1}" style="--podium-ratio:${row.rank === 1 ? 1 : row.rank === 2 ? 0.72 : 0.48}">
                 <div class="cc-podium-label">
-                  <strong>${esc(row.name)}</strong>
+                  <strong title="${esc(row.name)}">${esc(row.name)}</strong>
                   <span>${format(row.value)} <small>${unit}</small></span>
                 </div>
-                <div class="cc-podium-bar">
+                <div class="cc-podium-track"><div class="cc-podium-bar">
                   <b>${medal}</b>
-                </div>
+                </div></div>
               </div>
             `;
           }).join("")}
@@ -820,136 +843,18 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
       `;
     };
 
-    const renderLibraryChart = (rows: ClassRank[], totalVisitsMetric: number) => {
-      if (!rows || !rows.length) return empty("Belum ada data kunjungan perpustakaan.");
-
-      const totalVisits = rows.reduce((acc, curr) => acc + curr.value, 0) || totalVisitsMetric || 1;
-
-      const colors = [
-        { main: "#06b6d4", glow: "rgba(6, 182, 212, 0.4)" },
-        { main: "#10b981", glow: "rgba(16, 185, 129, 0.4)" },
-        { main: "#f59e0b", glow: "rgba(245, 158, 11, 0.4)" },
-        { main: "#8b5cf6", glow: "rgba(139, 92, 246, 0.4)" },
-        { main: "#ec4899", glow: "rgba(236, 72, 153, 0.4)" },
-        { main: "#3b82f6", glow: "rgba(59, 130, 246, 0.4)" }
-      ];
-
-      const activeClasses = rows.filter(r => r.value > 0);
-      const displayClasses = activeClasses.length > 0 ? activeClasses : rows;
-      const topClasses = displayClasses.slice(0, 5);
-
-      const cx = 175;
-      const cy = 95;
-      const radius = 45;
-      const circumference = 2 * Math.PI * radius;
-
-      let accumulatedPercent = 0;
-
-      const donutSegments = topClasses.map((row, idx) => {
-        const color = colors[idx % colors.length]!;
-        const percent = row.value / totalVisits;
-        const strokeDasharray = `${percent * circumference} ${circumference}`;
-        const strokeDashoffset = -accumulatedPercent * circumference;
-        accumulatedPercent += percent;
-
-        return `
-          <circle class="cc-library-donut-segment"
-            cx="${cx}" cy="${cy}" r="${radius}"
-            stroke="${color.main}"
-            stroke-dasharray="${strokeDasharray}"
-            stroke-dashoffset="${strokeDashoffset}"
-          />
-        `;
-      }).join("");
-
-      let accumulatedAngle = -Math.PI / 2;
-      const calloutMarkup = topClasses.map((row, idx) => {
-        const color = colors[idx % colors.length]!;
-        const percent = Math.round((row.value / totalVisits) * 100);
-        const sliceAngle = (row.value / totalVisits) * 2 * Math.PI;
-        const midAngle = accumulatedAngle + sliceAngle / 2;
-        accumulatedAngle += sliceAngle;
-
-        const r1 = radius + 7;
-        const x1 = cx + r1 * Math.cos(midAngle);
-        const y1 = cy + r1 * Math.sin(midAngle);
-
-        const r2 = radius + 25;
-        const x2 = cx + r2 * Math.cos(midAngle);
-        const y2 = cy + r2 * Math.sin(midAngle);
-
-        const isRight = Math.cos(midAngle) >= 0;
-        const leaderLength = 18;
-        const x3 = x2 + (isRight ? leaderLength : -leaderLength);
-        const y3 = y2;
-
-        const textX = x3 + (isRight ? 5 : -5);
-        const textAnchor = isRight ? "start" : "end";
-
-        return `
-          <circle cx="${x1.toFixed(1)}" cy="${y1.toFixed(1)}" r="2.5" fill="${color.main}" />
-          <polyline points="${x1.toFixed(1)},${y1.toFixed(1)} ${x2.toFixed(1)},${y2.toFixed(1)} ${x3.toFixed(1)},${y3.toFixed(1)}"
-            fill="none" stroke="${color.main}" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85" />
-          <g transform="translate(${textX.toFixed(1)}, ${y3.toFixed(1)})">
-            <text text-anchor="${textAnchor}" y="-3" font-size="10.5" font-weight="700" fill="#f8fafc">${esc(row.name)}</text>
-            <text text-anchor="${textAnchor}" y="9" font-size="9" font-weight="600" fill="${color.main}">${number(row.value)} kali <tspan fill="#94a3b8">(${percent}%)</tspan></text>
-          </g>
-        `;
-      }).join("");
-
-      const lowest3 = [...rows].sort((a, b) => a.value - b.value).slice(0, 3);
-
-      const lowestPills = lowest3.map(row => {
-        const formattedName = row.name.toLowerCase().startsWith("kelas") ? row.name : `Kelas ${row.name}`;
-        return `
-          <div class="cc-lowest-pill">
-            <span class="cc-lowest-dot"></span>
-            <div class="cc-lowest-info">
-              <strong>${esc(formattedName)}</strong>
-              <span>${number(row.value)} kali</span>
-            </div>
-          </div>
-        `;
-      }).join("");
-
-      return `
-        <div class="cc-library-view">
-          <div class="cc-library-donut-container">
-            <div class="cc-library-svg-wrapper">
-              <svg class="cc-library-donut-svg" viewBox="0 0 350 190" preserveAspectRatio="xMidYMid meet">
-                <circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="rgba(255, 255, 255, 0.06)" stroke-width="13" />
-                <g transform="rotate(-90 ${cx} ${cy})">
-                  ${donutSegments}
-                </g>
-                <text x="${cx}" y="${cy - 16}" text-anchor="middle" font-size="8.5" font-weight="700" fill="#94a3b8" letter-spacing="0.1em">TOTAL</text>
-                <text x="${cx}" y="${cy + 4}" text-anchor="middle" font-size="23" font-weight="800" fill="#f8fafc">${number(totalVisits)}</text>
-                <text x="${cx}" y="${cy + 19}" text-anchor="middle" font-size="8.5" font-weight="700" fill="#94a3b8" letter-spacing="0.1em">KUNJUNGAN</text>
-                ${calloutMarkup}
-              </svg>
-            </div>
-          </div>
-
-          <div class="cc-lowest-section">
-            <div class="cc-lowest-header">
-              <span class="cc-eyebrow-lowest">KUNJUNGAN TERENDAH</span>
-            </div>
-            <div class="cc-lowest-pills">
-              ${lowestPills}
-            </div>
-          </div>
-        </div>
-      `;
-    };
-
     el("waste-ranking").innerHTML = podium(r.waste, "kg");
-    const totalLibraryVisits = snapshot?.metrics?.library?.visits ?? 0;
+    const totalLibraryVisits = periodFilters.library === "today" ? (snapshot?.metrics?.library?.visits ?? 0) : 0;
     el("library-ranking").innerHTML = renderLibraryChart(r.library, totalLibraryVisits);
   }
 
   function paintSupport() {
     let s = support;
-    if (useDemoData || !s || (!s.late.rows.length && !s.waste.rows.length)) {
-      s = getDemoData(undefined, schoolLevel).support;
+    if (useDemoData) s = getDemoData(undefined, schoolLevel).support;
+    if (!s) {
+      el("support-period").textContent = "";
+      for (const key of ["late", "waste", "library"]) el(`support-${key}`).innerHTML = empty(supportFailed ? "Data belum dapat diperbarui." : "Belum ada data pendampingan.");
+      return;
     }
 
     el("support-period").textContent = `${s.period_start} – ${s.period_end}`;
@@ -962,7 +867,7 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
             ${group.rows.map(row => `
               <li>
                 <div>
-                  <strong>${esc(row.name)}</strong>
+                  <strong title="${esc(row.name)}">${esc(row.name)}</strong>
                   <small>${esc(row.class_name)}</small>
                 </div>
                 <b>${key === "waste" ? weight(row.value) : number(row.value)} <small>${key === "late" ? "hari" : key === "waste" ? "kg" : "kali"}</small></b>
@@ -976,7 +881,7 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
 
   async function refresh() {
     if (!valid() || busy) return;
-    busy = true; refreshButton.disabled = true;
+    busy = true; refreshButton.disabled = true; demoBtn.disabled = true;
     requestController = new AbortController();
     const timeout = window.setTimeout(() => requestController?.abort(), 20_000);
     const signal = requestController.signal;
@@ -995,7 +900,7 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
         const [summaryResult, rankingResult, deviceResult, supportResult] = await Promise.allSettled([
           api<Snapshot>("/dashboard/today", { signal }),
           api<Rankings>("/dashboard/rankings", { signal }),
-          allowed("device.read") ? api<Device[]>("/devices?page=1&page_size=5", { signal }) : Promise.resolve(null),
+          allowed("device.read") ? api<{ active: number; total: number }>("/devices/summary", { signal }) : Promise.resolve(null),
           api<Support>("/dashboard/support", { signal })
         ]);
 
@@ -1012,9 +917,10 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
           rankings = rankingResult.value.data;
         }
 
+        deviceError = deviceResult.status === "rejected";
         if (deviceResult.status === "fulfilled") {
-          devices = deviceResult.value?.data ?? [];
-          deviceTotal = deviceResult.value?.meta?.total ?? devices.length;
+          deviceOnline = deviceResult.value?.data.active ?? 0;
+          deviceTotal = deviceResult.value?.data.total ?? 0;
         }
 
         supportFailed = supportResult.status === "rejected";
@@ -1036,7 +942,7 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
     } finally {
       window.clearTimeout(timeout);
       busy = false;
-      if (valid()) refreshButton.disabled = false;
+      if (valid()) { refreshButton.disabled = false; demoBtn.disabled = false; }
     }
   }
 
@@ -1050,8 +956,16 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
     } catch { /* Fallback */ }
   }
 
+  const viewport = () => {
+    if (!tv) return;
+    root.style.setProperty("--cc-viewport-width", `${window.visualViewport?.width ?? window.innerWidth}px`);
+    root.style.setProperty("--cc-viewport-height", `${window.visualViewport?.height ?? window.innerHeight}px`);
+  };
+  window.addEventListener("resize", viewport, {signal:lifetime.signal});
+  window.visualViewport?.addEventListener("resize", viewport, {signal:lifetime.signal});
   function setTv(enabled: boolean) {
     tv = enabled; root.classList.toggle("cc-tv", tv); document.body.classList.toggle("cc-tv-open", tv);
+    viewport();
     toggle.setAttribute("aria-pressed", String(tv));
     toggle.setAttribute("aria-label", tv ? "Keluar layar TV" : "Mode Layar TV");
     toggle.setAttribute("title", tv ? "Keluar layar TV" : "Mode Layar TV");
@@ -1085,9 +999,17 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
   document.addEventListener("webkitfullscreenchange", fullscreenChanged, { signal: lifetime.signal });
 
   document.addEventListener("keydown", event => {
+    if (tv && event.key === "Escape") {
+      const menu=root.querySelector<HTMLElement>('.cc-dropdown-menu:not([hidden])');
+      if(menu){
+        menu.hidden=true;menu.closest(".cc-card")?.classList.remove("cc-filter-open");
+        const trigger=root.querySelector<HTMLButtonElement>(`[data-cc-dropdown-trigger="${menu.dataset.ccMenu}"]`);
+        trigger?.classList.remove("active");trigger?.setAttribute("aria-expanded","false");trigger?.focus();event.preventDefault();return;
+      }
+    }
     if (tv && ["Escape", "BrowserBack", "GoBack"].includes(event.key)) { event.preventDefault(); void leave(); }
     if (tv && event.key === "Tab") {
-      const controls = [toggle, refreshButton].filter(button => !button.disabled);
+      const controls = [...root.querySelectorAll<HTMLButtonElement>("button:not(:disabled)")].filter(button => button.getClientRects().length && getComputedStyle(button).visibility !== "hidden");
       const index = controls.indexOf(document.activeElement as HTMLButtonElement);
       event.preventDefault(); controls[(index + (event.shiftKey ? controls.length - 1 : 1)) % controls.length]?.focus();
     }
@@ -1106,6 +1028,7 @@ export function mountCommandCenter(root: HTMLElement, options: { school: School;
   return () => {
     disposed = true; lifetime.abort(); requestController?.abort(); window.clearInterval(clockTimer); window.clearInterval(refreshTimer);
     document.body.classList.remove("cc-tv-open"); root.classList.remove("cc-tv");
+    root.style.removeProperty("--cc-viewport-width"); root.style.removeProperty("--cc-viewport-height");
     void wakeLock?.release().catch(() => undefined);
     if (fullscreenElement() === root) { if (document.exitFullscreen) void document.exitFullscreen().catch(() => undefined); else fullDoc.webkitExitFullscreen?.(); }
   };

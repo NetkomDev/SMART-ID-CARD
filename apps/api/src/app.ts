@@ -43,6 +43,7 @@ export function createApp() {
   const app = express();
   app.disable("x-powered-by");
   if (config.TRUST_PROXY_CIDRS) app.set("trust proxy", config.TRUST_PROXY_CIDRS.split(",").map(v => v.trim()));
+  else if (process.env.VERCEL === "1") app.set("trust proxy", 1);
   if (config.NODE_ENV === "production" && config.RATE_LIMIT_BACKEND !== "database") throw new Error("Production requires RATE_LIMIT_BACKEND=database");
   app.use(helmet());
   app.use(compression());
