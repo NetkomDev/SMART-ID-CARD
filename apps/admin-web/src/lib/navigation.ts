@@ -10,6 +10,7 @@ const shapes: Record<string, string> = {
     '<rect x="2" y="5" width="20" height="14" rx="2"/><circle cx="8" cy="11" r="2"/><path d="M5 16h6m4-6h4m-4 4h4"/>',
   "/pwa-portals":
     '<path d="M3 9V3h6m6 0h6v6M3 15v6h6m12-6v6h-6"/><rect x="8" y="8" width="8" height="8" rx="1"/>',
+  "/school-hours": '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   "/attendance": '<path d="m8 12 3 3 5-6"/><circle cx="12" cy="12" r="9"/>',
   "/reports":
     '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Zm0 0v6h6M8 17v-3m4 3v-6m4 6v-4"/>',

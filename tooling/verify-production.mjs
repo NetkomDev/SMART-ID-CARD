@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 
 const base = process.env.AKSIS_PRODUCTION_URL ?? "https://www.aksis.co.id";
-const paths = ["/", "/parent/", "/waste/", "/extracurricular/", "/library/", "/led/", "/command/", "/card-writer/", "/operations/"];
+const paths = ["/", "/parent/", "/waste/", "/extracurricular/", "/attendance/", "/library/", "/led/", "/command/", "/card-writer/", "/operations/"];
 const checks = [];
 let adminHtml = "";
 for (const path of paths) {

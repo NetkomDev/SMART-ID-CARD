@@ -55,7 +55,9 @@
     "test:browser:parent:onboarding": "node tooling/test-parent-onboarding.mjs",
     "test:browser:admin": "node tooling/test-admin-workspace.mjs",
     "test:browser:scanners": "node tooling/test-pwa-scanners.mjs",
-    "test:browser:camera": "node tooling/test-pwa-camera-device.mjs"
+    "test:browser:camera": "node tooling/test-pwa-camera-device.mjs",
+    "test:browser:attendance": "node tooling/test-attendance-browser.mjs",
+    "test:db:attendance": "AKSIS_ATTENDANCE_CONCURRENCY=1 bash tooling/test-db-local.sh supabase/tests/attendance_mobile_integration.sql supabase/tests/parent_dashboard_integration.sql supabase/tests/portal_qr_integration.sql"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",

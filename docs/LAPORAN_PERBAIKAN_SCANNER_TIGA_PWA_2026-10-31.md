@@ -58,7 +58,7 @@ Tidak diperlukan migrasi Supabase baru untuk pekerjaan scanner ini. Fungsi dan k
 
 ## Verifikasi
 
-- Pemeriksaan tipe seluruh aplikasi, unit test dan build: hasil akhir dicatat pada bukti validasi.
+- Pemeriksaan tipe dan build seluruh aplikasi serta **231 pengujian pada 45 berkas lulus**.
 - Pengujian terarah: 26 pengujian untuk lifecycle kamera, adaptasi QR box, pembatasan tautan login, scope identitas, penolakan nomor ambigu, RPC tunggal Perpustakaan, pencatatan Ekskul, keanggotaan, duplikat, penggabungan GET dan penggantian sesi.
 - Browser dengan adapter kamera uji: 3 aplikasi × 6 ukuran layar = 18 kasus. Ukuran 320×568, 360×740, 390×844, 430×932, 768×1024, 844×390. Tidak ada overflow halaman atau tumpang tindih tombol dengan kamera.
 - Browser memakai **html5-qrcode sebenarnya** dan MediaStream virtual Chromium: kamera hidup/mati di semua PWA; perubahan orientasi menghasilkan frame dan panduan QR 190×190 tanpa keluar area.
@@ -72,4 +72,12 @@ Batas pengujian: emulasi ukuran layar dan kamera virtual desktop, bukan kamera H
 
 ## Deployment
 
-Diisi sesudah deployment READY dan pemeriksaan produksi selesai. Perubahan paralel pada modul lain dipertahankan.
+- **READY**, 31 October 2026 14.30 WITA, deployment `dpl_5HkBZrvz1wuL8KE5WXJrgitcicRr`.
+- URL immutable: https://aksis-bpvafv1sg-netkom-developers-projects.vercel.app.
+- Domain produksi: https://www.aksis.co.id, alias dicocokkan langsung ke deployment tersebut.
+- Halaman `/waste/`, `/library/`, `/extracurricular/`, aset scanner baru, logo, service worker v11 serta penolakan akses tanpa autentikasi: **PASS**.
+- Seluruh sembilan entrypoint platform, kesehatan API dan aset admin: **PASS**.
+- Kamera virtual dengan SDK sebenarnya dan video QR sintetis juga diuji pada domain produksi ketiga PWA: **PASS**. Data API pada uji kamera memakai fixture; tidak ada transaksi sekolah yang dibuat.
+- Dashboard Admin turut diverifikasi melalui UI produksi dengan data fixture: 12 menu, layout dan lifecycle navigasi **PASS**.
+
+Bukti produksi tersimpan di `deployment.json`, `production-smoke.json`, `platform-smoke.json`, `production-camera.json`, dan `production-decoded-qr.json`. Deployment ini mendahului penambahan PWA Kehadiran; laporan investigasi kehadiran dibuat terpisah.

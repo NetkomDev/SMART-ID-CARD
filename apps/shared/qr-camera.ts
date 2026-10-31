@@ -147,6 +147,12 @@ export class QRCamera {
           },
           () => undefined,
         );
+        // The SDK resolves on `playing`, before the browser settles its play promise.
+        // Settle playback before allowing an immediate stop/flip to remove the video.
+        const video = this.element(this.options.readerId)?.querySelector(
+          "video",
+        );
+        if (video?.srcObject) await video.play();
         this.active = true;
         if (version !== this.epoch || !this.wanted) {
           await this.halt();

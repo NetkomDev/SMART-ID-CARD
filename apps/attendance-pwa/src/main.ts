@@ -1,124 +1,109 @@
 import { QRCamera, bindLoginCamera } from "../../shared/qr-camera";
 import { PortalError, PortalSession } from "../../shared/portal-session";
 import { setupInstallPrompt } from "../../shared/install-prompt";
+import {
+  acknowledge,
+  addReason,
+  compliance,
+  enqueue,
+  payload,
+  records,
+  resolveStudent,
+  saveSnapshot,
+  schoolTime,
+  snapshot,
+  type Direction,
+  type Record as ScanRecord,
+  type Result,
+  type Snapshot,
+  type Student,
+} from "./store";
 import "./style.css";
-import "../../shared/scanner.css";
 
-// Multi-Scanner Guru Piket & Satpam Session
-const portal = new PortalSession("GATE_STAFF", import.meta.env.VITE_API_BASE_URL ?? "/api/v1");
-setupInstallPrompt("Piket Kehadiran", import.meta.env.BASE_URL, import.meta.env.PROD);
-
-// Types
-type Direction = "CHECK_IN" | "CHECK_OUT";
-
-type AttendanceRules = {
-  check_in_start: string;
-  check_in_end: string;
-  check_out_start: string;
-  timezone: string;
-};
-
-type ScanRecord = {
-  id: string;
-  student_identifier: string;
-  student_name?: string;
-  class_name?: string;
-  direction: Direction;
-  occurred_at_local: string;
-  occurred_at_utc: string;
-  is_late: boolean;
-  is_early_departure: boolean;
-  notes?: string | null;
-  scanner_name?: string | null;
-  synced: boolean;
-};
-
-type PendingReasonScan = {
-  identifier: string;
-  direction: Direction;
-  occurred_at_local: string;
-  occurred_at_utc: string;
-  is_late: boolean;
-  is_early_departure: boolean;
-  student_name?: string;
-  class_name?: string;
-};
-
-// Storage keys
-const STORAGE_KEY_QUEUE = "aksis_attendance_queue_v1";
-const STORAGE_KEY_HISTORY = "aksis_attendance_history_v1";
-const STORAGE_KEY_RULES = "aksis_attendance_rules_v1";
-const STORAGE_KEY_SCANNER_NAME = "aksis_scanner_name_v1";
-
-// State
-let currentDirection: Direction = "CHECK_IN";
-let rules: AttendanceRules = {
-  check_in_start: "06:30",
-  check_in_end: "07:30",
-  check_out_start: "14:00",
-  timezone: "Asia/Makassar"
-};
-let isScanning = false;
-let currentZoom = 1;
-let pendingScanForReason: PendingReasonScan | null = null;
-let syncInProgress = false;
-
-// Quick chips lists
-const LATE_CHIPS = ["Ban Bocor", "Macet Lalu Lintas", "Bangun Kesiangan", "Hujan Lebat", "Urusan Keluarga", "Kendaraan Mogok"];
-const EARLY_CHIPS = ["Sakit (Pulang Cepat)", "Izin Acara Keluarga", "Dispensasi Lomba / Tugas", "Keperluan Mendesak", "Jadwal Pulang Khusus"];
-
-// Elements
-const views = {
-  login: document.getElementById("view-login")!,
-  scan: document.getElementById("view-scan")!,
-  error: document.getElementById("view-error")!
-};
-
-const networkBadge = document.getElementById("network-badge")!;
-const queueBadge = document.getElementById("queue-badge")!;
-const schoolNameEl = document.getElementById("school-name")!;
-const scannerNameDisplay = document.getElementById("scanner-name-display")!;
-const btnDirIn = document.getElementById("btn-dir-in") as HTMLButtonElement;
-const btnDirOut = document.getElementById("btn-dir-out") as HTMLButtonElement;
-const hintDirIn = document.getElementById("hint-dir-in")!;
-const hintDirOut = document.getElementById("hint-dir-out")!;
-const feedbackBanner = document.getElementById("scan-feedback-banner")!;
-const feedbackIcon = document.getElementById("feedback-icon")!;
-const feedbackTitle = document.getElementById("feedback-title")!;
-const feedbackMessage = document.getElementById("feedback-message")!;
-const localScanList = document.getElementById("local-scan-list")!;
-const scanCountBadge = document.getElementById("scan-count-badge")!;
-
-// Reason Modal Elements
-const modalReason = document.getElementById("modal-reason")!;
-const reasonBadgeIcon = document.getElementById("reason-badge-icon")!;
-const reasonModalTitle = document.getElementById("reason-modal-title")!;
-const reasonModalDesc = document.getElementById("reason-modal-desc")!;
-const reasonStudentName = document.getElementById("reason-student-name")!;
-const reasonStudentClass = document.getElementById("reason-student-class")!;
-const quickChipsContainer = document.getElementById("quick-chips-container")!;
-const formReason = document.getElementById("form-reason") as HTMLFormElement;
-const reasonInputText = document.getElementById("reason-input-text") as HTMLInputElement;
-const btnSkipReason = document.getElementById("btn-skip-reason") as HTMLButtonElement;
-
-// Scanner Name Modal Elements
-const modalScannerName = document.getElementById("modal-scanner-name")!;
-const formScannerName = document.getElementById("form-scanner-name") as HTMLFormElement;
-const inputScannerName = document.getElementById("input-scanner-name") as HTMLInputElement;
-const btnEditScannerName = document.getElementById("btn-edit-scanner-name")!;
-const btnCloseScannerName = document.getElementById("btn-close-scanner-name")!;
-
-// Camera controls
-const btnToggleCamera = document.getElementById("btn-toggle-camera") as HTMLButtonElement;
-const btnSwitchCamera = document.getElementById("btn-switch-camera") as HTMLButtonElement;
-const zoomControls = document.getElementById("zoom-controls")!;
-const formScan = document.getElementById("form-scan") as HTMLFormElement;
-const scanInput = document.getElementById("scan-input") as HTMLInputElement;
-
-// Setup login scanner camera
-bindLoginCamera(import.meta.env.BASE_URL);
-
-// Camera Setup
+const portal = new PortalSession(
+  "GATE_STAFF",
+  import.meta.env.VITE_API_BASE_URL ?? "/api/v1",
+);
+setupInstallPrompt(
+  "Piket Kehadiran",
+  import.meta.env.BASE_URL,
+  import.meta.env.PROD,
+);
+const el = (id: string) => document.getElementById(id)!;
+const input = (id: string) => el(id) as HTMLInputElement;
+const escape = (s: string) =>
+  s.replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
+        c
+      ]!,
+  );
+let data: Snapshot | undefined,
+  scope = "",
+  direction: Direction = "CHECK_IN",
+  busy = false,
+  pending: ScanRecord | undefined,
+  syncBusy = false,
+  lastSync = 0,
+  locked = false;
+let calibratedAt = performance.now(),
+  serverAt = Date.now(),
+  wallAt = Date.now();
+let history: ScanRecord[] = [];
+let lastScannedId = "";
+const deviceKey = "aksis.attendance.device.v2";
+let deviceId = localStorage.getItem(deviceKey);
+if (!deviceId) {
+  deviceId = crypto.randomUUID();
+  localStorage.setItem(deviceKey, deviceId);
+}
+const nameKey = () => `aksis.attendance.name.${scope}`;
+const name = () => localStorage.getItem(nameKey()) ?? "";
+const now = () =>
+  new Date(serverAt + performance.now() - calibratedAt).toISOString();
+function calibrate(time: string) {
+  serverAt = Date.parse(time);
+  calibratedAt = performance.now();
+  wallAt = Date.now();
+}
+function sameAccess() {
+  const current = portal.context;
+  return !!current && scope === `${current.school_id}:${current.id}`;
+}
+function usable() {
+  return (
+    !locked &&
+    sameAccess() &&
+    !!data &&
+    Date.now() - data.saved >= -300000 &&
+    Date.now() - data.saved < 7 * 86400000
+  );
+}
+function feedback(type: string, title: string, message: string) {
+  el("scan-feedback-banner").className = `scan-feedback-banner ${type}`;
+  el("scan-feedback-banner").style.display = "flex";
+  el("feedback-icon").textContent = type === "error" ? "!" : "✓";
+  el("feedback-title").textContent = title;
+  el("feedback-message").textContent = message;
+}
+let audio: AudioContext | undefined;
+function beep() {
+  try {
+    audio ??= new AudioContext();
+    const oscillator = audio.createOscillator(),
+      gain = audio.createGain();
+    oscillator.connect(gain);
+    gain.connect(audio.destination);
+    gain.gain.setValueAtTime(0.1, audio.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 0.12);
+    oscillator.frequency.value = 780;
+    oscillator.start();
+    oscillator.stop(audio.currentTime + 0.12);
+  } catch {
+    /* Sound is optional. */
+  }
+}
 const camera = new QRCamera({
   readerId: "qr-reader",
   toggleId: "btn-toggle-camera",
@@ -126,599 +111,595 @@ const camera = new QRCamera({
   placeholderId: "scanner-placeholder",
   statusId: "scan-status",
   zoomId: "zoom-controls",
-  onDecode: async (decodedText) => {
-    await handleScannedCode(decodedText.trim());
-  },
-  onState: (phase) => {
-    isScanning = phase === "active";
-    if (phase === "active") {
-      zoomControls.style.display = "flex";
-    } else {
-      zoomControls.style.display = "none";
-    }
-  }
+  canRead: () =>
+    usable() &&
+    !busy &&
+    !pending &&
+    el("modal-scanner-name").style.display !== "flex",
+  onDecode: (code) => scan(code),
 });
-
-btnToggleCamera?.addEventListener("click", async () => {
-  if (camera.active) {
-    await camera.stop();
-  } else {
-    await camera.start();
-  }
+bindLoginCamera(import.meta.env.BASE_URL);
+el("btn-toggle-camera").onclick = () => {
+  void (camera.active ? camera.stop() : camera.start());
+};
+el("btn-switch-camera").onclick = () => {
+  void camera.flip();
+};
+document.querySelectorAll<HTMLButtonElement>(".zoom-btn").forEach(
+  (button) =>
+    (button.onclick = () => {
+      void camera.setZoom(Number(button.dataset.zoom));
+    }),
+);
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) void camera.stop();
+  else void sync();
 });
-
-btnSwitchCamera?.addEventListener("click", async () => {
-  await camera.flip();
+window.addEventListener("pagehide", () => {
+  void camera.stop();
 });
-
-// Zoom button clicks
-document.querySelectorAll<HTMLButtonElement>(".zoom-btn").forEach(btn => {
-  btn.addEventListener("click", async () => {
-    document.querySelectorAll(".zoom-btn").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-    const zoomVal = Number(btn.dataset.zoom ?? "1");
-    currentZoom = zoomVal;
-    await camera.setZoom(zoomVal);
-  });
-});
-
-// Audio feedback (beep) using Web Audio API
-function playBeep(type: "success" | "warning" | "error" | "duplicate") {
-  try {
-    const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
-    if (type === "success") {
-      osc.frequency.setValueAtTime(880, ctx.currentTime); // A5
-      gain.gain.setValueAtTime(0.15, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.15);
-    } else if (type === "warning") {
-      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-      osc.frequency.setValueAtTime(440, ctx.currentTime + 0.1); // A4
-      gain.gain.setValueAtTime(0.2, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.25);
-    } else if (type === "duplicate") {
-      osc.frequency.setValueAtTime(440, ctx.currentTime);
-      osc.frequency.setValueAtTime(330, ctx.currentTime + 0.08);
-      gain.gain.setValueAtTime(0.15, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.2);
-    } else {
-      osc.frequency.setValueAtTime(220, ctx.currentTime);
-      gain.gain.setValueAtTime(0.25, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.3);
-    }
-  } catch {
-    // AudioContext not allowed or not supported, ignore silently
+function renderDirection() {
+  for (const [id, value] of [
+    ["btn-dir-in", "CHECK_IN"],
+    ["btn-dir-out", "CHECK_OUT"],
+  ]) {
+    el(id!).classList.toggle("active", direction === value);
+    el(id!).setAttribute("aria-pressed", String(direction === value));
   }
 }
-
-// Local Scanner Name handling
-function getScannerName(): string {
-  return localStorage.getItem(STORAGE_KEY_SCANNER_NAME) || "Guru Piket";
+el("btn-dir-in").onclick = () => {
+  if (!pending) {
+    direction = "CHECK_IN";
+    renderDirection();
+  }
+};
+el("btn-dir-out").onclick = () => {
+  if (!pending) {
+    direction = "CHECK_OUT";
+    renderDirection();
+  }
+};
+async function render() {
+  if (!scope) return;
+  history = (await records(scope)).sort((a, b) =>
+    b.occurred_at.localeCompare(a.occurred_at),
+  );
+  const waiting = history.filter((v) => v.status === "PENDING").length,
+    review = history.filter((v) =>
+      ["REJECTED", "NEEDS_REASON"].includes(v.status),
+    ).length;
+  el("queue-badge").style.display = waiting || review ? "inline-block" : "none";
+  el("queue-badge").textContent =
+    `${waiting} antre${review ? ` · ${review} periksa` : ""}`;
+  el("network-badge").textContent = navigator.onLine ? "● Online" : "● Offline";
+  el("network-badge").className =
+    `badge-status ${navigator.onLine ? "online" : "offline"}`;
+  el("scanner-name-display").textContent = name() || "Isi nama petugas";
+  const day = data ? schoolTime(now(), data.rules.timezone).day : "";
+  const visible = history.filter(
+    (v) =>
+      v.daily.includes(`:${day}:`) ||
+      ["PENDING", "REJECTED", "NEEDS_REASON"].includes(v.status),
+  );
+  el("scan-count-badge").textContent = `${visible.length} pindai`;
+  el("local-scan-list").innerHTML =
+    visible
+      .slice(0, 100)
+      .map((original) => {
+        const official = data!.today.find(
+          (o) =>
+            o.student_id === original.student_id &&
+            o.direction === original.direction &&
+            schoolTime(o.occurred_at, data!.rules.timezone).day ===
+              schoolTime(original.occurred_at, data!.rules.timezone).day,
+        );
+        const v =
+          official &&
+          official.occurred_at < original.occurred_at &&
+          !["PENDING", "REJECTED", "NEEDS_REASON"].includes(original.status)
+            ? {
+                ...original,
+                status: "DUPLICATE" as const,
+                canonical: official,
+                is_late: official.is_late,
+                is_early_departure: official.is_early_departure,
+              }
+            : original;
+        const label = {
+          PENDING: "Tersimpan di HP · menunggu sinkron",
+          ACCEPTED: "Terkonfirmasi",
+          REPLACED: "Terkonfirmasi · waktu paling awal",
+          DUPLICATE: "Duplikat · waktu awal dipakai",
+          NEEDS_REASON: "Perlu keterangan",
+          REJECTED: "Perlu diperiksa admin",
+        }[v.status];
+        const time = schoolTime(
+          v.canonical?.occurred_at ?? v.occurred_at,
+          data!.rules.timezone,
+        ).time;
+        return `<li class="history-item"><div class="history-item-left"><strong>${escape(v.student_name)}</strong><small>${escape(v.class_name ?? "Siswa")} · ${v.direction === "CHECK_IN" ? "Datang" : "Pulang"}</small><small>${escape(label)}</small>${v.message ? `<small>${escape(v.message)}</small>` : ""}${v.status === "NEEDS_REASON" ? `<button type="button" data-reason="${v.event_id}">Isi keterangan</button>` : ""}</div><div class="history-item-right"><b>${time}</b><small>${v.is_late ? "Terlambat" : v.is_early_departure ? "Pulang cepat" : ""}</small></div></li>`;
+      })
+      .join("") ||
+    '<li class="empty-history">Belum ada pemindaian hari ini.</li>';
+  el("local-scan-list")
+    .querySelectorAll<HTMLButtonElement>("[data-reason]")
+    .forEach(
+      (b) =>
+        (b.onclick = () => {
+          const v = history.find((v) => v.event_id === b.dataset.reason);
+          if (v) reason(v);
+        }),
+    );
+  if (data) {
+    el("offline-status").textContent = usable()
+      ? `${data.students.length} siswa tersedia di HP · data ${new Date(data.saved).toLocaleString("id-ID", { timeZone: data.rules.timezone })}`
+      : "Data offline kedaluwarsa. Perbarui saat online.";
+    el("hint-dir-in").textContent =
+      `${data.rules.check_in_start}–${data.rules.check_in_end}`;
+    el("hint-dir-out").textContent = `Mulai ${data.rules.check_out_start}`;
+  }
 }
-
-function setScannerName(name: string) {
-  const clean = name.trim() || "Guru Piket";
-  localStorage.setItem(STORAGE_KEY_SCANNER_NAME, clean);
-  scannerNameDisplay.textContent = clean;
+function reason(value: ScanRecord) {
+  pending = value;
+  el("reason-modal-title").textContent = value.is_late
+    ? "Siswa Terlambat"
+    : "Pulang Lebih Cepat";
+  el("reason-modal-desc").textContent =
+    "Isi keterangan sesuai kondisi siswa. Waktu pemindaian pertama tetap disimpan.";
+  el("reason-student-name").textContent = value.student_name;
+  el("reason-student-class").textContent = value.class_name ?? "";
+  input("reason-input-text").value = value.notes;
+  el("quick-chips-container").innerHTML = "";
+  el("modal-reason").style.display = "flex";
+  input("reason-input-text").focus();
 }
-
-btnEditScannerName?.addEventListener("click", () => {
-  inputScannerName.value = getScannerName();
-  modalScannerName.style.display = "flex";
-  inputScannerName.focus();
-});
-
-btnCloseScannerName?.addEventListener("click", () => {
-  modalScannerName.style.display = "none";
-});
-
-formScannerName?.addEventListener("submit", (e) => {
+el("btn-skip-reason").onclick = () => {
+  pending = undefined;
+  el("modal-reason").style.display = "none";
+};
+el("form-reason").onsubmit = async (e) => {
   e.preventDefault();
-  setScannerName(inputScannerName.value);
-  modalScannerName.style.display = "none";
-});
-
-// Load rules & evaluate automatic direction
-function updateDirectionUI() {
-  if (currentDirection === "CHECK_IN") {
-    btnDirIn.classList.add("active");
-    btnDirOut.classList.remove("active");
-  } else {
-    btnDirOut.classList.add("active");
-    btnDirIn.classList.remove("active");
-  }
-}
-
-function autoDetermineDirection() {
-  const now = new Date();
-  const hours = now.getHours();
-  const minutes = now.getMinutes();
-  const timeNum = hours * 60 + minutes;
-
-  // Split check_out_start into minutes
-  const [outH, outM] = rules.check_out_start.split(":").map(Number);
-  const outStartNum = (outH ?? 14) * 60 + (outM ?? 0);
-
-  // If before afternoon checkout hour, default to CHECK_IN, otherwise CHECK_OUT
-  if (timeNum < outStartNum) {
-    currentDirection = "CHECK_IN";
-  } else {
-    currentDirection = "CHECK_OUT";
-  }
-  updateDirectionUI();
-}
-
-btnDirIn?.addEventListener("click", () => {
-  currentDirection = "CHECK_IN";
-  updateDirectionUI();
-});
-
-btnDirOut?.addEventListener("click", () => {
-  currentDirection = "CHECK_OUT";
-  updateDirectionUI();
-});
-
-// Update Rules Display
-function renderRulesDisplay() {
-  hintDirIn.textContent = `Batas: ${rules.check_in_end}`;
-  hintDirOut.textContent = `Mulai: ${rules.check_out_start}`;
-}
-
-// Queue & History Storage Helpers
-function getQueue(): ScanRecord[] {
+  if (!pending || !input("reason-input-text").value.trim() || busy) return;
+  busy = true;
+  const v = pending;
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY_QUEUE) || "[]");
+    v.notes = input("reason-input-text").value.trim();
+    if (v.status === "NEEDS_REASON")
+      await addReason(scope, v.event_id, v.notes);
+    else await persist(v);
+    pending = undefined;
+    el("modal-reason").style.display = "none";
+    await render();
+    void sync();
   } catch {
-    return [];
+    feedback(
+      "error",
+      "Belum tersimpan",
+      "Penyimpanan HP tidak tersedia. Jangan tutup halaman; coba kembali.",
+    );
+  } finally {
+    busy = false;
   }
+};
+function editName() {
+  input("input-scanner-name").value = name();
+  el("modal-scanner-name").style.display = "flex";
+  input("input-scanner-name").focus();
 }
-
-function saveQueue(queue: ScanRecord[]) {
-  localStorage.setItem(STORAGE_KEY_QUEUE, JSON.stringify(queue));
-  updateQueueBadge();
-}
-
-function getHistory(): ScanRecord[] {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY_HISTORY) || "[]");
-  } catch {
-    return [];
-  }
-}
-
-function saveHistory(history: ScanRecord[]) {
-  // Keep only today's scans in local history (limit 200 items)
-  localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(history.slice(0, 200)));
-  renderHistoryUI();
-}
-
-function updateQueueBadge() {
-  const queue = getQueue();
-  if (queue.length > 0) {
-    queueBadge.style.display = "inline-block";
-    queueBadge.textContent = `${queue.length} antre`;
-  } else {
-    queueBadge.style.display = "none";
-  }
-}
-
-function renderHistoryUI() {
-  const history = getHistory();
-  scanCountBadge.textContent = `${history.length} siswa`;
-
-  if (history.length === 0) {
-    localScanList.innerHTML = `<li class="empty-history">Belum ada pemindaian sesi ini.</li>`;
-    return;
-  }
-
-  localScanList.innerHTML = history.map(item => {
-    let tagHtml = "";
-    if (item.direction === "CHECK_IN") {
-      tagHtml = item.is_late
-        ? `<span class="history-tag late">Terlambat</span>`
-        : `<span class="history-tag on-time">Tepat Waktu</span>`;
-    } else {
-      tagHtml = item.is_early_departure
-        ? `<span class="history-tag early">Pulang Cepat</span>`
-        : `<span class="history-tag on-time">Pulang</span>`;
-    }
-
-    const noteHtml = item.notes ? `<small style="color:#d97706;display:block;margin-top:2px;">"${escapeHtml(item.notes)}"</small>` : "";
-
-    return `
-      <li class="history-item">
-        <div class="history-item-left">
-          <span class="history-name">${escapeHtml(item.student_name || item.student_identifier)}</span>
-          <span class="history-sub">${escapeHtml(item.class_name || "Siswa")} · ${item.direction === "CHECK_IN" ? "Masuk" : "Pulang"}${noteHtml}</span>
-        </div>
-        <div class="history-item-right">
-          <span class="history-time">${formatTimeStr(item.occurred_at_local)}</span>
-          ${tagHtml}
-        </div>
-      </li>
-    `;
-  }).join("");
-}
-
-function escapeHtml(str: string): string {
-  return str.replace(/[&<>'"]/g, tag => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    "'": "&#39;",
-    '"': "&quot;"
-  }[tag] || tag));
-}
-
-function formatTimeStr(isoOrTime: string): string {
-  try {
-    if (isoOrTime.includes("T")) {
-      const d = new Date(isoOrTime);
-      return d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
-    }
-    return isoOrTime;
-  } catch {
-    return isoOrTime;
-  }
-}
-
-// Show temporary feedback banner
-let feedbackTimer: number | undefined;
-function showFeedback(type: "success" | "warning" | "duplicate" | "error", title: string, message: string) {
-  if (feedbackTimer) clearTimeout(feedbackTimer);
-
-  feedbackBanner.className = `scan-feedback-banner ${type}`;
-  feedbackIcon.textContent = type === "success" ? "✓" : (type === "warning" ? "!" : (type === "duplicate" ? "ℹ" : "✕"));
-  feedbackTitle.textContent = title;
-  feedbackMessage.textContent = message;
-  feedbackBanner.style.display = "flex";
-
-  feedbackTimer = window.setTimeout(() => {
-    feedbackBanner.style.display = "none";
-  }, 4000);
-}
-
-// Check local duplicate scan (same student + direction today)
-function checkLocalDuplicate(identifier: string, direction: Direction): ScanRecord | null {
-  const todayStr = new Date().toISOString().split("T")[0]!;
-  const history = getHistory();
-  return history.find(h => {
-    const isToday = h.occurred_at_local.startsWith(todayStr) || h.occurred_at_utc.startsWith(todayStr);
-    return isToday && h.student_identifier === identifier && h.direction === direction;
-  }) || null;
-}
-
-// Evaluate time compliance for Late / Early Departure
-function evaluateCompliance(direction: Direction, dateObj: Date): { is_late: boolean; is_early_departure: boolean } {
-  const hours = String(dateObj.getHours()).padStart(2, "0");
-  const mins = String(dateObj.getMinutes()).padStart(2, "0");
-  const timeStr = `${hours}:${mins}`;
-
-  if (direction === "CHECK_IN") {
-    const isLate = timeStr > rules.check_in_end;
-    return { is_late: isLate, is_early_departure: false };
-  } else {
-    const isEarly = timeStr < rules.check_out_start;
-    return { is_late: false, is_early_departure: isEarly };
-  }
-}
-
-// Prompt for reason modal dialog
-function openReasonModal(pending: PendingReasonScan) {
-  pendingScanForReason = pending;
-
-  const isLate = pending.is_late;
-  reasonBadgeIcon.textContent = isLate ? "⏰" : "🚪";
-  reasonModalTitle.textContent = isLate ? "Siswa Terlambat" : "Pulang Lebih Cepat";
-  reasonModalDesc.textContent = isLate
-    ? `Siswa datang setelah batas waktu ${rules.check_in_end}. Keterangan akan tersimpan di sistem & portal orang tua:`
-    : `Siswa pulang sebelum jam kepulangan resmi ${rules.check_out_start}. Pilih alasan kepulangan lebih cepat:`;
-
-  reasonStudentName.textContent = pending.student_name || pending.identifier;
-  reasonStudentClass.textContent = pending.class_name || (pending.direction === "CHECK_IN" ? "Masuk Terlambat" : "Pulang Cepat");
-
-  // Populate quick chips
-  const chips = isLate ? LATE_CHIPS : EARLY_CHIPS;
-  quickChipsContainer.innerHTML = chips.map(chip => `
-    <button type="button" class="chip-btn" data-chip="${escapeHtml(chip)}">${escapeHtml(chip)}</button>
-  `).join("");
-
-  reasonInputText.value = "";
-  modalReason.style.display = "flex";
-
-  // Chip click listeners
-  quickChipsContainer.querySelectorAll<HTMLButtonElement>(".chip-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      quickChipsContainer.querySelectorAll(".chip-btn").forEach(b => b.classList.remove("selected"));
-      btn.classList.add("selected");
-      reasonInputText.value = btn.dataset.chip || "";
-      reasonInputText.focus();
-    });
-  });
-
-  playBeep("warning");
-}
-
-function closeReasonModal() {
-  modalReason.style.display = "none";
-  pendingScanForReason = null;
-}
-
-formReason?.addEventListener("submit", (e) => {
+el("btn-edit-scanner-name").onclick = editName;
+el("btn-close-scanner-name").onclick = () => {
+  el("modal-scanner-name").style.display = "none";
+};
+el("form-scanner-name").onsubmit = (e) => {
   e.preventDefault();
-  if (!pendingScanForReason) return;
-  const notes = reasonInputText.value.trim() || null;
-  finalizeScan(pendingScanForReason, notes);
-  closeReasonModal();
-});
-
-btnSkipReason?.addEventListener("click", () => {
-  if (!pendingScanForReason) return;
-  finalizeScan(pendingScanForReason, null);
-  closeReasonModal();
-});
-
-// Main Scan Processing Engine
-async function handleScannedCode(rawCode: string) {
-  if (!rawCode) return;
-
-  const now = new Date();
-  const occurred_at_utc = now.toISOString();
-  const hours = String(now.getHours()).padStart(2, "0");
-  const mins = String(now.getMinutes()).padStart(2, "0");
-  const secs = String(now.getSeconds()).padStart(2, "0");
-  const todayStr = occurred_at_utc.split("T")[0]!;
-  const occurred_at_local = `${todayStr}T${hours}:${mins}:${secs}`;
-
-  // 1. Anti-Duplication Check: check if already scanned today on this device
-  const existingLocal = checkLocalDuplicate(rawCode, currentDirection);
-  if (existingLocal) {
-    const timeFormatted = formatTimeStr(existingLocal.occurred_at_local);
-    const dirLabel = currentDirection === "CHECK_IN" ? "masuk" : "pulang";
-    playBeep("duplicate");
-    showFeedback(
+  const value = input("input-scanner-name").value.trim();
+  if (!scope || !value) return;
+  localStorage.setItem(nameKey(), value);
+  el("modal-scanner-name").style.display = "none";
+  void render();
+};
+async function persist(value: ScanRecord) {
+  lastScannedId = value.event_id;
+  if (!(await enqueue(value))) {
+    feedback(
       "duplicate",
-      "Kehadiran Sudah Tercatat",
-      `Siswa (${existingLocal.student_name || rawCode}) sudah tercatat ${dirLabel} hari ini pukul ${timeFormatted}.`
+      "Kehadiran sudah tercatat di HP ini",
+      "Pemindaian sebelumnya tetap digunakan.",
     );
     return;
   }
-
-  // 2. Evaluate time rules (Late or Early)
-  const { is_late, is_early_departure } = evaluateCompliance(currentDirection, now);
-
-  const pending: PendingReasonScan = {
-    identifier: rawCode,
-    direction: currentDirection,
-    occurred_at_local,
-    occurred_at_utc,
-    is_late,
-    is_early_departure
-  };
-
-  // 3. If Late or Early departure, popup reason dialog with quick chips
-  if (is_late || is_early_departure) {
-    openReasonModal(pending);
-  } else {
-    // On-time scan, finalize immediately
-    finalizeScan(pending, null);
-  }
+  beep();
+  feedback(
+    "success",
+    "Tersimpan di HP",
+    `${value.student_name} · sinkronisasi berjalan di latar belakang.`,
+  );
+  await render();
+  void sync();
 }
-
-// Finalize scan record: save to queue & history, trigger background sync
-function finalizeScan(scan: PendingReasonScan, notes: string | null) {
-  const record: ScanRecord = {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-    student_identifier: scan.identifier,
-    student_name: scan.student_name,
-    class_name: scan.class_name,
-    direction: scan.direction,
-    occurred_at_local: scan.occurred_at_local,
-    occurred_at_utc: scan.occurred_at_utc,
-    is_late: scan.is_late,
-    is_early_departure: scan.is_early_departure,
-    notes,
-    scanner_name: getScannerName(),
-    synced: false
-  };
-
-  // Add to local history
-  const history = getHistory();
-  history.unshift(record);
-  saveHistory(history);
-
-  // Add to offline sync queue
-  const queue = getQueue();
-  queue.push(record);
-  saveQueue(queue);
-
-  // Audio & visual feedback
-  if (scan.is_late) {
-    playBeep("warning");
-    showFeedback("warning", "Siswa Terlambat Dicatat", `Dicatat terlambat: ${notes || "Tanpa keterangan"}`);
-  } else if (scan.is_early_departure) {
-    playBeep("warning");
-    showFeedback("warning", "Pulang Lebih Cepat Dicatat", `Dicatat pulang cepat: ${notes || "Tanpa keterangan"}`);
-  } else {
-    playBeep("success");
-    const dirLabel = scan.direction === "CHECK_IN" ? "Kehadiran Datang" : "Kepulangan";
-    showFeedback("success", `${dirLabel} Berhasil`, "Data presensi tersimpan cepat di HP.");
-  }
-
-  // Trigger silent background sync without blocking UI
-  triggerSilentSync();
-}
-
-// Silent Background Synchronization Engine
-async function triggerSilentSync() {
-  if (syncInProgress || !navigator.onLine) return;
-  const queue = getQueue();
-  if (queue.length === 0) return;
-
-  syncInProgress = true;
+async function scan(raw: string) {
+  if (busy || pending) return;
+  busy = true;
   try {
-    const payload = {
-      scans: queue.map(q => ({
-        student_identifier: q.student_identifier,
-        direction: q.direction,
-        occurred_at_local: q.occurred_at_local,
-        occurred_at_utc: q.occurred_at_utc,
-        is_late: q.is_late,
-        is_early_departure: q.is_early_departure,
-        notes: q.notes,
-        scanner_name: q.scanner_name
-      }))
-    };
-
-    const res = await portal.request<{
-      accepted_count: number;
-      duplicate_count: number;
-      records: Array<{
-        student_id: string;
-        student_name: string;
-        direction: string;
-        status: string;
-        notes: string | null;
-      }>;
-    }>("/attendance/pwa-sync", {
-      method: "POST",
-      body: JSON.stringify(payload)
-    });
-
-    // Update student names in history if available from server response
-    if (res?.records) {
-      const history = getHistory();
-      for (const rec of res.records) {
-        const match = history.find(h => h.student_identifier === rec.student_id || h.student_identifier === rec.student_name);
-        if (match && !match.student_name) {
-          match.student_name = rec.student_name;
-        }
-      }
-      saveHistory(history);
-    }
-
-    // Queue successfully synced, clear it
-    saveQueue([]);
-  } catch (err) {
-    // Sync failed (offline or network fluctuation), keep queue intact to retry next time
-    console.warn("Silent attendance sync postponed:", err);
-  } finally {
-    syncInProgress = false;
-    updateQueueBadge();
-  }
-}
-
-// Fetch active school rules
-async function fetchRules() {
-  try {
-    const res = await portal.request<AttendanceRules>("/attendance/rules");
-    if (res) {
-      rules = res;
-      localStorage.setItem(STORAGE_KEY_RULES, JSON.stringify(rules));
-      renderRulesDisplay();
-    }
-  } catch {
-    const cached = localStorage.getItem(STORAGE_KEY_RULES);
-    if (cached) {
-      try { rules = JSON.parse(cached); } catch { /* ignore */ }
-    }
-    renderRulesDisplay();
-  }
-}
-
-// Manual Form Submit
-formScan?.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const val = scanInput.value.trim();
-  if (!val) return;
-  scanInput.value = "";
-  await handleScannedCode(val);
-});
-
-// Network status listeners
-window.addEventListener("online", () => {
-  networkBadge.className = "badge-status online";
-  networkBadge.textContent = "● Online";
-  triggerSilentSync();
-});
-
-window.addEventListener("offline", () => {
-  networkBadge.className = "badge-status offline";
-  networkBadge.textContent = "○ Offline";
-});
-
-// Periodic silent sync check every 15 seconds
-setInterval(() => {
-  if (navigator.onLine && getQueue().length > 0) {
-    triggerSilentSync();
-  }
-}, 15000);
-
-// App Lifecycle Init
-async function initApp() {
-  // Initial network badge
-  if (!navigator.onLine) {
-    networkBadge.className = "badge-status offline";
-    networkBadge.textContent = "○ Offline";
-  }
-
-  // Restore scanner name
-  scannerNameDisplay.textContent = getScannerName();
-
-  // Restore cached rules & history
-  const cachedRules = localStorage.getItem(STORAGE_KEY_RULES);
-  if (cachedRules) {
-    try { rules = JSON.parse(cachedRules); } catch { /* ignore */ }
-  }
-  renderRulesDisplay();
-  autoDetermineDirection();
-  renderHistoryUI();
-  updateQueueBadge();
-
-  try {
-    const connected = await portal.start();
-    if (!connected) {
-      views.login.style.display = "block";
-      views.scan.style.display = "none";
+    if (!usable())
+      throw new Error(
+        "Hubungkan internet untuk memperbarui akses dan data sekolah (berlaku offline 7 hari).",
+      );
+    if (!name()) {
+      editName();
       return;
     }
-
-    views.login.style.display = "none";
-    views.scan.style.display = "block";
-
-    const nav = document.getElementById("workspace-nav");
-    if (nav) nav.hidden = false;
-
-    if (portal.context?.school_name) {
-      schoolNameEl.textContent = portal.context.school_name;
+    if (
+      Math.abs(Date.now() - wallAt - (performance.now() - calibratedAt)) >
+      300000
+    )
+      throw new Error(
+        "Jam HP berubah. Hubungkan internet dan muat ulang untuk menyamakan waktu.",
+      );
+    const time = now(),
+      student = resolveStudent(data!.students, raw, time);
+    if (!student)
+      throw new Error(
+        "QR/NISN tidak ditemukan pada data sekolah di HP ini. Perbarui data saat online atau periksa kartu siswa.",
+      );
+    const day = schoolTime(time, data!.rules.timezone).day;
+    const local = (await records(scope)).find(
+      (v) =>
+        v.student_id === student.id &&
+        v.direction === direction &&
+        v.daily === `${scope}:${day}:${student.id}:${direction}` &&
+        v.status !== "REJECTED",
+    );
+    if (local?.status === "NEEDS_REASON") {
+      reason(local);
+      return;
     }
-
-    // Load server rules & sync any pending offline scans
-    await fetchRules();
-    await triggerSilentSync();
+    if (local) {
+      feedback(
+        "duplicate",
+        "Kehadiran sudah tercatat di HP ini",
+        `${student.full_name} · ${local.status === "PENDING" ? "menunggu sinkronisasi" : "pemindaian pertama tetap digunakan"}`,
+      );
+      return;
+    }
+    const existing = data!.today.find(
+      (v) =>
+        v.student_id === student.id &&
+        v.direction === direction &&
+        schoolTime(v.occurred_at, data!.rules.timezone).day === day,
+    );
+    if (existing && existing.occurred_at <= time) {
+      feedback(
+        "duplicate",
+        "Kehadiran sudah tercatat hari ini",
+        `${student.full_name} · ${schoolTime(existing.occurred_at, data!.rules.timezone).time}`,
+      );
+      return;
+    }
+    const value: ScanRecord = {
+      event_id: crypto.randomUUID(),
+      device_id: deviceId!,
+      identifier: raw.trim(),
+      direction,
+      occurred_at: time,
+      scanner_name: name(),
+      notes: "",
+      scope,
+      daily: `${scope}:${day}:${student.id}:${direction}`,
+      student_id: student.id,
+      student_name: student.full_name,
+      class_name: student.class_name,
+      status: "PENDING",
+      ...compliance(direction, time, data!.rules),
+    };
+    if (value.is_late || value.is_early_departure) reason(value);
+    else await persist(value);
   } catch (error) {
-    const pErr = error as PortalError;
-    if (pErr.code === "PORTAL_MISMATCH" || pErr.status === 403) {
-      views.error.hidden = false;
-      views.login.style.display = "none";
-      views.scan.style.display = "none";
-    } else {
-      views.login.style.display = "block";
-      views.scan.style.display = "none";
+    feedback(
+      "error",
+      "Belum dicatat",
+      error instanceof Error ? error.message : "Penyimpanan HP tidak tersedia.",
+    );
+  } finally {
+    busy = false;
+  }
+}
+el("form-scan").onsubmit = (e) => {
+  e.preventDefault();
+  void scan(input("scan-input").value);
+  input("scan-input").value = "";
+};
+async function sync() {
+  if (
+    !sameAccess() ||
+    syncBusy ||
+    locked ||
+    !scope ||
+    !navigator.onLine ||
+    Date.now() - lastSync < 8000
+  )
+    return;
+  const activeScope = scope;
+  syncBusy = true;
+  lastSync = Date.now();
+  try {
+    const batch = (await records(activeScope))
+      .filter((v) => v.status === "PENDING")
+      .sort((a, b) => a.occurred_at.localeCompare(b.occurred_at))
+      .slice(0, 25)
+      .map(payload);
+    if (!batch.length || !sameAccess()) return;
+    const response = await portal.request<{
+      results: Result[];
+      server_time: string;
+    }>("/attendance/pwa-sync", {
+      method: "POST",
+      body: JSON.stringify({ scans: batch }),
+    });
+    await acknowledge(activeScope, batch, response.results);
+    if (scope === activeScope && data) {
+      // Refresh canonical knowledge without discarding any queued earlier scans.
+      for (const r of response.results)
+        if (r.canonical) {
+          const c = r.canonical;
+          data.today = data.today.filter(
+            (v) =>
+              !(
+                v.student_id === c.student_id &&
+                v.direction === c.direction &&
+                schoolTime(v.occurred_at, data!.rules.timezone).day ===
+                  schoolTime(c.occurred_at, data!.rules.timezone).day
+              ),
+          );
+          data.today.push(c);
+        }
+      const duplicate = response.results.find(
+        (r) => r.event_id === lastScannedId && r.status === "DUPLICATE",
+      );
+      if (duplicate?.canonical)
+        feedback(
+          "duplicate",
+          "Kehadiran sudah tercatat hari ini",
+          `Pemindaian pertama pukul ${schoolTime(duplicate.canonical.occurred_at, data.rules.timezone).time} tetap digunakan.`,
+        );
+      await render();
+    }
+  } catch (error) {
+    if (error instanceof PortalError && [401, 403].includes(error.status)) {
+      locked = true;
+      void camera.stop();
+      feedback(
+        "error",
+        "Akses perlu diperbarui",
+        "Antrean tetap tersimpan. Pindai kembali QR akses dari admin sekolah.",
+      );
+    }
+    // Network errors leave every event intact and do not interrupt scanning.
+  } finally {
+    syncBusy = false;
+  }
+}
+async function refreshData() {
+  if (!navigator.onLine || !scope || locked || !sameAccess()) return;
+  const originalScope = scope;
+  try {
+    let firstReceived = performance.now();
+    let after: string | null = null,
+      students: Student[] = [],
+      first:
+        | {
+            rules: Snapshot["rules"];
+            server_time: string;
+            today: Snapshot["today"];
+          }
+        | undefined;
+    do {
+      const page: {
+        school_id: string;
+        students: Student[];
+        next_cursor: string | null;
+        rules: Snapshot["rules"];
+        server_time: string;
+        today: Snapshot["today"];
+      } = await portal.request(
+        `/attendance/bootstrap${after ? `?after=${after}` : ""}`,
+      );
+      if (
+        originalScope !== scope ||
+        page.school_id !== portal.context?.school_id
+      )
+        return;
+      if (!first) {
+        first = page;
+        firstReceived = performance.now();
+      }
+      students.push(...page.students);
+      after = page.next_cursor;
+    } while (after);
+    const value: Snapshot = {
+      scope,
+      saved: Date.now(),
+      server_time: new Date(
+        Date.parse(first!.server_time) + performance.now() - firstReceived,
+      ).toISOString(),
+      rules: first!.rules,
+      students,
+      today: first!.today,
+    };
+    await saveSnapshot(value);
+    data = value;
+    calibrate(value.server_time);
+    await render();
+  } catch (error) {
+    if (error instanceof PortalError && [401, 403].includes(error.status)) {
+      locked = true;
+      feedback(
+        "error",
+        "Akses tidak aktif",
+        "Hubungi admin sekolah. Antrean tetap tersimpan.",
+      );
+    } else if (!data) throw error;
+  }
+}
+async function refreshState() {
+  if (!navigator.onLine || !scope || locked || !sameAccess()) return;
+  if (
+    !data ||
+    Date.now() < data.saved ||
+    Date.now() - data.saved > 15 * 60000
+  ) {
+    await refreshData();
+    return;
+  }
+  const originalScope = scope;
+  try {
+    const state = await portal.request<{
+      school_id: string;
+      server_time: string;
+      rules: Snapshot["rules"];
+      today: Snapshot["today"];
+    }>("/attendance/state");
+    if (
+      originalScope !== scope ||
+      state.school_id !== portal.context?.school_id
+    )
+      return;
+    data = { ...data, ...state, clock_saved: Date.now() };
+    await saveSnapshot(data);
+    calibrate(state.server_time);
+    await render();
+  } catch (error) {
+    if (error instanceof PortalError && [401, 403].includes(error.status)) {
+      locked = true;
+      void camera.stop();
+      feedback(
+        "error",
+        "Akses tidak aktif",
+        "Hubungi admin sekolah. Antrean tetap tersimpan.",
+      );
     }
   }
 }
+async function start() {
+  try {
+    const incoming = /(?:[?#&])token=/.test(location.href);
+    if (navigator.onLine || incoming) {
+      try {
+        if (!(await portal.start())) {
+          el("view-login").style.display = "block";
+          return;
+        }
+      } catch (error) {
+        if (
+          incoming ||
+          !portal.context ||
+          (error instanceof PortalError && [401, 403].includes(error.status))
+        )
+          throw error;
+      }
+    }
+    if (!portal.context) {
+      el("view-login").style.display = "block";
+      return;
+    }
+    scope = `${portal.context.school_id}:${portal.context.id}`;
+    data = await snapshot(scope);
+    if (data) {
+      calibrate(
+        new Date(
+          Date.now() +
+            Date.parse(data.server_time) -
+            (data.clock_saved ?? data.saved),
+        ).toISOString(),
+      );
+    }
+    await refreshState();
+    el("view-login").style.display = "none";
+    el("view-scan").style.display = "block";
+    el("workspace-nav").hidden = false;
+    el("school-name").textContent = portal.context.school_name;
+    if (!usable())
+      feedback(
+        "error",
+        "Persiapan offline belum siap",
+        "Hubungkan internet untuk mengunduh data siswa dan jam sekolah.",
+      );
+    if (data)
+      direction =
+        schoolTime(now(), data.rules.timezone).time >=
+        data.rules.check_out_start
+          ? "CHECK_OUT"
+          : "CHECK_IN";
+    renderDirection();
+    await render();
+    if (!name()) editName();
+    if (localStorage.getItem("aksis_attendance_queue_v1"))
+      feedback(
+        "warning",
+        "Antrean versi lama ditemukan",
+        "Antrean lama tetap disimpan dan dapat diekspor. Minta admin memeriksa sebelum digunakan.",
+      );
+    void sync();
+  } catch (error) {
+    el("view-login").style.display = "block";
+    el("login-error").textContent =
+      error instanceof Error ? error.message : "Tidak dapat membuka portal.";
+  }
+}
+el("form-login").onsubmit = (e) => {
+  e.preventDefault();
+  void start();
+};
+el("btn-login-retry").style.display = "inline-block";
+el("btn-refresh-data").onclick = () => {
+  void refreshData().catch(() =>
+    feedback(
+      "error",
+      "Data belum diperbarui",
+      "Hubungkan internet dan coba kembali.",
+    ),
+  );
+};
+el("btn-export").onclick = async () => {
+  const value = {
+    scope,
+    school_id: scope.split(":")[0],
+    portal_id: scope.split(":")[1],
+    records: await records(scope),
+    legacy_unassigned: localStorage.getItem("aksis_attendance_queue_v1"),
+  };
+  const url = URL.createObjectURL(
+    new Blob([JSON.stringify(value, null, 2)], { type: "application/json" }),
+  );
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "aksis-antrean-kehadiran.json";
+  a.click();
+  URL.revokeObjectURL(url);
+};
+window.addEventListener("online", () => {
+  void sync();
+  void refreshState();
+});
+window.addEventListener("offline", () => {
+  void render();
+});
+setInterval(() => {
+  void sync();
+}, 8500);
+setInterval(() => {
+  void refreshState();
+}, 60000);
+void start();
 
-initApp();
+window.addEventListener("storage", (event) => {
+  if (event.key === "aksis.portal.GATE_STAFF.v1" && scope && !sameAccess()) {
+    locked = true;
+    void camera.stop();
+    feedback(
+      "error",
+      "Akses berubah",
+      "Muat ulang portal. Antrean tetap tersimpan pada sekolah dan akses semula.",
+    );
+  }
+});

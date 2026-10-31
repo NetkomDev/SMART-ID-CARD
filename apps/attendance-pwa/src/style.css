@@ -586,3 +586,30 @@ footer {
   from { opacity: 0; }
   to { opacity: 1; }
 }
+/* Keep the same scanner surface and touch targets as other AKSIS portals. */
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display:none !important; }
+.school-header-row, .header-right { flex-wrap:wrap; gap:8px; }
+.school-context, .brand-text, .history-item-left { min-width:0; overflow-wrap:anywhere; }
+.school-context { flex:1 1 160px; }
+.scanner-identity-row { flex-wrap:wrap; }
+.btn-text-small, .chip-btn, .export-button { min-height:44px; padding:8px 12px; }
+.manual-scan input { min-width:0; width:100%; }
+button, input { min-height:44px; }
+.modal-reason-overlay { overflow-y:auto; padding:16px; }
+.modal-reason-card { max-height:calc(100dvh - 32px); overflow-y:auto; margin:auto; }
+.history-item { align-items:flex-start; gap:8px; }
+.student-mini-banner { flex-wrap:wrap; gap:6px; }
+.export-button { margin-top:16px; width:100%; border:1px solid var(--line); border-radius:12px; background:white; color:var(--primary); }
+@media(max-width:380px) { .aksis-pwa-header {padding:12px;gap:8px;flex-wrap:wrap;} .dir-btn {padding:10px 8px;gap:6px;} .dir-text strong {font-size:.82rem;} .modal-reason-card {padding:18px;} .reason-actions {grid-template-columns:1fr;} }
+@media(prefers-reduced-motion:reduce) { * {animation:none!important;transition:none!important;} }
+.aksis-pwa-header::after { background-image:url('../public/Header-PWA.svg') !important; }
+#app-container > #view-scan { padding:0; margin:16px 0; background:transparent; border:0; box-shadow:none; }
+.connection-strip { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:6px; }
+.connection-strip .online { color:#065f46; background:#d1fae5; }
+.connection-strip .offline { color:#991b1b; background:#fee2e2; }
+.offline-status { font-size:.75rem; color:#52695d; margin:6px 0; }
+.refresh-data { background:transparent; border:0; color:#075b3d; font-size:.76rem; padding:4px 0; margin-bottom:8px; text-decoration:underline; }
+.dir-text small,.history-item small { letter-spacing:0; text-transform:none; }
+.history-item-left small { color:#52695d; font-weight:500; }
+.offline-help { font-size:.75rem; line-height:1.5; margin:8px 0; color:#52695d; }

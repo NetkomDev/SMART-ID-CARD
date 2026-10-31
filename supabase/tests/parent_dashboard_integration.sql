@@ -56,19 +56,17 @@ insert into auth.users(id,email,email_confirmed_at) values
  ('10000000-0000-4000-8000-000000000006','parent-a@example.test',now()),
  ('10000000-0000-4000-8000-000000000007','parent-b@example.test',now());
 insert into public.users(id,full_name) values ('10000000-0000-4000-8000-000000000006','Parent A'),('10000000-0000-4000-8000-000000000007','Parent B');
-insert into public.parent_link_tokens(school_id,student_id,token_hash,relationship,expires_at) values
- ('20000000-0000-4000-8000-000000000001','80000000-0000-4000-8000-000000000001',encode(digest(repeat('i',43),'sha256'),'hex'),'MOTHER',now()+interval '1 day'),
- ('20000000-0000-4000-8000-000000000001','80000000-0000-4000-8000-000000000002',encode(digest(repeat('j',43),'sha256'),'hex'),'FATHER',now()+interval '1 day');
+update public.students set nisn=case when student_number='A1' then '0012345001' else '0012345002' end,date_of_birth='2010-01-01' where school_id='20000000-0000-4000-8000-000000000001';
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000006',true);
 set local role authenticated;
 select public.ensure_parent_profile('Parent A');
-select pg_temp.check_ok((public.claim_parent_invitation(repeat('i',43))->>'accepted')::boolean,'individual claims single-use invitation');
-select pg_temp.check_ok(not (public.claim_parent_invitation(repeat('i',43))->>'accepted')::boolean,'invitation replay rejected');
+select pg_temp.check_ok((public.link_child_by_nisn_dob('0012345001','2010-01-01')->>'accepted')::boolean,'individual claims single-use invitation');
+select pg_temp.check_ok((public.link_child_by_nisn_dob('0012345001','2010-01-01')->>'already_linked')::boolean,'repeated linking is idempotent');
 select pg_temp.check_ok((select count(*)=1 from public.get_verified_parent_children()),'one verified child');
 select pg_temp.check_ok(public.get_verified_parent_child_today('80000000-0000-4000-8000-000000000001')#>>'{attendance,status}'='BELUM_HADIR','honest empty attendance');
 select pg_temp.check_ok(public.get_verified_parent_child_today('80000000-0000-4000-8000-000000000001')#>>'{waste,total_points}'='0','honest empty points');
 select pg_temp.check_ok(public.get_verified_parent_child_today('80000000-0000-4000-8000-000000000001')#>>'{library,month_visits}'='0','honest empty library');
-select pg_temp.check_ok(public.get_verified_parent_child_today('80000000-0000-4000-8000-000000000001')->>'contract_version'='2','versioned rich contract');
+select pg_temp.check_ok(public.get_verified_parent_child_today('80000000-0000-4000-8000-000000000001')->>'contract_version'='4','versioned rich contract');
 do $$ begin
  perform public.get_verified_parent_child_today('80000000-0000-4000-8000-000000000002'); raise exception 'FAIL cross family';
 exception when insufficient_privilege then raise notice 'PASS cross-family read denied'; end $$;
@@ -91,20 +89,31 @@ update public.schools set timezone='Asia/Makassar',waste_organic_points_per_kg=7
 insert into public.waste_transactions(event_id,school_id,class_id,student_id,staff_user_id,organic_kg,inorganic_kg,source) values(gen_random_uuid(),'20000000-0000-4000-8000-000000000001','70000000-0000-4000-8000-000000000001','80000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000002',2.4,0,'MANUAL');
 set local role authenticated;
 select pg_temp.check_ok((public.get_verified_parent_child_today('80000000-0000-4000-8000-000000000001')#>>'{waste,total_points}')::numeric=18,'real waste points in rich contract');
+reset role;
+insert into public.attendance_logs(school_id,event_id,student_id,class_id,direction,source,occurred_at_local,local_sequence,is_late,is_early_departure,notes) values
+ ('20000000-0000-4000-8000-000000000001',gen_random_uuid(),'80000000-0000-4000-8000-000000000001','70000000-0000-4000-8000-000000000001','CHECK_IN','OFFLINE_SYNC',((now() at time zone 'Asia/Makassar')::date+'07:35'::time) at time zone 'Asia/Makassar',0,true,false,'Macet'),
+ ('20000000-0000-4000-8000-000000000001',gen_random_uuid(),'80000000-0000-4000-8000-000000000001','70000000-0000-4000-8000-000000000001','CHECK_OUT','OFFLINE_SYNC',((now() at time zone 'Asia/Makassar')::date+'13:00'::time) at time zone 'Asia/Makassar',0,false,true,'Sakit');
+set local role authenticated;
+select pg_temp.check_ok(public.get_verified_parent_child_today('80000000-0000-4000-8000-000000000001')#>>'{attendance,note}'='Hari ini Terlambat · Hari ini Pulang Cepat','parent card includes both arrival and departure notices');
+select pg_temp.check_ok(public.get_verified_parent_child_today('80000000-0000-4000-8000-000000000001')#>>'{attendance,check_in}'='07.35','parent shows school-local canonical arrival');
+select pg_temp.check_ok(public.get_verified_parent_child_today('80000000-0000-4000-8000-000000000001')#>>'{attendance,check_out_note}'='Sakit','parent checkout reason available');
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000001',true);
+select pg_temp.check_ok(public.refresh_dashboard_today('20000000-0000-4000-8000-000000000001')#>>'{metrics,attendance,students}'='1','Command Center counts student once across arrival and departure');
+select pg_temp.check_ok(public.refresh_dashboard_today('20000000-0000-4000-8000-000000000001')#>>'{metrics,attendance,late}'='1','Command Center counts canonical late arrival');
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000007',true);
 select public.ensure_parent_profile('Parent B');
-select pg_temp.check_ok((public.claim_parent_invitation(repeat('j',43))->>'accepted')::boolean,'second family claims own child');
+select pg_temp.check_ok((public.link_child_by_nisn_dob('0012345002','2010-01-01')->>'accepted')::boolean,'second family claims own child');
 select pg_temp.check_ok((select count(*)=1 from public.parent_student_links),'RLS only own verified link');
 select pg_temp.check_ok(not public.can_access_parent_child('80000000-0000-4000-8000-000000000001'),'same school different family denied');
-select pg_temp.check_ok(not (public.claim_parent_invitation('invalid1')->>'accepted')::boolean,'invalid claim fails');
-select public.claim_parent_invitation('invalid2'); select public.claim_parent_invitation('invalid3'); select public.claim_parent_invitation('invalid4'); select public.claim_parent_invitation('invalid5');
-select pg_temp.check_ok(public.claim_parent_invitation('invalid6')->>'code'='RATE_LIMITED','database claim limiter persists failures');
+select pg_temp.check_ok(not (public.link_child_by_nisn_dob('invalid1','2010-01-01')->>'accepted')::boolean,'invalid claim fails');
+select public.link_child_by_nisn_dob('invalid2','2010-01-01'); select public.link_child_by_nisn_dob('invalid3','2010-01-01'); select public.link_child_by_nisn_dob('invalid4','2010-01-01'); select public.link_child_by_nisn_dob('invalid5','2010-01-01');
+select pg_temp.check_ok(public.link_child_by_nisn_dob('invalid6','2010-01-01')->>'code'='RATE_LIMITED','database claim limiter persists failures');
 reset role;
 update public.parent_student_links set status='REVOKED',revoked_at=now() where parent_user_id='10000000-0000-4000-8000-000000000007';
 set local role authenticated;
 select pg_temp.check_ok(not public.can_access_parent_child('80000000-0000-4000-8000-000000000002'),'revocation effective with same JWT');
 reset role;
-select pg_temp.check_ok((select count(*)>0 from public.audit_logs where action='parent.link.claimed'),'claim audit persists in transaction');
+select pg_temp.check_ok((select count(*)>0 from public.audit_logs where action='parent.child.linked_by_nisn_dob'),'claim audit persists in transaction');
 select pg_temp.check_ok((select count(*)>0 from public.audit_logs where action='parent.permit.submitted'),'permit audit persists');
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000006',true);
 set local role authenticated;

@@ -36,6 +36,7 @@ for suite in "$@"; do
   fi
   tail -n 2 "$suite_log"
 done
+if [[ "${AKSIS_ATTENDANCE_CONCURRENCY:-0}" == 1 ]]; then node tooling/test-attendance-concurrency.mjs; fi
 if [[ "${AKSIS_RESTORE_DRILL:-0}" == 1 ]]; then
   pg_dump --no-owner postgres > "$audit_tmp/restore.sql"
   createdb restored

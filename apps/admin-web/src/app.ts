@@ -61,6 +61,7 @@ const navItems = [
   ["/cards", "Kartu siswa", "▰"],
   ["/pwa-portals", "Portal PWA & QR", "📱"],
   ["/attendance", "Kehadiran", "✓"],
+  ["/school-hours", "Jam Pelajaran", "◷"],
   ["/reports", "Laporan Wali Kelas", "↗"],
   ["/waste", "Bank sampah", "♻"],
   ["/library", "Perpustakaan", "▤"],
@@ -1684,15 +1685,13 @@ async function devicesPage(): Promise<void> {
     });
   } catch (error) { if (isCancelled(error)) return; shell(errorState(error), "Perangkat", "Status IoT gate, terminal, LED, dan card station sekolah."); }
 }
-async function attendancePage(): Promise<void> {
+async function attendancePage(hoursOnly = false): Promise<void> {
   shell(`<section class="stats-grid">${Array.from({ length: 3 }, () => skeleton(1)).join("")}</section>`, "Kehadiran", "Pengaturan jam presensi sekolah dan log kehadiran guru piket & gerbang.");
   try {
     const [summaryRes, logsRes, rulesRes] = await Promise.all([
       api<{ total_present: number, total_late: number }>("/attendance/summary"),
       api<Attendance[]>("/attendance?page=1&page_size=50"),
-      api<{ check_in_start: string; check_in_end: string; check_out_start: string; timezone: string }>("/attendance/rules").catch(() => ({
-        data: { check_in_start: "06:30", check_in_end: "07:30", check_out_start: "14:00", timezone: "Asia/Makassar" }
-      }))
+      api<{ check_in_start: string; check_in_end: string; check_out_start: string; timezone: string }>("/attendance/rules")
     ]);
     const summary = summaryRes.data;
     const logs = logsRes.data;
@@ -1729,7 +1728,7 @@ async function attendancePage(): Promise<void> {
       <article class="stat-card blue"><div><span>Jam Datang & Pulang</span><strong>${currentRules.check_in_end} / ${currentRules.check_out_start}</strong></div><span class="trend">⏰</span></article>
     </section>
 
-    <!-- Panel Pengaturan Jam Pelajaran & Jam Presensi -->
+    ${hoursOnly ? `<!-- Jam Pelajaran -->
     <section class="dashboard-grid single-column" style="margin-bottom: 24px;">
       <article class="panel">
         <div class="panel-head">
@@ -1756,12 +1755,13 @@ async function attendancePage(): Promise<void> {
       </article>
     </section>
 
-    <section class="dashboard-grid single-column">
+    ` : `<p><a href="/school-hours" data-link>Pengaturan Jam Pelajaran →</a></p>`}
+    <section class="dashboard-grid single-column" ${hoursOnly ? 'hidden' : ''}>
       <article class="panel">
         <div class="panel-head"><h2>Riwayat Kehadiran (50 Terakhir)</h2><p>Log presensi multi-scanner guru piket & gerbang yang tervalidasi</p></div>
         ${logRows ? `<div class="table-wrap"><table><thead><tr><th>Siswa</th><th>Kelas</th><th>Arah & Petugas</th><th>Waktu</th><th>Status & Keterangan</th></tr></thead><tbody>${logRows}</tbody></table></div>` : emptyState("Data belum tersedia", "Belum ada presensi tercatat hari ini.")}
       </article>
-    </section>`, "Kehadiran", "Pengaturan jam presensi sekolah dan log kehadiran guru piket & gerbang.");
+    </section>`, hoursOnly ? "Jam Pelajaran" : "Kehadiran", "Jam sekolah dan presensi guru piket menggunakan zona waktu sekolah.");
 
     afterPagePaint(() => {
       const rulesForm = document.getElementById("attendance-rules-form") as HTMLFormElement | null;
@@ -1785,14 +1785,13 @@ async function attendancePage(): Promise<void> {
             body: JSON.stringify({
               check_in_start: inStart,
               check_in_end: inEnd,
-              check_out_start: outStart,
-              timezone: currentRules.timezone || "Asia/Makassar"
+              check_out_start: outStart
             })
           });
 
           saveStatus.style.display = "block";
           saveStatus.style.color = "var(--green, #16a34a)";
-          saveStatus.textContent = "✓ Jam presensi berhasil diperbarui dan disinkronkan ke seluruh portal guru piket.";
+          saveStatus.textContent = "✓ Jam disimpan. Portal online memperbarui pengaturan dalam 1 menit; HP offline memperbarui saat terhubung.";
         } catch (err) {
           saveStatus.style.display = "block";
           saveStatus.style.color = "var(--red, #ef4444)";
@@ -3168,6 +3167,7 @@ export async function render(): Promise<void> {
     else if (path === "/students") await studentsPage();
     else if (path === "/academic-years") await academicYearsPage();
     else if (path === "/attendance") await attendancePage();
+    else if (path === "/school-hours") await attendancePage(true);
     else if (path === "/cards") await cardsPage();
     else if (path === "/devices") await devicesPage();
     else if (path === "/student-import") studentImportPage();
