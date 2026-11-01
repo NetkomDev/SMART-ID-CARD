@@ -1,5 +1,5 @@
 import { DurableQueue } from "../../shared/durable-queue";
-import { StudentCache, startRosterRefresh } from "../../shared/offline-store";
+import { StudentCache, startRosterRefresh, syncPortalRoster } from "../../shared/offline-store";
 import { QRCamera, bindLoginCamera } from "../../shared/qr-camera";
 import { gateIntro, gateHelp, escapePortal as esc } from "../../shared/portal-ui";
 import { NaturalVoice } from "../../shared/natural-voice";
@@ -321,12 +321,12 @@ function renderDashboard(data: Dashboard) {
   el("ranking-updated").textContent = `Diperbarui ${new Intl.DateTimeFormat("id-ID", { timeZone: data.timezone, dateStyle: "medium", timeStyle: "short" }).format(new Date(data.as_of))}`;
   updateMeasurement();
 }
-async function loadDashboard() {
+async function loadDashboard(silent = false) {
   if (!portal.connected || view === "login") return;
   if (portal.context!.id !== activePortalId) { window.location.reload(); return; }
   const schoolId = portal.context!.school_id;
   const requestId = ++dashboardRequest;
-  el<HTMLButtonElement>("btn-refresh").disabled = true;
+  if (!silent) el<HTMLButtonElement>("btn-refresh").disabled = true;
   el("ranking-content").setAttribute("aria-busy", "true");
   try {
     const data = await portal.request<Dashboard>(`/waste/dashboard?period=${input<HTMLSelectElement>("ranking-period").value}`);
@@ -334,13 +334,15 @@ async function loadDashboard() {
     if (portal.context?.school_id !== schoolId || data.school_id !== schoolId) {
       dashboard = null;
       el("ranking-content").hidden = true;
-      throw new PortalError("Konteks sekolah berubah. Muat ulang halaman sebelum melihat data.", 403, "PORTAL_MISMATCH");
+      if (!silent) throw new PortalError("Konteks sekolah berubah. Muat ulang halaman sebelum melihat data.", 403, "PORTAL_MISMATCH");
+      return;
     }
     dashboard = data; renderDashboard(data);
     el("ranking-content").hidden = false;
     el("dashboard-error").textContent = ""; el("ranking-error").textContent = "";
   } catch (error) {
     if (requestId !== dashboardRequest) return;
+    if (silent) return; // Silent background refresh never disrupts UI or pops banners!
     clearDailySummary();
     if (error instanceof PortalError && (error.status === 401 || error.status === 403)) {
       switchView("scan");
@@ -353,7 +355,10 @@ async function loadDashboard() {
     el("ranking-updated").textContent = "Pembaruan gagal · tekan Perbarui untuk mencoba lagi";
     if (!dashboard || dashboard.period !== input<HTMLSelectElement>("ranking-period").value) el("ranking-content").hidden = true;
   } finally {
-    if (requestId === dashboardRequest) { el<HTMLButtonElement>("btn-refresh").disabled = false; el("ranking-content").setAttribute("aria-busy", "false"); }
+    if (requestId === dashboardRequest) {
+      el<HTMLButtonElement>("btn-refresh").disabled = false;
+      el("ranking-content").setAttribute("aria-busy", "false");
+    }
   }
 }
 async function init() {
@@ -410,7 +415,9 @@ async function init() {
         }
       }
     } catch { /* Ignore */ }
-    void loadDashboard(); offerInstall();
+    void syncPortalRoster(portal, studentCache);
+    void loadDashboard(true);
+    offerInstall();
   };
 
   if (portal.connected && !isLoginFlow) {
@@ -440,16 +447,25 @@ async function init() {
     if (!initialRestored) switchView("scan");
   }
 }
+
 let syncingWaste = false;
+let syncBackoffUntil = 0;
+
 async function syncWasteQueue() {
-  if (syncingWaste || !navigator.onLine) return;
-  syncingWaste = true;
+  if (syncingWaste) return;
+  if (typeof navigator !== "undefined" && !navigator.onLine) return;
+  if (Date.now() < syncBackoffUntil) return;
+
   const scope = wasteQueue.currentScope;
   try {
     const pendingItems = await wasteQueue.getPending(scope);
     if (!pendingItems.length) return;
+
+    syncingWaste = true;
     for (const item of pendingItems) {
       if (scope !== wasteQueue.currentScope) break;
+      if (typeof navigator !== "undefined" && !navigator.onLine) break;
+
       try {
         await portal.request("/waste/transactions", {
           method: "POST",
@@ -464,13 +480,27 @@ async function syncWasteQueue() {
         });
         await wasteQueue.markSynced(item.event_id, scope);
       } catch (err) {
-        await wasteQueue.markFailed(item.event_id, err instanceof Error ? err.message : "Sinkronisasi gagal", scope);
-        if (err instanceof PortalError && err.status >= 400 && err.status < 500 && err.status !== 429) { el("scan-error").textContent = "Ada setoran tertunda yang perlu diperiksa: " + err.message; el("scan-error").style.display = "block"; continue; }
-        break;
+        if (err instanceof PortalError && (err.status === 429 || err.status >= 500)) {
+          // Server rate limit or high concurrency load: pause with randomized jitter
+          syncBackoffUntil = Date.now() + 20_000 + Math.floor(Math.random() * 15_000);
+          break;
+        } else if (err instanceof PortalError && err.status >= 400 && err.status < 500) {
+          // Permanent rejection (e.g. invalid student or portal mismatch): record failed in IDB without popping banners
+          await wasteQueue.markFailed(item.event_id, err.message, scope);
+          console.warn("[Piket Sampah Sync] Setoran ditolak server:", err.message);
+          continue;
+        } else {
+          // Network interruption / timeout: keep safe in IndexedDB silently
+          break;
+        }
       }
     }
-    void loadDashboard();
-  } catch { /* Storage or network unavailable: keep events for retry. */
+
+    if (view === "ranking" && !document.hidden) {
+      void loadDashboard(true);
+    }
+  } catch {
+    /* Storage or network error: retain items safely in IndexedDB */
   } finally {
     syncingWaste = false;
   }
@@ -485,7 +515,7 @@ async function resolveStudent(scannedText?: string) {
   el("scan-error").style.display = "none";
   el("scan-error").textContent = "";
 
-  // 1. FAST PATH (Instant on-device resolution without spinner)
+  // 1. FAST PATH (Instant on-device resolution without spinner in <1ms)
   const cached = studentCache.resolve(query);
   if (cached) {
     if (!scannedText) {
@@ -512,7 +542,14 @@ async function resolveStudent(scannedText?: string) {
     return;
   }
 
-  // 2. FALLBACK PATH (Online resolution)
+  // If not found in cache and device is offline / power outage (mati lampu)
+  if (typeof navigator !== "undefined" && !navigator.onLine) {
+    el("not-found-msg-text").textContent = `Siswa tidak ditemukan dalam daftar kelas piket ${className || "ini"}. Saat mode offline/mati lampu, pastikan kartu siswa terdaftar di kelas ini.`;
+    el("modal-not-found").style.display = "flex";
+    return;
+  }
+
+  // 2. FALLBACK PATH (Online resolution for newly assigned cards)
   resolving = true;
   showLoadingOverlay(true);
   el<HTMLButtonElement>("btn-ranking").disabled = true;
@@ -528,7 +565,6 @@ async function resolveStudent(scannedText?: string) {
       cards: [{ card_uid: query, qr_key: query }],
     });
 
-    // If scanned via camera, keep manual search input box untouched!
     if (!scannedText) {
       input("scan-input").value = "";
     }
@@ -598,8 +634,8 @@ async function saveDeposit(e: SubmitEvent) {
   el("scan-status").textContent = "Setoran tersimpan di HP · siap memindai siswa berikutnya.";
   if (resumeCameraAfterDeposit) void startCamera();
 
-  // Non-blocking silent background sync
-  void syncWasteQueue();
+  // Non-blocking silent background sync with slight jitter
+  scheduleSilentSync(1000 + Math.floor(Math.random() * 1500));
 }
 loginForm.addEventListener("submit", e => { e.preventDefault(); void init(); });
 el("form-scan").addEventListener("submit", e => { e.preventDefault(); void resolveStudent(); });
@@ -643,8 +679,6 @@ document.addEventListener("fullscreenchange", () => {
   document.body.classList.toggle("board-mode", Boolean(document.fullscreenElement));
   el("btn-fullscreen").textContent = document.fullscreenElement ? "⛶ Keluar layar penuh" : "⛶ Layar penuh";
 });
-window.setInterval(() => { if (!document.hidden && view !== "login") void loadDashboard(); }, 60_000);
-document.addEventListener("visibilitychange", () => { if (document.hidden) void stopCamera(); else void loadDashboard(); });
 document.querySelectorAll<HTMLButtonElement>(".zoom-btn").forEach(btn => {
   btn.addEventListener("click", () => {
     const zoomVal = Number(btn.getAttribute("data-zoom")) || 1;
@@ -652,18 +686,41 @@ document.querySelectorAll<HTMLButtonElement>(".zoom-btn").forEach(btn => {
   });
 });
 setupScannerPinchZoom();
-void init();
 
-// Background sync loop: sync waste transactions quietly every 8.5 seconds
-const SYNC_INTERVAL_MS = 8500;
-window.setInterval(() => {
-  void syncWasteQueue();
-}, SYNC_INTERVAL_MS);
+// Silent Adaptive Background Synchronization
+let syncTimer: number | undefined;
+function scheduleSilentSync(delayMs?: number) {
+  if (syncTimer) clearTimeout(syncTimer);
+  // Default randomized interval between 12 and 18 seconds with jitter to protect server against concurrent storms
+  const delay = delayMs ?? (12_000 + Math.floor(Math.random() * 6_000));
+  syncTimer = window.setTimeout(async () => {
+    await syncWasteQueue();
+    scheduleSilentSync();
+  }, delay);
+}
 
 window.addEventListener("online", () => {
-  void syncWasteQueue();
-  void loadDashboard();
+  scheduleSilentSync(1500 + Math.floor(Math.random() * 3000));
+  void syncPortalRoster(portal, studentCache);
+  if (view === "ranking") void loadDashboard(true);
 });
 
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    void stopCamera();
+  } else {
+    scheduleSilentSync(1000 + Math.floor(Math.random() * 2000));
+    if (view === "ranking") void loadDashboard(true);
+  }
+});
 
+// Periodic dashboard refresh only when actively viewing ranking screen
+window.setInterval(() => {
+  if (!document.hidden && view === "ranking") {
+    void loadDashboard(true);
+  }
+}, 120_000 + Math.floor(Math.random() * 30_000));
+
+void init();
+scheduleSilentSync();
 startRosterRefresh(portal, studentCache);

@@ -293,25 +293,75 @@ export class BackgroundSyncCoordinator<T> {
   }
 }
 
-/** Refresh a complete, tenant-scoped roster in the background; replace only after all pages arrive. */
-export function startRosterRefresh(portal: {context: {id:string;school_id:string}|null; request<T>(path:string):Promise<T>}, cache: StudentCache): void {
-  let loading=false, lastScope='', lastUpdate=0;
-  const refresh=async()=>{
-    const context=portal.context;if(!context||!navigator.onLine||loading)return;
-    const scope=`${context.school_id}:${context.id}`;
-    if(scope===lastScope && Date.now()-lastUpdate<15*60_000)return;
-    loading=true;
+/** Fetch tenant-scoped roster silently in background; atomic replace only when complete. */
+export async function syncPortalRoster(
+  portal: { context: { id: string; school_id: string } | null; request<T>(path: string): Promise<T> },
+  cache: StudentCache,
+  force = false
+): Promise<boolean> {
+  const context = portal.context;
+  if (!context || (typeof navigator !== "undefined" && !navigator.onLine)) return false;
+  try {
+    const students: CachedStudent[] = [];
+    let cursor: string | null = null;
+    do {
+      const page: { school_id: string; students: CachedStudent[]; next_cursor: string | null } = await portal.request(
+        `/students/portal-roster${cursor ? `?after=${encodeURIComponent(cursor)}` : ""}`
+      );
+      if (page.school_id !== context.school_id || portal.context?.id !== context.id || portal.context?.school_id !== context.school_id) {
+        return false;
+      }
+      if (!Array.isArray(page.students) || (page.next_cursor === cursor && cursor !== null)) {
+        return false;
+      }
+      students.push(...page.students);
+      cursor = page.next_cursor;
+    } while (cursor);
+
+    if (students.length > 0 || force) {
+      cache.saveAll(students);
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Refresh a complete, tenant-scoped roster in the background periodically with jitter; replace only after all pages arrive. */
+export function startRosterRefresh(
+  portal: { context: { id: string; school_id: string } | null; request<T>(path: string): Promise<T> },
+  cache: StudentCache,
+  intervalMs = 20 * 60_000
+): () => void {
+  let loading = false, lastScope = '', lastUpdate = 0;
+  const refresh = async () => {
+    const context = portal.context;
+    if (!context || (typeof navigator !== "undefined" && !navigator.onLine) || loading) return;
+    const scope = `${context.school_id}:${context.id}`;
+    const jitter = Math.floor(Math.random() * 60_000);
+    if (scope === lastScope && Date.now() - lastUpdate < (intervalMs + jitter)) return;
+    loading = true;
     try {
-      const students:CachedStudent[]=[];let cursor:string|null=null;
-      do {
-        const page:{school_id:string;students:CachedStudent[];next_cursor:string|null}=await portal.request(`/students/portal-roster${cursor?`?after=${encodeURIComponent(cursor)}`:''}`);
-        if(page.school_id!==context.school_id || portal.context?.id!==context.id || portal.context?.school_id!==context.school_id)throw new Error('Konteks portal berubah');
-        if(!Array.isArray(page.students) || page.next_cursor===cursor && cursor!==null)throw new Error('Data siswa tidak lengkap');
-        students.push(...page.students);cursor=page.next_cursor;
-      } while(cursor);
-      cache.saveAll(students);lastScope=scope;lastUpdate=Date.now();
-    } catch { /* Keep previous complete roster; retry on a later interval. */ }
-    finally {loading=false;}
+      const success = await syncPortalRoster(portal, cache);
+      if (success) {
+        lastScope = scope;
+        lastUpdate = Date.now();
+      }
+    } finally {
+      loading = false;
+    }
   };
-  window.setInterval(()=>void refresh(),5000);window.addEventListener('online',()=>void refresh());void refresh();
+
+  const initialTimer = setTimeout(() => void refresh(), 800 + Math.random() * 1500);
+  const intervalId = setInterval(() => void refresh(), intervalMs + Math.random() * 60_000);
+  const onOnline = () => {
+    setTimeout(() => void refresh(), 1000 + Math.random() * 3000);
+  };
+  window.addEventListener('online', onOnline);
+
+  return () => {
+    clearTimeout(initialTimer);
+    clearInterval(intervalId);
+    window.removeEventListener('online', onOnline);
+  };
 }
