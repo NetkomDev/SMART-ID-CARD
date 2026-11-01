@@ -2448,21 +2448,105 @@ async function wastePage(): Promise<void> {
   } catch (error) { if (isCancelled(error)) return; shell(errorState(error), "Bank Sampah", "Manajemen setoran sampah (Waste-to-Gold)."); }
 }
 
+interface LibrarySummaryItem {
+  class_id: string;
+  class_name: string;
+  total: number;
+}
+
+interface LibraryLoanItem {
+  id: string;
+  event_id: string;
+  student_id: string;
+  student_name: string;
+  book_title: string;
+  book_author: string;
+  borrowed_at: string;
+  due_date: string;
+  returned_at: string | null;
+}
+
+interface LibraryVisitItem {
+  id: string;
+  occurred_at: string;
+  student_id: string;
+  students?: { full_name: string; student_number: string } | null;
+  class_id?: string;
+  classes?: { name: string } | null;
+}
+
 async function libraryPage(): Promise<void> {
-  shell(`<section class="panel">${skeleton()}</section>`, "Perpustakaan", "Monitor kunjungan perpustakaan.");
+  shell(`<section class="panel">${skeleton()}</section>`, "Perpustakaan", "Monitor kunjungan dan sirkulasi buku perpustakaan.");
   try {
-    const summaryRes = await api<{ class_id: string, class_name: string, total: number }[]>("/library/summary");
-    const totalVisits = summaryRes.data.reduce((acc, r) => acc + r.total, 0);
-    const summaryRows = summaryRes.data.map((r, i) => `<tr><td><strong>#${i + 1}</strong></td><td>${escapeHtml(r.class_name)}</td><td>${r.total} kunjungan</td></tr>`).join("");
-    shell(`<section class="stats-grid"><article class="stat-card blue"><div><span>Total Kunjungan</span><strong>${totalVisits}</strong><small>Semua kelas bulan ini</small></div><span class="trend">▤</span></article></section>
-    <section class="dashboard-grid single-column">
+    const [summaryRes, loansRes, visitsRes] = await Promise.all([
+      api<LibrarySummaryItem[]>("/library/summary").catch(() => ({ data: [] })),
+      api<LibraryLoanItem[]>("/library/loans").catch(() => ({ data: [] })),
+      api<LibraryVisitItem[]>("/library/visits").catch(() => ({ data: [] }))
+    ]);
+
+    const summaryList = summaryRes.data ?? [];
+    const loansList = loansRes.data ?? [];
+    const visitsList = visitsRes.data ?? [];
+
+    const totalVisits = summaryList.reduce((acc, r) => acc + (Number(r.total) || 0), 0);
+    const firstSummary = summaryList[0];
+    const topClass = firstSummary && firstSummary.total > 0 ? firstSummary.class_name : "—";
+    const activeLoans = loansList.filter(l => !l.returned_at).length;
+
+    const summaryRows = summaryList.map((r, i) => `<tr>
+      <td><strong>#${i + 1}</strong></td>
+      <td><strong>${escapeHtml(r.class_name)}</strong></td>
+      <td><span class="status ${r.total > 0 ? 'success' : 'neutral'}">${r.total} kunjungan</span></td>
+    </tr>`).join("");
+
+    const nowIso = new Date().toISOString().slice(0, 10);
+    const loanRows = loansList.map(loan => {
+      const isOverdue = loan.due_date < nowIso;
+      return `<tr>
+        <td><strong>${escapeHtml(loan.book_title)}</strong><br/><small style="color:var(--text-light);">${escapeHtml(loan.book_author)}</small></td>
+        <td>${escapeHtml(loan.student_name)}</td>
+        <td>${escapeHtml(loan.borrowed_at ? new Date(loan.borrowed_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "—")}</td>
+        <td>${escapeHtml(loan.due_date ? new Date(loan.due_date + "T00:00:00").toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "—")}</td>
+        <td><span class="status ${isOverdue ? 'warning' : 'success'}">${isOverdue ? 'Jatuh Tempo' : 'Dipinjam'}</span></td>
+      </tr>`;
+    }).join("");
+
+    const visitRows = visitsList.map(visit => {
+      const studentName = visit.students?.full_name ?? "Siswa";
+      const studentNis = visit.students?.student_number ?? "—";
+      const className = visit.classes?.name ?? "—";
+      const visitTime = visit.occurred_at ? new Date(visit.occurred_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
+      return `<tr>
+        <td><strong>${escapeHtml(studentName)}</strong><br/><small style="color:var(--text-light);">NIS: ${escapeHtml(studentNis)}</small></td>
+        <td><span class="status neutral">${escapeHtml(className)}</span></td>
+        <td>${escapeHtml(visitTime)}</td>
+      </tr>`;
+    }).join("");
+
+    shell(`<section class="stats-grid">
+      <article class="stat-card blue"><div><span>Total Kunjungan</span><strong>${totalVisits}</strong><small>Semua kelas tahun ajaran aktif</small></div><span class="trend">▤</span></article>
+      <article class="stat-card lime"><div><span>Buku Dipinjam</span><strong>${activeLoans} Buku</strong><small>Sirkulasi pinjaman aktif</small></div><span class="trend">📖</span></article>
+      <article class="stat-card orange"><div><span>Kelas Teraktif</span><strong>${escapeHtml(topClass)}</strong><small>Kunjungan perpus tertinggi</small></div><span class="trend">★</span></article>
+    </section>
+    <section class="dashboard-grid">
       <article class="panel">
-        <div class="panel-head"><h2>Kunjungan Per Kelas</h2><p>Rekap bulan berjalan</p></div>
-        ${summaryRows ? `<div class="table-wrap"><table><thead><tr><th>#</th><th>Kelas</th><th>Kunjungan</th></tr></thead><tbody>${summaryRows}</tbody></table></div>` : emptyState("Belum ada kunjungan", "Siswa dapat tap kartu di terminal perpustakaan.")}
+        <div class="panel-head"><div><h2>Kunjungan Per Kelas</h2><p>Rekapitulasi total kunjungan per rombongan belajar</p></div></div>
+        ${summaryRows ? `<div class="table-wrap"><table><thead><tr><th>#</th><th>Kelas</th><th>Total Kunjungan</th></tr></thead><tbody>${summaryRows}</tbody></table></div>` : emptyState("Belum ada kunjungan", "Siswa dapat tap kartu di terminal perpustakaan.")}
       </article>
-    </section>`, "Perpustakaan", "Monitor rekam jejak kunjungan siswa ke perpustakaan.");
+      <article class="panel">
+        <div class="panel-head"><div><h2>Peminjaman Buku Aktif</h2><p>Daftar buku yang sedang dipinjam siswa</p></div></div>
+        ${loanRows ? `<div class="table-wrap"><table><thead><tr><th>Buku</th><th>Peminjam</th><th>Tgl Pinjam</th><th>Jatuh Tempo</th><th>Status</th></tr></thead><tbody>${loanRows}</tbody></table></div>` : emptyState("Tidak ada peminjaman aktif", "Semua buku perpustakaan telah dikembalikan.")}
+      </article>
+    </section>
+    <section class="dashboard-grid single-column" style="margin-top:1.25rem;">
+      <article class="panel">
+        <div class="panel-head"><div><h2>Riwayat Kunjungan Terbaru</h2><p>50 rekaman tap kartu siswa di perpustakaan terakhir</p></div></div>
+        ${visitRows ? `<div class="table-wrap"><table><thead><tr><th>Siswa</th><th>Kelas</th><th>Waktu Kunjungan</th></tr></thead><tbody>${visitRows}</tbody></table></div>` : emptyState("Belum ada catatan kunjungan", "Tap kartu siswa di terminal perpustakaan untuk mencatat kehadiran.")}
+      </article>
+    </section>`, "Perpustakaan", "Monitor rekam jejak kunjungan dan sirkulasi buku perpustakaan.");
   } catch (error) { if (isCancelled(error)) return; shell(errorState(error), "Perpustakaan", "Monitor kunjungan perpustakaan."); }
 }
+
 
 async function extracurricularPage(): Promise<void> {
   shell(`<section class="stats-grid">${Array.from({ length: 2 }, () => skeleton(1)).join("")}</section>`, "Ekstrakurikuler", "Kelola kegiatan dan keanggotaan ekstrakurikuler.");
@@ -2774,29 +2858,57 @@ async function ledPage(): Promise<void> {
   } catch (error) { if (isCancelled(error)) return; shell(errorState(error), "LED Board", "Manajemen tampilan teks berjalan pada LED matrix gerbang."); }
 }
 
+function formatReportPeriod(meta?: { from?: unknown; to?: unknown }): string {
+  if (!meta?.from || !meta?.to) return "Tahun Ajaran Aktif";
+  try {
+    const f = new Date(String(meta.from));
+    const t = new Date(String(meta.to));
+    if (isNaN(f.getTime()) || isNaN(t.getTime())) return "Tahun Ajaran Aktif";
+    return `${f.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })} – ${t.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}`;
+  } catch {
+    return "Tahun Ajaran Aktif";
+  }
+}
+
 async function reportsPage(): Promise<void> {
   shell(`<section class="panel">${skeleton()}</section>`, "Laporan Wali Kelas", "Rekapitulasi data siswa per kelas.");
   try {
     const res = await api<{ id: string, name: string, student_count: number, attendance_count: number, waste_kg: number, library_visits: number, extracurricular_members: number }[]>("/reports/classes-summary");
 
-    const rows = (res.data ?? []).map(cls => `<tr>
-        <td><strong>${escapeHtml(cls.name)}</strong><br/><small>${cls.student_count} siswa</small></td>
-        <td>${cls.attendance_count}x Hadir</td>
-        <td>${Number(cls.waste_kg).toFixed(1)} Kg</td>
+    const classes = res.data ?? [];
+    const totalStudents = classes.reduce((acc, c) => acc + (Number(c.student_count) || 0), 0);
+    const totalAttendance = classes.reduce((acc, c) => acc + (Number(c.attendance_count) || 0), 0);
+    const totalWasteKg = classes.reduce((acc, c) => acc + (Number(c.waste_kg) || 0), 0);
+    const totalLibVisits = classes.reduce((acc, c) => acc + (Number(c.library_visits) || 0), 0);
+    const periodFormatted = formatReportPeriod(res.meta as any);
+
+    const rows = classes.map(cls => `<tr>
+        <td><strong>${escapeHtml(cls.name)}</strong><br/><small style="color:var(--text-light);">${cls.student_count} siswa</small></td>
+        <td><span class="status ${cls.attendance_count > 0 ? 'success' : 'neutral'}">${cls.attendance_count}x Hadir</span></td>
+        <td><strong>${Number(cls.waste_kg).toFixed(1)}</strong> Kg</td>
         <td>${cls.library_visits}x Datang</td>
         <td>${cls.extracurricular_members ? `<span class="ekskul-pill">★ ${cls.extracurricular_members} Keikutsertaan</span>` : '<span style="color:var(--muted)">0 Ekskul</span>'}</td>
         <td><button class="button secondary" style="font-size:0.75rem;padding:0.4rem 0.8rem" data-print-class="${cls.id}" data-class-name="${escapeHtml(cls.name)}">🖨 Cetak Laporan</button></td>
       </tr>`).join("");
 
-    shell(`<section class="panel">
+    shell(`<section class="stats-grid">
+      <article class="stat-card blue"><div><span>Total Siswa</span><strong>${totalStudents} Siswa</strong><small>${classes.length} Rombel terdaftar</small></div><span class="trend">👥</span></article>
+      <article class="stat-card lime"><div><span>Presensi Hadir</span><strong>${totalAttendance}x</strong><small>Akumulasi periode berjalan</small></div><span class="trend">✓</span></article>
+      <article class="stat-card orange"><div><span>Bank Sampah</span><strong>${totalWasteKg.toFixed(1)} Kg</strong><small>Setoran sampah terpilah</small></div><span class="trend">♻</span></article>
+      <article class="stat-card blue"><div><span>Kunjungan Perpus</span><strong>${totalLibVisits}x</strong><small>Literasi membaca siswa</small></div><span class="trend">📖</span></article>
+    </section>
+    <section class="panel">
       <div class="panel-head">
-        <div><h2>Rekapitulasi Kinerja Siswa</h2><p>Data berikut dapat dicetak dan diserahkan ke wali kelas masing-masing.</p></div>
-        <input id="report-period" readonly value="${escapeHtml(String((res.meta as any)?.from ?? 'Tahun ajaran aktif'))} – ${escapeHtml(String((res.meta as any)?.to ?? ''))}" aria-label="Periode laporan dari server" />
+        <div><h2>Rekapitulasi Kinerja Siswa Per Kelas</h2><p>Data berikut dapat dicetak dan diserahkan ke wali kelas masing-masing.</p></div>
+        <div style="display:flex;align-items:center;gap:0.5rem;">
+          <span style="font-size:0.8rem;color:var(--text-light);font-weight:600;">Periode:</span>
+          <input id="report-period" readonly value="${escapeHtml(periodFormatted)}" aria-label="Periode laporan dari server" style="font-weight:600;width:auto;min-width:220px;" />
+        </div>
       </div>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Kelas</th><th>Kehadiran</th><th>Sampah</th><th>Perpus</th><th>Ekskul</th><th>Aksi</th></tr></thead>
-          <tbody>${rows || `<tr><td colspan="6">${emptyState("Belum ada kelas", "Silakan tambahkan data kelas.")}</td></tr>`}</tbody>
+          <tbody>${rows || `<tr><td colspan="6">${emptyState("Belum ada kelas", "Silakan tambahkan data kelas pada menu Kelas.")}</td></tr>`}</tbody>
         </table>
       </div>
     </section>

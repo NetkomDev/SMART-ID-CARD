@@ -58,3 +58,15 @@ libraryRouter.post("/loans", requirePermission("library.visit"), validate({body:
   if(error) throw fromDatabaseError(error);
   sendData(res,data,201);
 }));
+
+libraryRouter.get("/visits", requirePermission("library.read"), asyncHandler(async (req, res) => {
+  const { data, error } = await req.auth!.client
+    .from("library_visits")
+    .select("id,occurred_at,student_id,students:student_id(full_name,student_number),class_id,classes:class_id(name)")
+    .eq("school_id", req.tenant!.schoolId)
+    .order("occurred_at", { ascending: false })
+    .limit(50);
+  if (error) throw fromDatabaseError(error);
+  sendData(res, data ?? []);
+}));
+
