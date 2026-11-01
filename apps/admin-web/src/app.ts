@@ -1350,13 +1350,13 @@ async function academicYearsPage(): Promise<void> {
       </article>
     </section>
     
-    <div id="year-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;overflow-y:auto;padding:2rem;">
-      <div style="background:var(--bg);max-width:500px;margin:auto;border-radius:1rem;padding:2rem;position:relative;">
-        <button id="close-year-modal" style="position:absolute;top:1rem;right:1rem;background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--text);">&times;</button>
-        <h2>Tambah Tahun Ajaran</h2>
-        <p style="margin-bottom:1.5rem;color:var(--text-light);">Tahun ajaran baru akan disimpan dalam keadaan nonaktif.</p>
-        <form id="year-form" class="login-form" style="margin:0;">
-          <div id="year-error" style="display:none;background:var(--red);color:white;padding:0.75rem;border-radius:0.5rem;font-size:0.875rem;margin-bottom:1rem;"></div>
+    <div id="year-modal" class="admin-modal-overlay" style="display:none;">
+      <div class="admin-modal-card">
+        <button id="close-year-modal" class="admin-modal-close-btn" aria-label="Tutup modal">&times;</button>
+        <h2 style="margin:0 0 0.35rem; font-size:1.35rem; font-weight:700; color:var(--text);">Tambah Tahun Ajaran</h2>
+        <p style="margin:0 0 1.25rem; font-size:0.875rem; color:var(--text-light);">Tahun ajaran baru akan disimpan dalam keadaan nonaktif.</p>
+        <form id="year-form" class="admin-modal-form" style="margin:0;">
+          <div id="year-error" style="display:none;background:var(--red);color:white;padding:0.75rem;border-radius:0.5rem;font-size:0.875rem;"></div>
           
           <label>Nama Tahun Ajaran<input id="year-name" type="text" placeholder="Cth: 2026/2027" required maxlength="32" /></label>
           
@@ -1365,15 +1365,29 @@ async function academicYearsPage(): Promise<void> {
             <label>Tanggal Selesai<input id="year-end" type="date" required /></label>
           </div>
           
-          <button id="year-submit" class="button primary" type="submit" style="margin-top:1rem;">Simpan</button>
+          <button id="year-submit" class="button primary" type="submit" style="margin-top:0.35rem; width:100%;">Simpan</button>
         </form>
       </div>
     </div>`, "Tahun Ajaran", "Kelola tahun ajaran dan periode aktif.");
 
     afterPagePaint(() => {
       const modal = document.getElementById("year-modal") as HTMLDivElement;
-      document.getElementById("btn-add-year")?.addEventListener("click", () => modal.style.display = "flex");
-      document.getElementById("close-year-modal")?.addEventListener("click", () => modal.style.display = "none");
+      const openModal = () => {
+        modal.style.display = "flex";
+        setTimeout(() => (document.getElementById("year-name") as HTMLInputElement)?.focus(), 50);
+      };
+      const closeModal = () => {
+        modal.style.display = "none";
+      };
+
+      document.getElementById("btn-add-year")?.addEventListener("click", openModal);
+      document.getElementById("close-year-modal")?.addEventListener("click", closeModal);
+      modal.addEventListener("click", (e) => {
+        if (e.target === modal) closeModal();
+      });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && modal.style.display === "flex") closeModal();
+      });
 
       const form = document.getElementById("year-form") as HTMLFormElement;
       const errorDiv = document.getElementById("year-error") as HTMLDivElement;
@@ -2475,25 +2489,39 @@ async function extracurricularPage(): Promise<void> {
       </article>
     </section>
     
-    <div id="ekskul-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;overflow-y:auto;padding:2rem;">
-      <div style="background:var(--bg);max-width:500px;margin:auto;border-radius:1rem;padding:2rem;position:relative;">
-        <button id="close-ekskul-modal" style="position:absolute;top:1rem;right:1rem;background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--text);">&times;</button>
-        <h2>Tambah Ekstrakurikuler</h2>
-        <p style="margin-bottom:1.5rem;color:var(--text-light);">Tambahkan referensi kegiatan ekstrakurikuler baru.</p>
-        <form id="ekskul-form" class="login-form" style="margin:0;">
-          <div id="ekskul-error" style="display:none;background:var(--red);color:white;padding:0.75rem;border-radius:0.5rem;font-size:0.875rem;margin-bottom:1rem;"></div>
+    <div id="ekskul-modal" class="admin-modal-overlay" style="display:none;">
+      <div class="admin-modal-card">
+        <button id="close-ekskul-modal" class="admin-modal-close-btn" aria-label="Tutup modal">&times;</button>
+        <h2 style="margin:0 0 0.35rem; font-size:1.35rem; font-weight:700; color:var(--text);">Tambah Ekstrakurikuler</h2>
+        <p style="margin:0 0 1.25rem; font-size:0.875rem; color:var(--text-light);">Tambahkan referensi kegiatan ekstrakurikuler baru.</p>
+        <form id="ekskul-form" class="admin-modal-form" style="margin:0;">
+          <div id="ekskul-error" style="display:none;background:var(--red);color:white;padding:0.75rem;border-radius:0.5rem;font-size:0.875rem;"></div>
           <label>Kode (Singkatan)<input id="ekskul-code" type="text" placeholder="Cth: PRAM, BSKT, PASK" pattern="[A-Za-z0-9_-]+" required maxlength="32" /></label>
           <label>Nama Ekstrakurikuler<input id="ekskul-name" type="text" placeholder="Cth: Pramuka, Bola Basket" required maxlength="120" /></label>
-          <label>Deskripsi (Opsional)<textarea id="ekskul-desc" rows="3" placeholder="Penjelasan singkat mengenai ekskul..." style="width:100%;padding:.85rem;border-radius:.75rem;border:1px solid var(--line);background:var(--bg);color:var(--text);font-family:inherit;"></textarea></label>
-          <button id="ekskul-submit" class="button primary" type="submit" style="margin-top:1rem;">Simpan Ekstrakurikuler</button>
+          <label>Deskripsi (Opsional)<textarea id="ekskul-desc" rows="3" placeholder="Penjelasan singkat mengenai ekskul..." style="width:100%;padding:.85rem;border-radius:.75rem;border:1px solid var(--line);background:var(--bg);color:var(--text);font-family:inherit;box-sizing:border-box;resize:vertical;"></textarea></label>
+          <button id="ekskul-submit" class="button primary" type="submit" style="margin-top:0.35rem; width:100%;">Simpan Ekstrakurikuler</button>
         </form>
       </div>
     </div>`, "Ekstrakurikuler", "Kelola referensi kegiatan untuk aplikasi presensi guru.");
 
     afterPagePaint(() => {
       const modal = document.getElementById("ekskul-modal") as HTMLDivElement;
-      document.getElementById("btn-add-ekskul")?.addEventListener("click", () => modal.style.display = "flex");
-      document.getElementById("close-ekskul-modal")?.addEventListener("click", () => modal.style.display = "none");
+      const openModal = () => {
+        modal.style.display = "flex";
+        setTimeout(() => (document.getElementById("ekskul-code") as HTMLInputElement)?.focus(), 50);
+      };
+      const closeModal = () => {
+        modal.style.display = "none";
+      };
+
+      document.getElementById("btn-add-ekskul")?.addEventListener("click", openModal);
+      document.getElementById("close-ekskul-modal")?.addEventListener("click", closeModal);
+      modal.addEventListener("click", (e) => {
+        if (e.target === modal) closeModal();
+      });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && modal.style.display === "flex") closeModal();
+      });
 
       const form = document.getElementById("ekskul-form") as HTMLFormElement;
       const errorDiv = document.getElementById("ekskul-error") as HTMLDivElement;
@@ -2623,16 +2651,16 @@ async function ledPage(): Promise<void> {
       </article>
     </section>
     
-    <div id="led-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;overflow-y:auto;padding:2rem;">
-      <div style="background:var(--bg);max-width:500px;margin:auto;border-radius:1rem;padding:2rem;position:relative;">
-        <button id="close-led-modal" style="position:absolute;top:1rem;right:1rem;background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--text);">&times;</button>
-        <h2>Tambah Pesan LED</h2>
-        <p style="margin-bottom:1.5rem;color:var(--text-light);">Tambahkan pesan berjalan baru.</p>
-        <form id="led-form" class="login-form" style="margin:0;">
-          <div id="led-error" style="display:none;background:var(--red);color:white;padding:0.75rem;border-radius:0.5rem;font-size:0.875rem;margin-bottom:1rem;"></div>
+    <div id="led-modal" class="admin-modal-overlay" style="display:none;">
+      <div class="admin-modal-card">
+        <button id="close-led-modal" class="admin-modal-close-btn" aria-label="Tutup modal">&times;</button>
+        <h2 style="margin:0 0 0.35rem; font-size:1.35rem; font-weight:700; color:var(--text);">Tambah Pesan LED</h2>
+        <p style="margin:0 0 1.25rem; font-size:0.875rem; color:var(--text-light);">Tambahkan pesan berjalan baru.</p>
+        <form id="led-form" class="admin-modal-form" style="margin:0;">
+          <div id="led-error" style="display:none;background:var(--red);color:white;padding:0.75rem;border-radius:0.5rem;font-size:0.875rem;"></div>
           
           <label>Prioritas
-            <select id="led-priority" required style="width:100%;padding:.85rem;border-radius:.75rem;border:1px solid var(--line);background:var(--bg);color:var(--text);font-family:inherit;">
+            <select id="led-priority" required style="width:100%;padding:.85rem;border-radius:.75rem;border:1px solid var(--line);background:var(--bg);color:var(--text);font-family:inherit;box-sizing:border-box;">
               <option value="RUNNING_TEXT">Teks Berjalan Biasa (RUNNING_TEXT)</option>
               <option value="ACHIEVEMENT">Pengumuman Prestasi (ACHIEVEMENT)</option>
               <option value="EMERGENCY">Darurat (EMERGENCY)</option>
@@ -2640,17 +2668,31 @@ async function ledPage(): Promise<void> {
           </label>
           
           <label>Judul (Opsional)<input id="led-title" type="text" placeholder="Cth: Sambutan Pagi" maxlength="160" /></label>
-          <label>Isi Pesan<textarea id="led-body" rows="4" placeholder="Masukkan teks yang akan berjalan di LED..." required maxlength="4000" style="width:100%;padding:.85rem;border-radius:.75rem;border:1px solid var(--line);background:var(--bg);color:var(--text);font-family:inherit;"></textarea></label>
+          <label>Isi Pesan<textarea id="led-body" rows="4" placeholder="Masukkan teks yang akan berjalan di LED..." required maxlength="4000" style="width:100%;padding:.85rem;border-radius:.75rem;border:1px solid var(--line);background:var(--bg);color:var(--text);font-family:inherit;box-sizing:border-box;resize:vertical;"></textarea></label>
           
-          <button id="led-submit" class="button primary" type="submit" style="margin-top:1rem;">Simpan Pesan</button>
+          <button id="led-submit" class="button primary" type="submit" style="margin-top:0.35rem; width:100%;">Simpan Pesan</button>
         </form>
       </div>
     </div>`, "LED Board", "Manajemen tampilan teks berjalan pada LED matrix gerbang.");
 
     afterPagePaint(() => {
       const modal = document.getElementById("led-modal") as HTMLDivElement;
-      document.getElementById("btn-add-led")?.addEventListener("click", () => modal.style.display = "flex");
-      document.getElementById("close-led-modal")?.addEventListener("click", () => modal.style.display = "none");
+      const openModal = () => {
+        modal.style.display = "flex";
+        setTimeout(() => (document.getElementById("led-title") as HTMLInputElement)?.focus(), 50);
+      };
+      const closeModal = () => {
+        modal.style.display = "none";
+      };
+
+      document.getElementById("btn-add-led")?.addEventListener("click", openModal);
+      document.getElementById("close-led-modal")?.addEventListener("click", closeModal);
+      modal.addEventListener("click", (e) => {
+        if (e.target === modal) closeModal();
+      });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && modal.style.display === "flex") closeModal();
+      });
 
       const form = document.getElementById("led-form") as HTMLFormElement;
       const errorDiv = document.getElementById("led-error") as HTMLDivElement;

@@ -2033,6 +2033,83 @@ tr.row-inserting {
 @media (max-width: 760px) { .students-layout > div:first-child { align-items: stretch; } }
 
 /* ========================================================
+   Admin Standard Modal Dialogs (Ekskul, Year, LED, dsb)
+   ======================================================== */
+.admin-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  overflow-y: auto;
+  box-sizing: border-box;
+  animation: aksisFadeIn 0.2s ease-out;
+}
+
+.admin-modal-card {
+  background: var(--surface, #ffffff);
+  color: var(--text, #1b2824);
+  border: 1px solid var(--line, #dde3dc);
+  border-radius: 1.25rem;
+  max-width: 500px;
+  width: 100%;
+  height: auto;
+  max-height: calc(100vh - 2.5rem);
+  padding: 2rem;
+  position: relative;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+  box-sizing: border-box;
+  overflow-y: auto;
+  margin: auto;
+  animation: aksisModalIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.admin-modal-close-btn {
+  position: absolute;
+  top: 1.25rem;
+  right: 1.25rem;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--text, #1b2824);
+  font-size: 1.35rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1;
+}
+
+.admin-modal-close-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+  transform: scale(1.05);
+}
+
+[data-theme="dark"] .admin-modal-close-btn {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+[data-theme="dark"] .admin-modal-close-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.admin-modal-form {
+  display: grid;
+  gap: 1.15rem;
+  margin: 1.25rem 0 0;
+  width: 100%;
+}
+
+/* ========================================================
    Parent Access Modal Redesign
    ======================================================== */
 .parent-modal-overlay {

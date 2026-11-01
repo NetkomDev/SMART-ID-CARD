@@ -60,15 +60,25 @@ Tanggal: 1 November 2026. Lingkup: PWA Piket Kehadiran, Piket Bank Sampah, Perpu
      - **Jam Pulang**: `"Sampai Jumpa besok [Nama Siswa]. Hati-hati dijalan."`
    - Logika penentuan jam terintegrasi otomatis dengan `rules` sekolah (`check_in_end` dan `check_out_start`) maupun saat tombol arah presensi Datang/Pulang diubah petugas.
 
+9. **Perbaikan Antarmuka Dialog Modal Admin Sekolah (Ekstrakurikuler, Tahun Ajaran, & LED Board)**:
+   - **Masalah**: Pada halaman `/extracurricular` (Admin Web), saat mengklik tombol `+ Tambah Ekskul`, dialog modal memiliki area putih besar kosong (*safe area*) yang membentang dari bawah tombol simpan hingga menyentuh dasar layar. Hal ini mengganggu pandangan dan menutupi konten halaman belakang.
+   - **Penyebab**: Container modal `#ekskul-modal` dibuka dengan `display: flex` tanpa properti centering (`align-items: center`), sehingga peramban otomatis melakukan *stretch* vertikal pada kartu modal (`div` anak dengan `background: var(--bg)`), membuat kartu memanjang ke bawah melampaui batas form.
+   - **Solusi & Standardisasi**:
+     - Membangun standar class modal terpadu: `.admin-modal-overlay` (overlay fixed dengan backdrop-blur semi-transparan, centering flex penuh `align-items: center; justify-content: center;`), `.admin-modal-card` (kartu modal dengan tinggi natural `height: auto; max-height: calc(100vh - 2.5rem);`, sudut lengkung 1.25rem, dan bayangan elegan), `.admin-modal-close-btn` (tombol silang melingkar modern), serta `.admin-modal-form`.
+     - Menerapkan standardisasi ini pada modal `#ekskul-modal` (Ekstrakurikuler), `#year-modal` (Tahun Ajaran), dan `#led-modal` (LED Board).
+     - Menambahkan interaksi ramah pengguna: menutup modal saat klik di luar kartu (backdrop click) atau saat menekan tombol `Escape`, serta auto-focus ke input pertama saat modal dibuka.
+
 ## Hasil verifikasi
 
 - **Pemeriksaan Tipe Data**: `npm run typecheck:all` lulus 100% tanpa kesalahan di seluruh 11 aplikasi.
+- **Pemeriksaan Build**: `npm run vercel-build` sukses mempaketkan seluruh 10 aplikasi frontend.
 - **Pengujian Browser & Offline Store**:
   - `apps/attendance-pwa/src/store.test.ts`: Pengujian unit fungsi `attendanceGreeting` dan kepatuhan jam sekolah (PASS).
   - `tooling/test-attendance-voice.mjs`: Pemindaian QR dan suara alami Indonesia dengan sapaan kontekstual terverifikasi offline di browser headless (PASS).
   - `tooling/test-library-loans-offline.mjs`: Peminjaman buku tersimpan offline di HP dan tersinkronisasi 1x saat kembali online (PASS).
   - `tooling/test-durable-pwa-queue.mjs`: 40 penulisan transaksi simultan dari 2 tab tetap tersimpan utuh dan terisolasi per sekolah (PASS).
 - **Vercel Production Deployment**: Berhasil di-deploy ke organisasi `netkom-developers-projects` proyek `aksis`, aliased ke `https://www.aksis.co.id`.
+  - Endpoint `/extracurricular`: 200 OK, terverifikasi modal `.admin-modal-overlay` dan `.admin-modal-card` tampil rapi di tengah tanpa area putih yang memanjang.
   - Endpoint `/attendance/`: 200 OK, terverifikasi fungsionalitas sapaan kontekstual kedatangan dan kepulangan.
   - Endpoint `/library/`: 200 OK, terverifikasi elemen `#loan-scanner-stage`, `#loan-qr-reader`, `#btn-switch-loan-camera`, `#loan-zoom-controls`, dan `#loan-student-result`.
   - Endpoint `/parent/`: 200 OK, terverifikasi elemen pemantauan pinjaman buku dan drawer perpustakaan.
