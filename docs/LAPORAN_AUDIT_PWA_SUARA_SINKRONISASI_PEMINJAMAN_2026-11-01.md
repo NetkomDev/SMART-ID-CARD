@@ -28,12 +28,26 @@ Tanggal: 1 November 2026. Lingkup: PWA Piket Kehadiran, Piket Bank Sampah, Perpu
    - Nomor siswa yang baru dipindai di tab Scan otomatis disalin ke form peminjaman.
    - Dilengkapi tab navigasi bawah (Scan vs Peminjaman) dan sinkronisasi idempoten berbasis `event_id` ke tabel `public.library_loans`.
 
-6. **Pemindai QR Siswa untuk Peminjaman Buku Perpustakaan**:
-   - Menambahkan tombol pemindai kamera QR `[📷 Scan QR Kartu Siswa]` langsung pada tab Peminjaman Buku.
-   - Petugas perpustakaan cukup memindai kartu Smart ID Card siswa; nomor NISN/kartu langsung terisi otomatis dan memunculkan kartu pratinjau siswa terverifikasi (foto, nama lengkap, dan kelas).
-   - Suara alami membacakan konfirmasi: `"Peminjaman buku untuk [Nama Siswa]"`.
-   - Menambahkan fitur auto-lookup saat mengetik manual NISN, sehingga petugas tidak akan salah input nama siswa.
-   - Pada modal kunjungan perpustakaan, tersedia tombol cepat `[📖 Pinjamkan Buku ke Siswa Ini]` yang langsung mengarahkan ke form peminjaman dengan data siswa terisi.
+6. **Pemindai QR Siswa pada Tab Peminjaman Buku (100% Identik dengan Tab Scan)**:
+   - Merevamp area pemindai QR pada tab **Peminjaman Buku** di PWA Perpustakaan agar memiliki tampilan visual dan fungsionalitas yang sama persis dengan pemindai di tab Scan utama.
+   - **UI & Layout Identik**: Menggunakan `.scanner-stage` dengan header eyebrow `IDENTITAS SISWA`, judul `Pindai QR kartu`, tombol flip kamera `.camera-switch`, reticle bidik QR SVG, shutter flash animation, dan kontrol zoom 1×, 2×, 3×.
+   - **Kontrol Kamera Penuh**:
+     - Tombol toggle kamera (`Aktifkan kamera` / `Matikan kamera`) dengan styling dan indikator titik live-dot yang konsisten.
+     - Pergantian kamera depan/belakang via `#btn-switch-loan-camera` (`loanCamera.flip()`).
+     - Zoom hardware via tombol level zoom (1×, 2×, 3×) serta gesture pinch-to-zoom di area viewport pemindai.
+   - **Feedback Audio, Getar, & Suara Alami**:
+     - Animasi kilat shutter kamera (`#loan-camera-shutter-flash`).
+     - Umpan balik getar haptic (vibrate) dan nada bip 960 Hz saat QR terbaca.
+     - Resitasi suara alami Indonesia: `"Peminjaman buku untuk [Nama Siswa]"`.
+   - **Pencarian Manual & Input NISN**:
+     - Pemindaian manual dengan input nomor NISN/kartu, tombol `Cari siswa`, dan event keyboard Enter.
+     - Auto-lookup real-time (debounce) memeriksa cache lokal dan otomatis mencari ke server jika online.
+     - Kartu siswa terverifikasi identik (`#loan-student-result`) menampilkan foto/avatar siswa, nama lengkap, kelas, NISN, serta tombol hapus/ganti siswa.
+     - Setelah siswa terverifikasi, kursor otomatis fokus ke input `Judul buku`.
+   - **Isolasi & Manajemen Kamera Antartab**:
+     - Saat berpindah ke tab Peminjaman, kamera tab Scan otomatis dimatikan, tanggal jatuh tempo default disetel (+7 hari jika kosong), dan label nama sekolah disinkronkan.
+     - Saat berpindah ke tab Scan, kamera peminjaman otomatis dimatikan.
+     - Kedua kamera otomatis mati saat tab/layar diminimalkan atau disembunyikan (`visibilitychange` / `pagehide`).
 7. **Integrasi Peminjaman Buku di PWA Orang Tua**:
    - Memperbarui RPC dan endpoint `/parent/children/:id/today` untuk menyertakan `active_loans` (buku yang sedang dipinjam) lengkap dengan `due_date` (tanggal jatuh tempo) dan status `is_overdue`.
    - Pada kartu **Kunjungan Perpustakaan** di beranda orang tua, kini ditampilkan lencana buku aktif: `📖 X buku sedang dipinjam · Jatuh tempo terdekat [Tanggal]`.
@@ -41,14 +55,12 @@ Tanggal: 1 November 2026. Lingkup: PWA Piket Kehadiran, Piket Bank Sampah, Perpu
 
 ## Hasil verifikasi
 
-- **Unit Testing**: Seluruh 50 berkas pengujian dan 255 tes lulus (`npm test`).
-- **Pemeriksaan Tipe Data**: `npm run typecheck:all` lulus tanpa kesalahan di seluruh 11 aplikasi.
-- **Pengujian Browser Headless**:
+- **Pemeriksaan Tipe Data**: `npm run typecheck:all` lulus 100% tanpa kesalahan di seluruh 11 aplikasi.
+- **Pengujian Browser & Offline Store**:
   - `tooling/test-attendance-voice.mjs`: Pemindaian QR dan suara alami Google Bahasa Indonesia terverifikasi offline.
-  - `tooling/test-library-loans-offline.mjs`: Peminjaman buku tersimpan offline di HP dan tersinkronisasi 1x saat kembali online.
-  - `tooling/test-durable-pwa-queue.mjs`: 40 penulisan transaksi simultan dari 2 tab tetap tersimpan utuh dan terisolasi per sekolah.
-- **Database & RLS**: Migrasi `202611010010_library_loans.sql` dan `202611010011_parent_library_loans.sql` terdaftar.
+  - `tooling/test-library-loans-offline.mjs`: Peminjaman buku tersimpan offline di HP dan tersinkronisasi 1x saat kembali online (PASS).
+  - `tooling/test-durable-pwa-queue.mjs`: 40 penulisan transaksi simultan dari 2 tab tetap tersimpan utuh dan terisolasi per sekolah (PASS).
 - **Vercel Production Deployment**: Berhasil di-deploy ke organisasi `netkom-developers-projects` proyek `aksis`, aliased ke `https://www.aksis.co.id`.
-  - Endpoint `/library/`: 200 OK, terverifikasi elemen `#btn-loan-scan-qr` dan `#btn-loan-from-visit`.
+  - Endpoint `/library/`: 200 OK, terverifikasi elemen `#loan-scanner-stage`, `#loan-qr-reader`, `#btn-switch-loan-camera`, `#loan-zoom-controls`, dan `#loan-student-result`.
   - Endpoint `/parent/`: 200 OK, terverifikasi elemen pemantauan pinjaman buku dan drawer perpustakaan.
   - Endpoint API `/api/v1/health`: 200 OK.
