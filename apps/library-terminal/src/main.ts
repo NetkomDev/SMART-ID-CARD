@@ -1,3 +1,4 @@
+import { StudentCache } from "../../shared/offline-store";
 import { QRCamera, bindLoginCamera } from "../../shared/qr-camera";
 import { renderPortrait } from "../../shared/portrait";
 import { gateIntro, gateHelp } from "../../shared/portal-ui";
@@ -8,6 +9,7 @@ import { PortalError, PortalSession } from "../../shared/portal-session";
 import { setupInstallPrompt, offerInstall } from "../../shared/install-prompt";
 
 const portal = new PortalSession("LIBRARY_STAFF", import.meta.env.VITE_API_BASE_URL ?? "/api/v1");
+const studentCache = new StudentCache("library");
 setupInstallPrompt("Perpustakaan", import.meta.env.BASE_URL, import.meta.env.PROD);
 
 const speaker = new NaturalVoice("perpustakaan", ({ enabled, text }) => {
@@ -81,22 +83,49 @@ async function sync() {
   if (syncing) return syncing;
   const work = async () => {
     const key = queueKey();
+    const currentQueue = queue(key);
+    if (!currentQueue.length) {
+      queued.textContent = "0";
+      return;
+    }
     let failed = 0;
-    for (const visit of queue(key)) {
+    for (const visit of currentQueue) {
       try {
-        await portal.request("/library/visits", { method: "POST", body: JSON.stringify(visit) });
+        const result = await portal.request<{ student_name?: string; class_name?: string; duplicate?: boolean; photo_url?: string }>("/library/visits", {
+          method: "POST",
+          body: JSON.stringify(visit),
+        });
+        if (result?.student_name) {
+          studentCache.put({
+            id: visit.card_uid,
+            full_name: result.student_name,
+            class_name: result.class_name,
+            photo_url: result.photo_url,
+            cards: [{ card_uid: visit.card_uid, qr_key: visit.card_uid }],
+          });
+        }
         save(queue(key).filter(item => item.event_id !== visit.event_id), key);
-      } catch(error) {
-        if (error instanceof PortalError && [400,403,404,409,422].includes(error.status)) {
+      } catch (error) {
+        if (error instanceof PortalError && [400, 403, 404, 409, 422].includes(error.status)) {
           const failedKey = `${key}.failed`;
           const prior = JSON.parse(localStorage.getItem(failedKey) ?? "[]");
-          localStorage.setItem(failedKey, JSON.stringify([...prior, {event:visit,code:error.code,failed_at:new Date().toISOString()}]));
-          save(queue(key).filter(item => item.event_id !== visit.event_id), key); failed++;
-        } else throw error;
+          localStorage.setItem(failedKey, JSON.stringify([...prior, { event: visit, code: error.code, failed_at: new Date().toISOString() }]));
+          save(queue(key).filter(item => item.event_id !== visit.event_id), key);
+          failed++;
+        } else {
+          // Network temporary error: leave remaining in queue for next sync loop
+          break;
+        }
       }
     }
-    status.value = failed ? `${failed} kunjungan memerlukan rekonsiliasi; kunjungan lain disinkronisasi.` : "Semua kunjungan tersinkronisasi";
-    await loadDailySummary();
+    const remaining = queue(key).length;
+    queued.textContent = String(remaining);
+    status.value = failed
+      ? `${failed} kunjungan memerlukan rekonsiliasi; kunjungan lain disinkronisasi.`
+      : remaining > 0
+        ? `${remaining} kunjungan menunggu sinkronisasi latar belakang`
+        : "Semua kunjungan tersinkronisasi";
+    void loadDailySummary();
   };
   syncing = Promise.resolve(navigator.locks ? navigator.locks.request(queueKey(), work) : work()).then(() => undefined).finally(() => { syncing = null; });
   return syncing;
@@ -126,11 +155,17 @@ async function processVisit(uid: string, isFromCamera: boolean = false) {
   visitBusy = true;
   const submit = form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
   submit.disabled = true;
-  status.value = "Menyimpan kunjungan…";
+
   const key = queueKey();
-  const visit: Visit = { event_id: crypto.randomUUID(), card_uid: uid, occurred_at: new Date().toISOString(), local_sequence: Date.now(), metadata: { terminal: "library-pwa" } };
-  
-  // 2. SLOW PATH (Network)
+  const visit: Visit = {
+    event_id: crypto.randomUUID(),
+    card_uid: uid,
+    occurred_at: new Date().toISOString(),
+    local_sequence: Date.now(),
+    metadata: { terminal: "library-pwa" },
+  };
+
+  // 1. FAST PATH (Instant on-device queue & cache resolution)
   if (isFromCamera) {
     triggerHapticFeedback();
     const flash = document.getElementById("camera-shutter-flash");
@@ -141,63 +176,49 @@ async function processVisit(uid: string, isFromCamera: boolean = false) {
     }
   }
 
-  try {
-    const result = await portal.request<{student_name?:string;class_name?:string;duplicate?:boolean;photo_url?:string}>("/library/visits", { method: "POST", body: JSON.stringify(visit) });
-    if (isFromCamera) showLoadingOverlay(false);
-    
-    document.getElementById("success-student-name")!.textContent = result.student_name ?? "Siswa";
-    document.getElementById("success-student-class")!.textContent = result.class_name ?? "—";
-    
-    const visitTimeText = `${result.duplicate ? "Sudah tercatat" : "Tercatat"} pukul ${new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit" }).format(new Date())}`;
-    document.getElementById("success-visit-time")!.textContent = visitTimeText;
-    
-    const dupEl = document.getElementById("duplicate-warning");
-    if (dupEl) dupEl.style.display = result.duplicate ? "block" : "none";
+  // Enqueue locally first so physical line never stalls
+  save([...queue(key), visit], key);
+  queued.textContent = String(queue(key).length);
 
-    const avatarEl = document.getElementById("student-avatar");
-    if (avatarEl) {
-      if (result.photo_url) {
-        renderPortrait(avatarEl, result.photo_url);
-      } else {
-        avatarEl.innerHTML = `<div class="avatar-fallback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke-linecap="round"/><circle cx="12" cy="7" r="4"/></svg></div>`;
-      }
-    }
+  // Instant local student lookup
+  const cached = studentCache.resolve(uid);
+  const studentName = cached?.full_name ?? "Siswa";
+  const className = cached?.class_name ?? "—";
 
-    if (result.duplicate) {
-      speaker.speak(`${result.student_name ?? "Siswa"}, sudah tercatat`);
+  document.getElementById("success-student-name")!.textContent = studentName;
+  document.getElementById("success-student-class")!.textContent = className;
+
+  const visitTimeText = `Tercatat pukul ${new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit" }).format(new Date())}`;
+  document.getElementById("success-visit-time")!.textContent = visitTimeText;
+
+  const dupEl = document.getElementById("duplicate-warning");
+  if (dupEl) dupEl.style.display = "none";
+
+  const avatarEl = document.getElementById("student-avatar");
+  if (avatarEl) {
+    if (cached?.photo_url) {
+      renderPortrait(avatarEl, cached.photo_url);
     } else {
-      speaker.speak(`Selamat datang, ${result.student_name ?? "Siswa"}`);
+      avatarEl.innerHTML = `<div class="avatar-fallback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke-linecap="round"/><circle cx="12" cy="7" r="4"/></svg></div>`;
     }
-    
-    status.value = result.duplicate ? "Kunjungan sudah tercatat." : "Kunjungan berhasil disimpan.";
-    switchView("success");
-    void loadDailySummary();
-    if (!isFromCamera) triggerHapticFeedback();
-    
-    // Auto-return to scan after 1.8 seconds to keep line moving fast
-    if (scanTimeout) clearTimeout(scanTimeout);
-    scanTimeout = window.setTimeout(() => switchView("scan"), 1800);
-
-  } catch (error) {
-    if (isFromCamera) showLoadingOverlay(false);
-    
-    if (error instanceof PortalError && error.status < 500) {
-      if (error.status === 400 || error.status === 404) {
-        document.getElementById("error-overlay-msg")!.textContent = error.message;
-        document.getElementById("error-overlay")!.style.display = "flex";
-        if (navigator.vibrate) navigator.vibrate([100, 50, 100]); // Error haptic pattern
-      } else {
-        status.value = error.message;
-      }
-      return;
-    }
-    
-    save([...queue(key), visit], key); 
-    speaker.speak("Kunjungan disimpan offline");
-    status.value = "Koneksi tertunda — kunjungan tersimpan di perangkat";
-  } finally {
-    visitBusy = false; submit.disabled = false;
   }
+
+  // Instant human voice recitation
+  speaker.speak(`Selamat datang, ${studentName}`);
+
+  status.value = "Kunjungan tersimpan di HP · sinkronisasi berjalan di latar belakang.";
+  switchView("success");
+  if (!isFromCamera) triggerHapticFeedback();
+
+  // Rapid auto-reset so next student in line can be scanned immediately
+  if (scanTimeout) clearTimeout(scanTimeout);
+  scanTimeout = window.setTimeout(() => switchView("scan"), 1800);
+
+  visitBusy = false;
+  submit.disabled = false;
+
+  // 2. SILENT BACKGROUND SYNC (Non-blocking)
+  void sync();
 }
 
 form.onsubmit = async event => {
@@ -360,3 +381,16 @@ async function start() {
 }
 
 void start();
+
+// Background sync loop: sync quietly every 8.5 seconds without blocking scanner
+const SYNC_INTERVAL_MS = 8500;
+window.setInterval(() => {
+  if (portal.connected && queue().length > 0) void sync().catch(() => {});
+}, SYNC_INTERVAL_MS);
+
+window.addEventListener("online", () => {
+  if (portal.connected) {
+    void sync().catch(() => {});
+    void loadDailySummary();
+  }
+});

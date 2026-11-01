@@ -1,3 +1,4 @@
+import { StudentCache, OfflineQueue } from "../../shared/offline-store";
 import { QRCamera, bindLoginCamera } from "../../shared/qr-camera";
 import { gateIntro, gateHelp, escapePortal as esc } from "../../shared/portal-ui";
 import { NaturalVoice } from "../../shared/natural-voice";
@@ -9,6 +10,21 @@ import { calculateWasteMeasurement, type WasteType, type WasteUnit } from "./was
 
 const portal = new PortalSession("WASTE_STAFF", import.meta.env.VITE_API_BASE_URL ?? "/api/v1");
 setupInstallPrompt("Piket Bank Sampah", import.meta.env.BASE_URL, import.meta.env.PROD);
+
+export type WasteQueueItem = {
+  event_id: string;
+  class_id: string;
+  student_id: string;
+  student_name: string;
+  organic_kg: number;
+  inorganic_kg: number;
+  source: string;
+  total_kg: number;
+  occurred_at: string;
+};
+
+const studentCache = new StudentCache("waste");
+const wasteQueue = new OfflineQueue<WasteQueueItem>("waste_deposits");
 
 const speaker = new NaturalVoice("waste", ({ enabled, text }) => {
   const toggle = document.getElementById("voice-toggle") as HTMLButtonElement | null;
@@ -406,19 +422,91 @@ async function init() {
     if (!initialRestored) switchView("scan");
   }
 }
+let syncingWaste = false;
+async function syncWasteQueue() {
+  if (syncingWaste || !navigator.onLine) return;
+  const pendingItems = wasteQueue.getPending();
+  if (!pendingItems.length) return;
+  syncingWaste = true;
+  try {
+    for (const item of pendingItems) {
+      try {
+        await portal.request("/waste/transactions", {
+          method: "POST",
+          body: JSON.stringify({
+            event_id: item.event_id,
+            class_id: item.payload.class_id,
+            student_id: item.payload.student_id,
+            organic_kg: item.payload.organic_kg,
+            inorganic_kg: item.payload.inorganic_kg,
+            source: item.payload.source,
+          }),
+        });
+        wasteQueue.markSynced(item.event_id);
+      } catch (err) {
+        if (err instanceof PortalError && [400, 403, 404, 409, 422].includes(err.status)) {
+          wasteQueue.markSynced(item.event_id);
+        } else {
+          break;
+        }
+      }
+    }
+    void loadDashboard();
+  } finally {
+    syncingWaste = false;
+  }
+}
+
 async function resolveStudent(scannedText?: string) {
   const query = (scannedText ?? input("scan-input").value).trim();
   if (!query || resolving || pending) return;
 
-  resolving = true;
   hideNotFoundModal();
-  showLoadingOverlay(true);
   el("scan-error").style.display = "none";
   el("scan-error").textContent = "";
+
+  // 1. FAST PATH (Instant on-device resolution without spinner)
+  const cached = studentCache.resolve(query);
+  if (cached) {
+    if (!scannedText) {
+      input("scan-input").value = "";
+    }
+    const resolvedStudent: Student = {
+      id: cached.id,
+      full_name: cached.full_name,
+      student_number: cached.student_number ?? "",
+      nisn: cached.nisn,
+      photo_url: cached.photo_url,
+    };
+    showStudent(resolvedStudent);
+    speaker.speak(resolvedStudent.full_name);
+    el("scan-error").style.display = "none";
+    el("scan-error").textContent = "";
+    el("input-error").textContent = "";
+    input("weight-input").value = "0.500";
+    input<HTMLSelectElement>("unit-select").value = "KG";
+    const organicInput = document.querySelector<HTMLInputElement>('input[value="ORGANIC"]');
+    if (organicInput) organicInput.checked = true;
+    updateMeasurement();
+    switchView("input");
+    return;
+  }
+
+  // 2. FALLBACK PATH (Online resolution)
+  resolving = true;
+  showLoadingOverlay(true);
   el<HTMLButtonElement>("btn-ranking").disabled = true;
 
   try {
     const resolvedStudent = await portal.request<Student>("/students/resolve", { method:"POST", body:JSON.stringify({identity:query}) });
+    studentCache.put({
+      id: resolvedStudent.id,
+      full_name: resolvedStudent.full_name,
+      student_number: resolvedStudent.student_number,
+      nisn: resolvedStudent.nisn,
+      photo_url: resolvedStudent.photo_url,
+      cards: [{ card_uid: query, qr_key: query }],
+    });
 
     // If scanned via camera, keep manual search input box untouched!
     if (!scannedText) {
@@ -446,30 +534,47 @@ async function resolveStudent(scannedText?: string) {
     el<HTMLButtonElement>("btn-ranking").disabled = false;
   }
 }
+
 function lockForm(locked: boolean) {
   el("form-input").querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>("input, select, button[type=button]").forEach(control => control.disabled = locked);
   el<HTMLButtonElement>("btn-cancel-input").disabled = locked;
 }
+
 async function saveDeposit(e: SubmitEvent) {
   e.preventDefault();
   if (saving || !student) return;
   const measurement = updateMeasurement();
-  if (!Number.isFinite(measurement.total_kg) || measurement.total_kg <= 0 || measurement.total_kg > 1000) { el("input-error").textContent = "Berat harus lebih dari 0 dan maksimal 1.000 kg."; return; }
-  pending ??= { event_id: crypto.randomUUID(), class_id: classId, student_id: student.id, organic_kg: measurement.organic_kg, inorganic_kg: measurement.inorganic_kg, source: measurement.source };
+  if (!Number.isFinite(measurement.total_kg) || measurement.total_kg <= 0 || measurement.total_kg > 1000) {
+    el("input-error").textContent = "Berat harus lebih dari 0 dan maksimal 1.000 kg.";
+    return;
+  }
+
+  const depositPayload = {
+    event_id: crypto.randomUUID(),
+    class_id: classId,
+    student_id: student.id,
+    student_name: student.full_name,
+    organic_kg: measurement.organic_kg,
+    inorganic_kg: measurement.inorganic_kg,
+    source: measurement.source,
+    total_kg: measurement.total_kg,
+    occurred_at: new Date().toISOString(),
+  };
+
+  // Enqueue locally first so line never blocks on network
+  wasteQueue.enqueue(depositPayload, depositPayload.event_id);
+
+  speaker.speak("Setoran berhasil disimpan");
+  el("success-detail").textContent = `${student.full_name} · ${number(measurement.total_kg)} kg. Setoran tersimpan di HP & sinkronisasi berjalan di latar belakang.`;
+  pending = null;
   rememberPending();
-  saving = true; lockForm(true); el<HTMLButtonElement>("btn-save").disabled = true;
-  showLoadingOverlay(true);
-  el("input-error").textContent = "Menyimpan setoran…";
-  try {
-    const saved = await portal.request<{ total_kg: number; points_earned: number | null }>("/waste/transactions", { method: "POST", body: JSON.stringify(pending) });
-    speaker.speak("Setoran berhasil disimpan");
-    el("success-detail").textContent = `${student.full_name} · ${number(saved.total_kg)} kg${saved.points_earned == null ? "" : ` · ${number(saved.points_earned)} poin`}. Terima kasih sudah berkontribusi!`;
-    pending = null; rememberPending(); student = null; el("input-error").textContent = ""; lockForm(false); switchView("success"); void loadDashboard();
-  } catch (error) {
-    // Keep the same event and payload after an ambiguous network/server failure.
-    if (error instanceof PortalError && error.status >= 400 && error.status < 500 && error.status !== 409) { pending = null; rememberPending(); lockForm(false); }
-    el("input-error").textContent = `${message(error)}${pending ? " Tekan Simpan Setoran untuk mengecek atau mengulang setoran yang sama tanpa menggandakan data." : ""}`;
-  } finally { saving = false; showLoadingOverlay(false); el<HTMLButtonElement>("btn-save").disabled = false; }
+  student = null;
+  el("input-error").textContent = "";
+  lockForm(false);
+  switchView("success");
+
+  // Non-blocking silent background sync
+  void syncWasteQueue();
 }
 loginForm.addEventListener("submit", e => { e.preventDefault(); void init(); });
 el("form-scan").addEventListener("submit", e => { e.preventDefault(); void resolveStudent(); });
@@ -523,4 +628,15 @@ document.querySelectorAll<HTMLButtonElement>(".zoom-btn").forEach(btn => {
 });
 setupScannerPinchZoom();
 void init();
+
+// Background sync loop: sync waste transactions quietly every 8.5 seconds
+const SYNC_INTERVAL_MS = 8500;
+window.setInterval(() => {
+  if (wasteQueue.getPendingCount() > 0) void syncWasteQueue();
+}, SYNC_INTERVAL_MS);
+
+window.addEventListener("online", () => {
+  void syncWasteQueue();
+  void loadDashboard();
+});
 

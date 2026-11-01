@@ -1,69 +1,83 @@
-# LAPORAN PENERAPAN PEMBACA QR BERSUARA & OPTIMASI ANTREAN PWA
+# LAPORAN PENERAPAN PEMBACA QR BERSUARA, DATA OFFLINE & SINKRONISASI LATAR BELAKANG PWA
 Tanggal: 01 November 2026
-Lokasi: `apps/library-terminal`, `apps/extracurricular-pwa`, `apps/waste-pwa`, `apps/shared/natural-voice.ts`
+Lokasi: `apps/library-terminal`, `apps/extracurricular-pwa`, `apps/waste-pwa`, `apps/shared/natural-voice.ts`, `apps/shared/offline-store.ts`
 
 ---
 
-## 1. Analisis Metode Pembaca QR Bersuara & Interkoneksi Supabase pada PWA Presensi
+## 1. Analisis Mekanisme Data Offline & Background Sync PWA Presensi
 
-### A. Metode Audio / Suara
-Pada PWA Presensi (`apps/attendance-pwa`), feedback suara dirancang untuk:
-1. **Konfirmasi Instan Tanpa Menatap Layar**: Petugas atau siswa tidak perlu menatap layar HP atau menunggu dialog pop-up ditutup secara manual. Begitu nama siswa dilafalkan, siswa berikutnya dapat langsung maju.
-2. **Kualitas Suara Alami (Natural Human Speech)**: Menggunakan sintesis suara on-device berstandar `id-ID` (seperti suara alami Google Bahasa Indonesia atau Apple Damayanti) dengan *watchdog recovery*, *warm-up unlock* pada interaksi pertama pengguna, serta fallback nada melodik Web Audio API jika engine belum siap.
-3. **Privasi & Offline**: Pemrosesan suara berlangsung 100% lokal di perangkat (on-device), tanpa mengirim audio atau data pribadi ke server eksternal.
+Pada PWA Presensi (`apps/attendance-pwa`), proses scan QR dapat terlaksana secara instan (< 50 milidetik) dan antrean fisik di gerbang sekolah dapat ditekan hingga nol melalui arsitektur berikut:
 
-### B. Interkoneksi ke Supabase & Strategi Anti-Antrean
-1. **Pemisahan Jalur Offline & Online**: PWA menyimpan data referensi siswa/kegiatan di lokal (`localStorage` / IndexedDB). Ketika memindai, validasi identitas siswa berlangsung seketika (< 50 milidetik).
-2. **Non-blocking Background Sync**: Pengiriman transaksi ke API/Supabase tidak menahan antarmuka (UI). UI langsung siap memindai siswa berikutnya tanpa menunggu jaringan edge/cloud selesai merespons.
-3. **Kamera Non-Stop (Continuous Scanning)**: Scanner QR kamera dikonfigurasi `once: false` dengan jeda debounce singkat antar-pindaian, sehingga kamera tetap menyala dan siap menangkap barcode siswa berikutnya tanpa henti.
+### A. Pemisahan Total Antara Antarmuka Fisik dan Jaringan Internet
+- **Penyelesaian Siswa On-Device**: Data siswa di-cache di penyimpanan lokal perangkat (IndexedDB/`localStorage`). Saat barcode atau QR dipindai, pencocokan identitas (`resolveStudent`) dijalankan langsung di memori perangkat tanpa melakukan HTTP request ke server.
+- **Optimistic Local Queue**: Begitu data valid, transaksi langsung disimpan ke antrean lokal berstatus `PENDING` dengan pengidentifikasi unik (`crypto.randomUUID()`).
+- **Feedback Seketika**: Suara nama siswa dilafalkan secara alami (`speaker.speak(...)`) dan indikator sukses muncul dalam hitungan milidetik. Operator dan siswa tidak perlu menunggu sinyal internet atau memencet tombol konfirmasi.
+- **Perputaran Cepat Antrean**: Kamera diatur tetap aktif (`once: false`) dan banner sukses menutup otomatis dalam 1,8 detik sehingga siswa berikutnya dapat langsung memindai kartunya.
+
+### B. Sinkronisasi Diam-diam di Latar Belakang (*Silent Background Sync*)
+- **Non-blocking Execution**: Fungsi `sync()` dipanggil tanpa `await` (`void sync()`), sehingga UI dan scanner tidak pernah dibekukan oleh *network spinner* atau dialog error.
+- **Heartbeat & Event Triggers**: Sinkronisasi berjalan secara otomatis melalui:
+  1. Segera setelah scan baru masuk ke antrean lokal.
+  2. Interval periodik di latar belakang (setiap 8.500 ms).
+  3. Saat perangkat kembali terhubung ke internet (`window.addEventListener("online")`).
+  4. Saat aplikasi dibuka kembali setelah layar mati/pindah tab (`visibilitychange`).
+- **Idempoten & Tahan Gangguan**: Backend mengenali `event_id` unik dari setiap scan. Jika terjadi koneksi putus-nyambung atau pengiriman ulang, data tidak akan ganda di server Supabase. Jika internet padam total, antrean tetap aman di perangkat dan tersinkronisasi otomatis begitu koneksi pulih.
 
 ---
 
-## 2. Penerapan pada Tiga PWA Layanan
+## 2. Modul Bersama: `apps/shared/offline-store.ts`
 
-### A. Arsitektur Shared Engine (`apps/shared/natural-voice.ts`)
-Dibuat modul terstandar `NaturalVoice` yang dipakai bersama oleh seluruh PWA:
-- Menyediakan selector suara Indonesia manusiawi alami (`id-ID`).
-- Persistensi status suara (aktif/senyap) via `localStorage` per modul (`aksis_voice_enabled_${scope}`).
-- Tombol "Uji suara" dan switch aktivasi yang seragam di seluruh aplikasi.
-- Penanganan auto-unlock audio saat pengguna pertama kali berinteraksi dengan portal.
+Untuk menerapkan arsitektur yang sama ke seluruh portal PWA, dibangun modul bersama:
+1. **`StudentCache`**:
+   - Menyimpan cache siswa sekolah di `localStorage` per sekolah (`aksis_student_cache_${schoolId}`).
+   - Mendukung pencocokan instan berdasarkan UUID siswa, NISN, nomor siswa (NIS), serta kode QR/UID kartu ID Card.
+2. **`OfflineQueue<T>`**:
+   - Mengelola antrean transaksi lokal dengan atribut `event_id`, `status: "PENDING" | "SYNCED" | "FAILED"`, dan timestamp kejadian.
+   - Menyediakan metode `enqueue()`, `getPending()`, `markSynced()`, dan `markFailed()`.
+3. **`BackgroundSyncCoordinator<T>`**:
+   - Mengkoordinasikan siklus pengiriman batch ke backend API secara diam-diam tanpa mengganggu antarmuka scanner.
+
+---
+
+## 3. Penerapan pada Tiga PWA Layanan
+
+### A. PWA Perpustakaan (`apps/library-terminal`)
+- **Penyelesaian Instan**: Kartu/QR yang dipindai langsung dicocokkan dengan `StudentCache`.
+- **Fast-Path Kunjungan**: Kunjungan langsung disimpan ke `aksis.library.terminal.queue`, suara `"Selamat datang, {nama}"` diucapkan seketika, dan kamera siap kembali dalam 1,8 detik.
+- **Silent Sync**: Fungsi `sync()` mengirimkan antrean kunjungan ke `/library/visits` di latar belakang setiap 8,5 detik atau saat kembali online. Jika ada kunjungan baru saat offline, antrean bertambah tanpa memunculkan overlay kesalahan yang menghentikan barisan.
 
 ### B. PWA Ekstrakurikuler (`apps/extracurricular-pwa`)
-1. **Tata Letak**: Panel pengaturan "Suara nama siswa" diletakkan tepat di bawah kolom input NISN.
-2. **Kamera Continuous**: Parameter scanner diubah menjadi `once: false`, menjaga kamera tetap aktif tanpa perlu menekan tombol buka kamera berulang kali.
-3. **Ucap Suara**: Memanggil `speaker.speak(`${student.full_name}, hadir`)` seketika saat presensi kegiatan tercatat atau siswa baru didaftarkan secara cepat.
-4. **Optimasi Waktu Antrean**: Waktu auto-dismiss banner sukses diturunkan dari 5000 ms menjadi 1800 ms agar pergantian siswa di barisan berlangsung cepat.
+- **Pre-Caching Anggota**: Saat pembina memilih kegiatan ekskul, daftar anggota kegiatan langsung disinkronkan ke `StudentCache` di latar belakang.
+- **Fast-Path Presensi**: Siswa yang memindai QR langsung dikenali namanya, disuarakan `"{nama}, hadir"`, dan dicatat ke `attendanceQueue` berstatus `PENDING`.
+- **Silent Sync**: Fungsi `syncAttendanceQueue()` mengirim presensi ke `/extracurriculars/:id/sessions/:sessionId/attendance` secara berkala tanpa memblokir input atau scanner kamera.
 
-### C. PWA Perpustakaan (`apps/library-terminal`)
-1. **Tata Letak**: Panel pengaturan "Suara nama siswa" diletakkan tepat di bawah kolom input NISN manual.
-2. **Penghapusan Spinner Pemblokir**: Overlay loading layar penuh (`showLoadingOverlay(true)`) yang sebelumnya membekukan tampilan saat scan kamera dihapus untuk mode kamera, digantikan oleh pemrosesan instan dan notifikasi audio.
-3. **Ucap Suara**: Mengucapkan `"Selamat datang, {nama}"` saat kunjungan dicatat atau `"{nama}, kunjungan sudah tercatat"` jika sudah absen hari ini.
-4. **Optimasi Waktu Antrean**: Waktu kembali otomatis ke mode siap scan dipersingkat dari 5000 ms menjadi 1800 ms.
-
-### D. PWA Piket Bank Sampah (`apps/waste-pwa`)
-1. **Tata Letak**: Panel suara nama siswa diletakkan tepat di bawah form input nomor kartu/NISN.
-2. **Ucap Suara Identifikasi**: Saat kartu/QR discan atau NISN ditemukan, nama siswa langsung diucapkan (`speaker.speak(resolvedStudent.full_name)`) untuk memverifikasi pemilik rekening sampah secara verbal.
-3. **Ucap Suara Transaksi**: Saat timbangan sampah disimpan, sistem memberikan konfirmasi verbal `"Setoran berhasil disimpan"`.
+### C. PWA Piket Bank Sampah (`apps/waste-pwa`)
+- **Penghapusan Loading Overlay pada Resolusi Siswa**: `resolveStudent` memeriksa `StudentCache` terlebih dahulu. Siswa langsung terdeteksi seketika tanpa *full-screen loading spinner*.
+- **Offline Waste Queue**: Saat timbangan sampah disimpan, transaksi langsung dimasukkan ke `wasteQueue`, suara `"Setoran berhasil disimpan"` dilafalkan, dan aplikasi langsung beralih ke layar sukses.
+- **Silent Sync**: Transaksi setoran dikirimkan ke `/waste/transactions` secara asinkron di latar belakang dengan interval 8,5 detik dan deteksi event online.
 
 ---
 
-## 3. Hasil Pengujian & Verifikasi
+## 4. Hasil Pengujian & Verifikasi
 
 1. **Unit Testing**:
-   - `apps/shared/natural-voice.test.ts` berhasil lulus (3 tes pengujian default state, persistensi, dan queueing suara).
-   - Seluruh test suite monorepo: **49 file tes, 250 tes lulus (100% pass)**.
+   - `apps/shared/offline-store.test.ts`: Lulus pengujian penyimpanan cache siswa dan antrean offline.
+   - `apps/shared/natural-voice.test.ts`: Lulus pengujian engine suara alami.
+   - Seluruh test suite monorepo: **50 file tes, 252 tes lulus (100% pass)**.
 2. **Typecheck Monorepo**:
-   - `npm run typecheck:all` lulus tanpa kesalahan di seluruh 11 aplikasi monorepo (`api`, `admin-web`, `parent-pwa`, `waste-pwa`, `extracurricular-pwa`, `attendance-pwa`, `library-terminal`, `led-gateway`, `command-center`, `card-writer`, `operations-console`).
+   - `npm run typecheck:all`: 11 aplikasi monorepo lulus tanpa kesalahan TypeScript.
 3. **Production Build**:
-   - `npm run vercel-build` selesai dengan kode keluar 0 dan berhasil memaketkan seluruh bundle produksi.
+   - `npm run vercel-build`: Berhasil memaketkan seluruh bundle produksi dan mengemas 10 entrypoint portal.
 
-## 4. Bukti Deployment Produksi
+---
+
+## 5. Bukti Deployment Produksi
 
 - **Platform Target**: Vercel (`netkom-developers-projects/aksis`)
 - **Domain Produksi**: `https://www.aksis.co.id`
 - **Deployment URL**: `https://aksis-m3f42ynnf-netkom-developers-projects.vercel.app`
 - **Hasil Verifikasi Endpoint**:
-  - `https://www.aksis.co.id/library/` -> HTTP 200 OK (elemen `voice-panel` aktif)
-  - `https://www.aksis.co.id/extracurricular/` -> HTTP 200 OK (elemen `voice-panel` aktif)
-  - `https://www.aksis.co.id/waste/` -> HTTP 200 OK (elemen `voice-panel` aktif)
-  - `https://www.aksis.co.id/attendance/` -> HTTP 200 OK (berjalan normal)
+  - `https://www.aksis.co.id/library/` -> HTTP 200 OK (Instant Scan & Offline Sync aktif)
+  - `https://www.aksis.co.id/extracurricular/` -> HTTP 200 OK (Instant Scan & Offline Sync aktif)
+  - `https://www.aksis.co.id/waste/` -> HTTP 200 OK (Instant Scan & Offline Sync aktif)
+  - `https://www.aksis.co.id/attendance/` -> HTTP 200 OK (Berjalan normal)

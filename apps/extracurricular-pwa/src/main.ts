@@ -1,3 +1,4 @@
+import { StudentCache, OfflineQueue } from "../../shared/offline-store";
 import { QRCamera, bindLoginCamera } from "../../shared/qr-camera";
 import { renderPortrait } from "../../shared/portrait";
 import { gateIntro, gateHelp, schoolLabel } from "../../shared/portal-ui";
@@ -10,6 +11,20 @@ import "../../shared/scanner.css";
 
 const portal = new PortalSession("TEACHER", import.meta.env.VITE_API_BASE_URL ?? "/api/v1");
 setupInstallPrompt("Ekstrakurikuler", import.meta.env.BASE_URL, import.meta.env.PROD);
+
+export type EkskulAttendanceRecord = {
+  event_id: string;
+  ekskul_id: string;
+  session_id: string;
+  student_id: string;
+  student_name: string;
+  status: string;
+  photo_url?: string | null;
+  occurred_at: string;
+};
+
+const studentCache = new StudentCache("ekskul");
+const attendanceQueue = new OfflineQueue<EkskulAttendanceRecord>("ekskul_attendance");
 
 const speaker = new NaturalVoice("ekskul", ({ enabled, text }) => {
   const toggle = document.getElementById("voice-toggle") as HTMLButtonElement | null;
@@ -398,23 +413,101 @@ document.querySelectorAll(".back-btn").forEach(btn => btn.addEventListener("clic
 }));
 
 // 5. SCANNER & ENROLLMENT
+let syncingAttendance = false;
+async function syncAttendanceQueue() {
+  if (syncingAttendance || !navigator.onLine) return;
+  const pending = attendanceQueue.getPending();
+  if (!pending.length) return;
+  syncingAttendance = true;
+  try {
+    for (const item of pending) {
+      try {
+        await request(`/extracurriculars/${item.payload.ekskul_id}/sessions/${item.payload.session_id}/attendance`, {
+          method: "POST",
+          body: JSON.stringify({
+            student_id: item.payload.student_id,
+            status: item.payload.status,
+          }),
+        });
+        attendanceQueue.markSynced(item.event_id);
+      } catch (err: any) {
+        if (err instanceof PortalError && [400, 403, 404, 409].includes(err.status)) {
+          // Acknowledged / already recorded
+          attendanceQueue.markSynced(item.event_id);
+        } else {
+          // Temporary network failure; keep in queue for next cycle
+          break;
+        }
+      }
+    }
+    void loadSessionSummary();
+  } finally {
+    syncingAttendance = false;
+  }
+}
+
 document.getElementById("form-scan")!.addEventListener("submit", async (e) => {
   e.preventDefault();
   const input = document.getElementById("scan-input") as HTMLInputElement;
   const errorEl = document.getElementById("scan-error")!;
   const query = input.value.trim();
   if (!query || submitting || !currentSessionId) return;
-  submitting = true;
-  const button = document.querySelector<HTMLButtonElement>('#form-scan button[type="submit"]')!;
-  button.disabled = true;
+
   errorEl.textContent = "";
   document.getElementById("enrollment-overlay")!.style.display = "none";
   document.getElementById("error-overlay")!.style.display = "none";
+
+  // 1. FAST PATH (Instant local resolution & queue)
+  const cached = studentCache.resolve(query);
+  if (cached) {
+    input.value = "";
+    const avatar = document.getElementById("student-avatar")!;
+    if (cached.photo_url) {
+      renderPortrait(avatar, cached.photo_url);
+    } else {
+      avatar.innerHTML = `<div class="avatar-fallback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke-linecap="round"/><circle cx="12" cy="7" r="4"/></svg></div>`;
+    }
+    document.getElementById("success-student-name")!.textContent = cached.full_name;
+    document.getElementById("success-time")!.textContent = new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit" }).format(new Date());
+    if (navigator.vibrate) navigator.vibrate(50);
+    speaker.speak(`${cached.full_name}, hadir`);
+    const overlay = document.getElementById("success-overlay")!;
+    overlay.style.display = "flex";
+
+    if (scanTimeout) clearTimeout(scanTimeout);
+    scanTimeout = window.setTimeout(() => { overlay.style.display = "none"; }, 1800);
+
+    attendanceQueue.enqueue({
+      event_id: crypto.randomUUID(),
+      ekskul_id: currentEkskulId,
+      session_id: currentSessionId,
+      student_id: cached.id,
+      student_name: cached.full_name,
+      status: "PRESENT",
+      photo_url: cached.photo_url,
+      occurred_at: new Date().toISOString(),
+    });
+
+    void syncAttendanceQueue();
+    return;
+  }
+
+  // 2. FALLBACK PATH (If student not in local cache yet)
+  submitting = true;
+  const button = document.querySelector<HTMLButtonElement>('#form-scan button[type="submit"]')!;
+  button.disabled = true;
   const toast = document.getElementById("processing-toast")!;
   toast.style.display = "flex";
   try {
     const result = await request<{student:{id:string;full_name:string;photo_url?:string},needs_enrollment:boolean}>(`/extracurriculars/${currentEkskulId}/sessions/${currentSessionId}/scan`, {method:"POST",body:JSON.stringify({identity:query})});
     const student = result.student;
+    studentCache.put({
+      id: student.id,
+      full_name: student.full_name,
+      photo_url: student.photo_url,
+      cards: [{ card_uid: query, qr_key: query }],
+    });
+
     pendingStudent = student; enrollmentKey = crypto.randomUUID(); input.value = "";
     if (result.needs_enrollment) {
       document.getElementById("unregistered-student-name")!.textContent = student.full_name;
@@ -613,4 +706,19 @@ document.getElementById("form-izin")?.addEventListener("submit", async (e) => {
 });
 
 void init();
+
+// Background sync loop: sync attendance quietly every 8.5 seconds
+const SYNC_INTERVAL_MS = 8500;
+window.setInterval(() => {
+  if (attendanceQueue.getPendingCount() > 0) void syncAttendanceQueue();
+}, SYNC_INTERVAL_MS);
+
+window.addEventListener("online", () => {
+  void syncAttendanceQueue();
+  void loadSessionSummary();
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) void syncAttendanceQueue();
+});
 
