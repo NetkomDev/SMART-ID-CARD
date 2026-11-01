@@ -9,6 +9,7 @@ import {
   acknowledge,
   newEventId,
   addReason,
+  attendanceGreeting,
   compliance,
   enqueue,
   payload,
@@ -528,7 +529,8 @@ async function scan(raw: string) {
       throw new Error(
         "QR/NISN tidak ditemukan pada data sekolah di HP ini. Perbarui data saat online atau periksa kartu siswa.",
       );
-    speaker.speak(student.full_name);
+    const comp = compliance(direction, time, data!.rules);
+    speaker.speak(attendanceGreeting(student.full_name, direction, comp.is_late));
     const { day } = schoolTime(time, data!.rules.timezone);
 
     const local = (await records(scope)).find(
@@ -578,7 +580,7 @@ async function scan(raw: string) {
       student_name: student.full_name,
       class_name: student.class_name,
       status: "PENDING",
-      ...compliance(direction, time, data!.rules),
+      ...comp,
     };
     if (value.is_late || value.is_early_departure) reason(value);
     else await persist(value);

@@ -246,6 +246,19 @@ export function compliance(direction: Direction, iso: string, rules: Rules) {
       direction === "CHECK_OUT" && time < rules.check_out_start,
   };
 }
+export function attendanceGreeting(
+  studentName: string,
+  direction: Direction,
+  isLate: boolean,
+): string {
+  if (direction === "CHECK_OUT") {
+    return `Sampai Jumpa besok ${studentName}. Hati-hati dijalan.`;
+  }
+  if (isLate) {
+    return `Waduh kamu terlambat hari ini ${studentName}`;
+  }
+  return `Selamat Pagi ${studentName}`;
+}
 export function resolveStudent(
   list: Student[],
   identifier: string,

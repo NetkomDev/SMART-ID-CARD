@@ -3,6 +3,7 @@ import {
   newEventId,
   schoolTime,
   compliance,
+  attendanceGreeting,
   resolveStudent,
   payload,
   type Student,
@@ -27,6 +28,12 @@ describe("mobile attendance day and identity", () => {
     expect(compliance("CHECK_IN", "2026-10-30T23:31:00Z", rules).is_late).toBe(
       true,
     );
+  });
+  it("formats contextual voice greeting based on direction and punctuality", () => {
+    expect(attendanceGreeting("Ahmad", "CHECK_IN", false)).toBe("Selamat Pagi Ahmad");
+    expect(attendanceGreeting("Ahmad", "CHECK_IN", true)).toBe("Waduh kamu terlambat hari ini Ahmad");
+    expect(attendanceGreeting("Ahmad", "CHECK_OUT", false)).toBe("Sampai Jumpa besok Ahmad. Hati-hati dijalan.");
+    expect(attendanceGreeting("Ahmad", "CHECK_OUT", true)).toBe("Sampai Jumpa besok Ahmad. Hati-hati dijalan.");
   });
   it("marks departure before official time as early", () => {
     expect(
