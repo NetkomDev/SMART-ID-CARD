@@ -102,49 +102,102 @@
         <div class="actions-row"><button id="sync">Sinkronkan sekarang</button></div>
       </div>
       <div id="view-loans" hidden>
-        <div class="loan-card">
-          <small>LAYANAN PERPUSTAKAAN</small><h2>Peminjaman Buku</h2>
-          <p>Pindai QR Smart ID Card siswa atau ketik NISN, lalu lengkapi data buku.</p>
-
-          <!-- Kamera Scan QR Khusus Peminjaman -->
-          <div class="loan-scan-action-box">
-            <button type="button" id="btn-loan-scan-qr" class="btn-loan-scan-qr">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>
-              <span>Scan QR Kartu Siswa</span>
-            </button>
-            <div id="loan-scanner-stage" class="loan-scanner-stage" style="display:none;">
-              <div id="loan-qr-reader" class="scanner-viewport"></div>
-              <div class="loan-scanner-bar">
-                <span id="loan-scan-status">Arahkan kamera ke QR Kartu Siswa…</span>
-                <div class="loan-scanner-actions">
-                  <button type="button" id="btn-loan-flip-camera" class="btn-tool-sm">🔄 Balik</button>
-                  <button type="button" id="btn-loan-stop-camera" class="btn-tool-sm btn-tool-cancel">✕ Tutup</button>
-                </div>
-              </div>
-            </div>
+        <div class="intro-row">
+          <div>
+            <small>LAYANAN PERPUSTAKAAN</small>
+            <h3 id="library-loan-school" style="margin:2px 0 0; font-size:0.9rem; color:#66877a; font-weight:600;">Memuat...</h3>
           </div>
-
-          <!-- Pratinjau Siswa Terverifikasi -->
-          <div id="loan-student-preview" class="loan-student-preview" style="display:none;">
-            <div class="student-avatar" id="loan-student-avatar" style="width:56px;height:70px;border-radius:10px;"></div>
-            <div class="loan-student-details">
-              <strong id="loan-student-name" class="loan-student-name">-</strong>
-              <div id="loan-student-meta" class="loan-student-meta">-</div>
-            </div>
-            <button type="button" id="btn-clear-loan-student" class="btn-clear-student" aria-label="Ganti siswa">&times;</button>
-          </div>
-
-          <form id="loan-form">
-            <label for="loan-student">NISN / Nomor Siswa</label>
-            <input id="loan-student" required autocomplete="off" placeholder="Pindai QR di atas atau masukkan NISN">
-            <label for="loan-title">Judul buku</label><input id="loan-title" required maxlength="200" autocomplete="off" placeholder="Contoh: Laskar Pelangi">
-            <label for="loan-author">Penulis</label><input id="loan-author" required maxlength="200" autocomplete="off" placeholder="Contoh: Andrea Hirata">
-            <label for="loan-due">Jatuh tempo</label><input id="loan-due" type="date" required>
-            <button type="submit">Simpan peminjaman</button>
-          </form>
-          <p id="loan-status" role="status" aria-live="polite"></p>
+          <span class="live-pill"><i></i> Peminjaman</span>
         </div>
-        <div class="loan-card"><h3>Daftar peminjaman</h3><div id="loan-list">Memuat data…</div></div>
+
+        <div class="scanner-stage" id="loan-scanner-stage" data-camera-state="off">
+          <div class="scanner-heading">
+            <div>
+              <small class="scanner-eyebrow">IDENTITAS SISWA</small>
+              <strong>Pindai QR kartu</strong>
+              <span>Letakkan QR di tengah bingkai</span>
+            </div>
+            <button id="btn-switch-loan-camera" type="button" class="camera-switch" aria-label="Ganti kamera">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 6M4 12l2 6a7 7 0 0 0 12-1"/>
+              </svg>
+              <span>Ganti kamera</span>
+            </button>
+          </div>
+          <div class="scanner-viewport">
+            <div id="loan-qr-reader" style="display:none"></div>
+            <div id="loan-scanner-placeholder">
+              <div class="scan-reticle" aria-hidden="true">
+                <svg viewBox="0 0 80 80" fill="none">
+                  <path d="M25 7H7v18m48-18h18v18M7 55v18h18m48-18v18H55" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+                  <path d="M23 23h12v12H23zm22 0h12v12H45zM23 45h12v12H23zm22 0h5v5h7v7H45z" fill="currentColor"/>
+                </svg>
+              </div>
+              <p id="loan-scanner-hint">Aktifkan kamera untuk mulai memindai</p>
+            </div>
+            <div id="loan-camera-shutter-flash" class="camera-shutter-flash"></div>
+            <div id="loan-zoom-controls" class="zoom-controls-bar" style="display:none">
+              <button type="button" class="zoom-btn active" data-zoom="1">1×</button>
+              <button type="button" class="zoom-btn" data-zoom="2">2×</button>
+              <button type="button" class="zoom-btn" data-zoom="3">3×</button>
+            </div>
+          </div>
+          <button id="btn-toggle-loan-camera" type="button" class="camera-button" aria-pressed="false">Aktifkan kamera</button>
+          <div class="scan-state" role="status" aria-live="polite">
+            <span class="live-dot" aria-hidden="true"></span>
+            <span id="loan-scan-status">Kamera nonaktif · input nomor siswa tersedia</span>
+          </div>
+        </div>
+
+        <div class="scan-divider"><span>atau masukkan manual / tap card reader</span></div>
+        <div class="manual-input-card">
+          <label for="loan-student" class="sr-only">NISN siswa</label>
+          <div class="scan-input-wrap">
+            <div class="input-icon-wrap">
+              <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h4M7 13h7"/></svg>
+              <input type="text" inputmode="numeric" id="loan-student" placeholder="Masukkan NISN lengkap" autocomplete="off" required minlength="4" maxlength="64">
+            </div>
+            <button type="button" id="btn-loan-find-student" class="btn-search">Cari siswa</button>
+          </div>
+        </div>
+
+        <!-- Pratinjau Siswa Terverifikasi Identik -->
+        <section id="loan-student-result" class="student-result" style="display:none; margin-top:12px;">
+          <div class="student-card" style="margin:0;">
+            <div class="student-avatar" id="loan-student-avatar"></div>
+            <div class="student-details">
+              <small class="scanner-eyebrow" style="color:#0f5132;font-size:0.75rem;font-weight:700;">SISWA TERVERIFIKASI</small>
+              <h3 id="loan-student-name" style="margin:2px 0 4px;font-size:1.1rem;color:#076340;font-weight:800;">-</h3>
+              <p id="loan-student-meta" style="margin:0;font-size:0.85rem;color:#527967;">-</p>
+            </div>
+            <button type="button" id="btn-clear-loan-student" class="btn-clear-student" title="Ganti siswa">&times;</button>
+          </div>
+        </section>
+
+        <section class="service-card" style="margin-top:16px;">
+          <div class="section-title">
+            <span class="round-icon"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V4H6.5A2.5 2.5 0 0 0 4 6.5v13Zm0 0A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg></span>
+            <div><strong>Data Peminjaman Buku</strong><span>Masukkan judul, penulis, dan jatuh tempo</span></div>
+          </div>
+          <form id="loan-form" style="margin-top:14px;">
+            <label for="loan-title">Judul buku</label>
+            <input id="loan-title" required maxlength="200" autocomplete="off" placeholder="Contoh: Laskar Pelangi">
+            <label for="loan-author">Penulis</label>
+            <input id="loan-author" required maxlength="200" autocomplete="off" placeholder="Contoh: Andrea Hirata">
+            <label for="loan-due">Jatuh tempo</label>
+            <input id="loan-due" type="date" required>
+            <button type="submit" id="btn-submit-loan" class="camera-button" style="background:#075f40;color:white;margin-top:14px;border:none;">Simpan Peminjaman</button>
+          </form>
+          <p id="loan-status" role="status" aria-live="polite" style="margin-top:10px;font-size:0.85rem;font-weight:600;color:#0f5132;"></p>
+        </section>
+
+        <section class="service-card" style="margin-top:16px;">
+          <div class="section-title">
+            <span class="round-icon blue"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+            <div><strong>Daftar Peminjaman Aktif</strong><span>Data peminjaman yang sedang berjalan</span></div>
+          </div>
+          <div id="loan-list" style="margin-top:10px;">Memuat data…</div>
+        </section>
       </div>
       <nav class="library-bottom-nav" aria-label="Navigasi perpustakaan"><button type="button" id="tab-scan" aria-current="page">⌗ <span>Scan</span></button><button type="button" id="tab-loans">▤ <span>Peminjaman buku</span></button></nav>
     </section>

@@ -215,70 +215,9 @@ body::before{display:none}
 #loan-form { display:grid; gap:8px; } #loan-form label { margin-top:7px; font-size:.85rem; font-weight:700; } #loan-form input { width:100%; min-height:46px; border:1px solid #cfddd5; border-radius:10px; padding:10px; font:inherit; } #loan-form button { margin-top:12px; min-height:48px; }
 .loan-item { padding:12px 0; border-top:1px solid #edf2ef; overflow-wrap:anywhere; }.loan-item strong,.loan-item span { display:block; }.loan-item span { font-size:.84rem; color:#617b6e; margin-top:4px; }
 
-/* Loan QR Scanner & Student Preview Badge */
-.loan-scan-action-box { margin: 12px 0 16px; }
-.btn-loan-scan-qr {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  min-height: 48px;
-  background: linear-gradient(135deg, #e0f2fe, #bae6fd);
-  color: #0369a1;
-  border: 1px solid #7dd3fc;
-  border-radius: 14px;
-  font-weight: 700;
-  font-size: 0.95rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 3px 10px rgba(3, 105, 161, 0.08);
-}
-.btn-loan-scan-qr:hover {
-  background: linear-gradient(135deg, #bae6fd, #7dd3fc);
-  color: #0284c7;
-}
-.loan-scanner-stage {
-  margin-top: 10px;
-  border-radius: 16px;
-  overflow: hidden;
-  background: #0f172a;
-  border: 2px solid #38bdf8;
-  padding: 8px;
-}
-.loan-scanner-stage .scanner-viewport {
-  width: 100%;
-  border-radius: 12px;
-  overflow: hidden;
-  background: #000;
-}
-.loan-scanner-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 8px;
-  padding: 4px 6px;
-  color: #f1f5f9;
-  font-size: 0.8rem;
-  flex-wrap: wrap;
-}
-.loan-scanner-actions {
-  display: flex;
-  gap: 6px;
-}
-.btn-tool-sm {
-  background: #334155;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 6px 12px;
-  font-size: 0.78rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-.btn-tool-cancel {
-  background: #dc2626;
+/* Loan QR Scanner & Verified Student Card */
+.loan-student-result {
+  margin-top: 12px;
 }
 .loan-student-preview {
   display: flex;

@@ -153,7 +153,7 @@ let isLoanScanning = false;
 
 function renderLoanStudentPreview(student: CachedStudent | null) {
   selectedLoanStudent = student;
-  const preview = document.getElementById("loan-student-preview");
+  const preview = document.getElementById("loan-student-result") || document.getElementById("loan-student-preview");
   const avatar = document.getElementById("loan-student-avatar");
   const name = document.getElementById("loan-student-name");
   const meta = document.getElementById("loan-student-meta");
@@ -162,7 +162,7 @@ function renderLoanStudentPreview(student: CachedStudent | null) {
   if (!preview || !avatar || !name || !meta) return;
 
   if (student) {
-    preview.style.display = "flex";
+    preview.style.display = "block";
     name.textContent = student.full_name;
     const nisnText = student.nisn ? `NISN: ${student.nisn}` : (student.student_number ? `No: ${student.student_number}` : "");
     const classText = student.class_name ? `Kelas: ${student.class_name}` : "";
@@ -382,8 +382,8 @@ const camera = new QRCamera({readerId:"qr-reader",toggleId:"btn-toggle-camera",s
 async function stopCameraScanner(){await camera.stop();currentZoom=1;}
 async function startCameraScanner(){await camera.start();}
 document.getElementById("btn-switch-camera")!.addEventListener("click",()=>{void camera.flip();});
-document.addEventListener("visibilitychange",()=>{if(document.hidden)void stopCameraScanner();});
-window.addEventListener("pagehide",()=>{void stopCameraScanner();});
+document.addEventListener("visibilitychange",()=>{if(document.hidden){void stopCameraScanner();void stopLoanCameraScanner();}});
+window.addEventListener("pagehide",()=>{void stopCameraScanner();void stopLoanCameraScanner();});
 
 document.getElementById("btn-toggle-camera")!.addEventListener("click", () => {
   if (isScanning) stopCameraScanner();
@@ -399,6 +399,8 @@ async function start() {
       login.style.display = "none";
       const libSchool = document.querySelector("#library-school");
       if (libSchool && portal.context) libSchool.textContent = portal.context.school_name;
+      const libLoanSchool = document.querySelector("#library-loan-school");
+      if (libLoanSchool && portal.context) libLoanSchool.textContent = portal.context.school_name;
       void updateVisitCount();
       offerInstall();
       if (!navigator.onLine) { status.value = "Offline · transaksi tersimpan di HP"; return; }
@@ -409,6 +411,7 @@ async function start() {
       ]);
       
       if (libSchool && portal.context) libSchool.textContent = portal.context.school_name;
+      if (libLoanSchool && portal.context) libLoanSchool.textContent = portal.context.school_name;
       void sync().catch(showError);
       return;
     }
@@ -422,6 +425,8 @@ async function start() {
     login.style.display = "none";
     const libSchool = document.querySelector("#library-school");
     if (libSchool) libSchool.textContent = portal.context!.school_name;
+    const libLoanSchool = document.querySelector("#library-loan-school");
+    if (libLoanSchool) libLoanSchool.textContent = portal.context!.school_name;
     void updateVisitCount(); offerInstall();
     void loadDailySummary();
     void sync().catch(showError);
@@ -485,19 +490,76 @@ async function renderLoans() {
 const loanForm=document.getElementById("loan-form") as HTMLFormElement;
 const loanStatus=document.getElementById("loan-status")!;
 
+let currentLoanZoom = 1;
+let initialLoanTouchDistance = 0;
+let initialLoanZoomOnTouch = 1;
+
+async function setLoanCameraZoom(value: number) {
+  currentLoanZoom = value;
+  await loanCamera.setZoom(value);
+}
+
+function triggerLoanShutterFlash() {
+  const flash = document.getElementById("loan-camera-shutter-flash");
+  if (flash) {
+    flash.classList.remove("flash-active");
+    void flash.offsetWidth;
+    flash.classList.add("flash-active");
+  }
+}
+
+function setupLoanScannerPinchZoom() {
+  const stage = document.querySelector<HTMLElement>("#loan-scanner-stage .scanner-viewport");
+  if (!stage) return;
+
+  const handleTouchStart = (e: TouchEvent) => {
+    const target = e.target as HTMLElement | null;
+    const isInside = target && (stage.contains(target) || !!target.closest("#loan-scanner-stage, #loan-qr-reader"));
+    if (isInside && e.touches.length === 2 && isLoanScanning) {
+      if (e.cancelable) e.preventDefault();
+      const t1 = e.touches[0]!;
+      const t2 = e.touches[1]!;
+      initialLoanTouchDistance = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      initialLoanZoomOnTouch = currentLoanZoom;
+    }
+  };
+
+  const handleTouchMove = (e: TouchEvent) => {
+    if (e.touches.length === 2 && isLoanScanning && initialLoanTouchDistance > 0) {
+      if (e.cancelable) e.preventDefault();
+      const t1 = e.touches[0]!;
+      const t2 = e.touches[1]!;
+      const currentDistance = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      const zoomFactor = currentDistance / initialLoanTouchDistance;
+      const newZoom = initialLoanZoomOnTouch * zoomFactor;
+      void setLoanCameraZoom(newZoom);
+    }
+  };
+
+  const handleTouchEnd = () => { initialLoanTouchDistance = 0; };
+
+  document.addEventListener("touchstart", handleTouchStart, { passive: false });
+  document.addEventListener("touchmove", handleTouchMove, { passive: false });
+  document.addEventListener("touchend", handleTouchEnd, { passive: true });
+  document.addEventListener("touchcancel", handleTouchEnd, { passive: true });
+}
+
 const loanCamera = new QRCamera({
   readerId: "loan-qr-reader",
+  toggleId: "btn-toggle-loan-camera",
   stageId: "loan-scanner-stage",
+  placeholderId: "loan-scanner-placeholder",
   statusId: "loan-scan-status",
   errorId: "loan-status",
-  once: true,
+  zoomId: "loan-zoom-controls",
+  once: false,
   canRead: () => document.getElementById("view-loans")?.hidden === false,
   onState: phase => {
     isLoanScanning = phase === "active";
-    const stage = document.getElementById("loan-scanner-stage");
-    if (stage) stage.style.display = phase === "active" ? "block" : "none";
   },
   onDecode: async value => {
+    triggerLoanShutterFlash();
+    triggerHapticFeedback();
     let student = studentCache.resolve(value);
     if (!student && navigator.onLine) {
       try {
@@ -518,32 +580,41 @@ const loanCamera = new QRCamera({
     }
     if (student) {
       selectLoanStudent(student);
-      await loanCamera.stop();
     } else {
       const input = document.getElementById("loan-student") as HTMLInputElement | null;
       if (input) input.value = value;
-      loanStatus.textContent = "QR terbaca. Siswa belum ada di cache, sistem akan memvalidasi saat simpan.";
-      await loanCamera.stop();
+      loanStatus.textContent = "QR terbaca. Siswa belum ada di cache, periksa koneksi atau antrean.";
     }
   }
 });
 
-document.getElementById("btn-loan-scan-qr")?.addEventListener("click", () => {
-  if (isLoanScanning) {
-    void loanCamera.stop();
-  } else {
-    if (isScanning) void stopCameraScanner();
-    void loanCamera.start();
-  }
-});
+async function stopLoanCameraScanner() {
+  await loanCamera.stop();
+  currentLoanZoom = 1;
+}
 
-document.getElementById("btn-loan-stop-camera")?.addEventListener("click", () => {
-  void loanCamera.stop();
-});
+async function startLoanCameraScanner() {
+  if (isScanning) await stopCameraScanner();
+  await loanCamera.start();
+}
 
-document.getElementById("btn-loan-flip-camera")?.addEventListener("click", () => {
+document.getElementById("btn-switch-loan-camera")?.addEventListener("click", () => {
   void loanCamera.flip();
 });
+
+document.getElementById("btn-toggle-loan-camera")?.addEventListener("click", () => {
+  if (isLoanScanning) void stopLoanCameraScanner();
+  else void startLoanCameraScanner();
+});
+
+document.querySelectorAll<HTMLButtonElement>("#loan-zoom-controls .zoom-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const zoomVal = Number(btn.getAttribute("data-zoom")) || 1;
+    void setLoanCameraZoom(zoomVal);
+  });
+});
+
+setupLoanScannerPinchZoom();
 
 document.getElementById("btn-clear-loan-student")?.addEventListener("click", () => {
   renderLoanStudentPreview(null);
@@ -555,9 +626,53 @@ document.getElementById("btn-clear-loan-student")?.addEventListener("click", () 
   loanStatus.textContent = "";
 });
 
-// Auto-lookup when admin types or pastes NISN
-let lookupTimer: number | undefined;
+async function lookupLoanStudentManual() {
+  const input = document.getElementById("loan-student") as HTMLInputElement | null;
+  const val = input?.value.trim();
+  if (!val) {
+    loanStatus.textContent = "Masukkan NISN atau ID kartu siswa.";
+    return;
+  }
+  let student = studentCache.resolve(val);
+  if (!student && navigator.onLine) {
+    loanStatus.textContent = "Mencari data siswa…";
+    try {
+      const res = await portal.request<{ student_id?: string; student_name?: string; class_name?: string; photo_url?: string; nisn?: string }>(
+        `/students/resolve?identifier=${encodeURIComponent(val)}`
+      );
+      if (res?.student_id && res.student_name) {
+        student = {
+          id: res.student_id,
+          full_name: res.student_name,
+          class_name: res.class_name,
+          photo_url: res.photo_url,
+          nisn: res.nisn,
+        };
+        studentCache.put(student);
+      }
+    } catch {}
+  }
+  if (student) {
+    selectLoanStudent(student);
+  } else {
+    renderLoanStudentPreview(null);
+    loanStatus.textContent = "Siswa tidak ditemukan. Periksa NISN atau koneksi.";
+  }
+}
+
+document.getElementById("btn-loan-find-student")?.addEventListener("click", () => {
+  void lookupLoanStudentManual();
+});
+
 const loanStudentInput = document.getElementById("loan-student") as HTMLInputElement | null;
+loanStudentInput?.addEventListener("keydown", e => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    void lookupLoanStudentManual();
+  }
+});
+
+let lookupTimer: number | undefined;
 loanStudentInput?.addEventListener("input", () => {
   if (lookupTimer) clearTimeout(lookupTimer);
   lookupTimer = window.setTimeout(() => {
@@ -571,7 +686,7 @@ loanStudentInput?.addEventListener("input", () => {
       renderLoanStudentPreview(student);
       loanStatus.textContent = `Siswa ditemukan: ${student.full_name}`;
     }
-  }, 200);
+  }, 250);
 });
 
 // Quick loan from visit success modal
@@ -612,12 +727,19 @@ function setLibraryTab(tab:"scan"|"loans") {
   loansTab.toggleAttribute("aria-current",tab==="loans");
   if(tab==="loans"){
     if (isScanning) void stopCameraScanner();
+    const libLoanSchool = document.querySelector("#library-loan-school");
+    if (libLoanSchool && portal.context) libLoanSchool.textContent = portal.context.school_name;
+    const loanDue = document.getElementById("loan-due") as HTMLInputElement | null;
+    if (loanDue && !loanDue.value) {
+      const nextWeek = new Date(Date.now() + 7 * 86400000);
+      loanDue.value = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Makassar', year: 'numeric', month: '2-digit', day: '2-digit' }).format(nextWeek);
+    }
     void renderLoans();
     if (!selectedLoanStudent && lastScannedStudent) {
       selectLoanStudent(lastScannedStudent);
     }
   } else {
-    if (isLoanScanning) void loanCamera.stop();
+    if (isLoanScanning) void stopLoanCameraScanner();
   }
 }
 scanTab.addEventListener("click",()=>setLibraryTab("scan"));loansTab.addEventListener("click",()=>setLibraryTab("loans"));
