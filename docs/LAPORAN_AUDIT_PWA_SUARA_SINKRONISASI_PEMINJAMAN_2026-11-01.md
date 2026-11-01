@@ -53,14 +53,23 @@ Tanggal: 1 November 2026. Lingkup: PWA Piket Kehadiran, Piket Bank Sampah, Perpu
    - Pada kartu **Kunjungan Perpustakaan** di beranda orang tua, kini ditampilkan lencana buku aktif: `📖 X buku sedang dipinjam · Jatuh tempo terdekat [Tanggal]`.
    - Saat orang tua mengetuk kartu Perpustakaan, drawer membuka bagian khusus **Buku yang Sedang Dipinjam** lengkap dengan judul buku, penulis, tanggal pinjam, dan lencana status jatuh tempo (Terlambat, Hari Ini, atau Sisa Hari). Di bawahnya tetap ditampilkan riwayat kunjungan perpustakaan harian.
 
+8. **Personalisasi Suara Kontekstual PWA Presensi (Jam Datang vs Terlambat vs Jam Pulang)**:
+   - Menggantikan ucapan suara yang sebelumnya hanya menyebut nama siswa dengan sapaan kontekstual cerdas sesuai waktu dan ketepatan jam sekolah:
+     - **Jam Datang / Masuk (Tepat Waktu)**: `"Selamat Pagi [Nama Siswa]"`
+     - **Jam Datang / Masuk (Lewat Batas Masuk / Terlambat)**: `"Waduh kamu terlambat hari ini [Nama Siswa]"`
+     - **Jam Pulang**: `"Sampai Jumpa besok [Nama Siswa]. Hati-hati dijalan."`
+   - Logika penentuan jam terintegrasi otomatis dengan `rules` sekolah (`check_in_end` dan `check_out_start`) maupun saat tombol arah presensi Datang/Pulang diubah petugas.
+
 ## Hasil verifikasi
 
 - **Pemeriksaan Tipe Data**: `npm run typecheck:all` lulus 100% tanpa kesalahan di seluruh 11 aplikasi.
 - **Pengujian Browser & Offline Store**:
-  - `tooling/test-attendance-voice.mjs`: Pemindaian QR dan suara alami Google Bahasa Indonesia terverifikasi offline.
+  - `apps/attendance-pwa/src/store.test.ts`: Pengujian unit fungsi `attendanceGreeting` dan kepatuhan jam sekolah (PASS).
+  - `tooling/test-attendance-voice.mjs`: Pemindaian QR dan suara alami Indonesia dengan sapaan kontekstual terverifikasi offline di browser headless (PASS).
   - `tooling/test-library-loans-offline.mjs`: Peminjaman buku tersimpan offline di HP dan tersinkronisasi 1x saat kembali online (PASS).
   - `tooling/test-durable-pwa-queue.mjs`: 40 penulisan transaksi simultan dari 2 tab tetap tersimpan utuh dan terisolasi per sekolah (PASS).
 - **Vercel Production Deployment**: Berhasil di-deploy ke organisasi `netkom-developers-projects` proyek `aksis`, aliased ke `https://www.aksis.co.id`.
+  - Endpoint `/attendance/`: 200 OK, terverifikasi fungsionalitas sapaan kontekstual kedatangan dan kepulangan.
   - Endpoint `/library/`: 200 OK, terverifikasi elemen `#loan-scanner-stage`, `#loan-qr-reader`, `#btn-switch-loan-camera`, `#loan-zoom-controls`, dan `#loan-student-result`.
   - Endpoint `/parent/`: 200 OK, terverifikasi elemen pemantauan pinjaman buku dan drawer perpustakaan.
   - Endpoint API `/api/v1/health`: 200 OK.
