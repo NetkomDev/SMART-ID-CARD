@@ -76,16 +76,36 @@ Tanggal: 1 November 2026. Lingkup: PWA Piket Kehadiran, Piket Bank Sampah, Perpu
      - Dengan `touch-action: pan-y`, sapuan satu jari vertikal di titik mana pun pada area pemindai (baik saat kamera aktif maupun mati) langsung direspons oleh browser untuk menggulir halaman secara halus dan bebas hambatan.
      - Gestur dua jari (*pinch-to-zoom*) tetap ditangani oleh JavaScript (`setupScannerPinchZoom`) dengan penambahan listener `touchcancel` untuk transisi zoom kamera yang mulus.
 
+11. **Pembaruan Logo Baru Aksis (3D Blue Ribbon "A") pada Seluruh Icon Launcher HP (Android & iOS), Favicon Browser, dan Brand-Mark**:
+   - **Artwork Logo Asli Master**: Mengadopsi logo resmi baru Aksis (huruf "A" berbentuk ribbon 3D biru gradien/mobius loop) dengan latar belakang transparan murni, tanpa mengubah, mendistorsi, atau merombak bentuk aslinya agar tetap tampil autentik di layar HP pengguna.
+   - **Launcher Icon Android (Adaptive & Maskable)**:
+     - Menghasilkan `icon-512.png` dan `icon-192.png` dengan kanvas putih bersih `#ffffff` dan padding proporsional (area logo ~78%) agar saat dipasang di layar utama HP Android tampil tajam, bersih, dan tidak terpotong.
+     - Menghasilkan `maskable-icon-512.png` dengan logo berada di dalam *safe-zone* 80% (lingkaran tengah 409px) sesuai spesifikasi W3C Web App Manifest & Android Adaptive Icons.
+     - Memperbaiki `manifest.webmanifest` pada seluruh aplikasi (`attendance-pwa`, `waste-pwa`, `library-terminal`, `extracurricular-pwa`, `parent-pwa`, `admin-web`, `command-center`, `led-gateway`) dengan pemisahan purpose `"any"` dan `"maskable"`. Icon launcher "Piket Presensi" yang sebelumnya tampil kotak kaku kini tampil seragam berbentuk squircle adaptif bersama 4 PWA lainnya di beranda HP.
+     - Memasukkan `maskable-icon-512.png` dan `favicon.ico` ke dalam daftar *offline assets cache* `vite.config.ts` PWA agar ikon tetap muncul sempurna saat offline.
+   - **Launcher Icon iOS / iPhone (`apple-touch-icon.png`)**:
+     - Dibuat ukuran standar 180×180 piksel dengan latar belakang solid putih `#ffffff` dan padding terpusat. Hal ini mencegah perilaku default iOS Safari yang mengubah piksel transparan menjadi kotak hitam pekat saat pengguna mengetuk *Add to Home Screen*.
+   - **Favicon Browser & Link Tag HTML**:
+     - Menghasilkan `favicon.ico` multi-frame (16×16, 32×32, 48×48) transparan berkualitas tinggi serta `favicon-32x32.png`.
+     - Memperbarui tag `<link rel="icon" type="image/x-icon" href="/favicon.ico">` dan `<link rel="apple-touch-icon" ...>` di seluruh `index.html` aplikasi.
+   - **Brand Mark & Logo Aplikasi Lainnya**:
+     - Memperbarui `brand-mark.webp` (transparan) untuk header bilah atas PWA presensi, sampah, perpustakaan, ekskul, dan orang tua.
+     - Memperbarui `logo.png`, `icon.svg`, serta root assets (`Launcher Icon.png`, `logo_transparent.png`, `Logo.svg`, `test-512.png`).
+     - Menyediakan skrip generator otomatis berulang di `tooling/generate-brand-icons.mjs` berbasis `sharp`.
+
 ## Hasil verifikasi
 
 - **Pemeriksaan Tipe Data**: `npm run typecheck:all` lulus 100% tanpa kesalahan di seluruh 11 aplikasi.
-- **Pemeriksaan Build**: `npm run vercel-build` sukses mempaketkan seluruh 10 aplikasi frontend.
+- **Pemeriksaan Build**: `npm run vercel-build` sukses mempaketkan seluruh 10 aplikasi frontend dan menyalin aset baru ke `dist/`.
 - **Pengujian Browser & Offline Store**:
   - `apps/attendance-pwa/src/store.test.ts`: Pengujian unit fungsi `attendanceGreeting` dan kepatuhan jam sekolah (PASS).
   - `tooling/test-attendance-voice.mjs`: Pemindaian QR dan suara alami Indonesia dengan sapaan kontekstual terverifikasi offline di browser headless (PASS).
   - `tooling/test-library-loans-offline.mjs`: Peminjaman buku tersimpan offline di HP dan tersinkronisasi 1x saat kembali online (PASS).
   - `tooling/test-durable-pwa-queue.mjs`: 40 penulisan transaksi simultan dari 2 tab tetap tersimpan utuh dan terisolasi per sekolah (PASS).
 - **Vercel Production Deployment**: Berhasil di-deploy ke organisasi `netkom-developers-projects` proyek `aksis`, aliased ke `https://www.aksis.co.id`.
+  - Endpoint Favicon `/favicon.ico` & `/favicon-32x32.png`: 200 OK.
+  - Endpoint Launcher `/icon-512.png`, `/icon-192.png`, `/apple-touch-icon.png`: 200 OK.
+  - Endpoint PWA Manifest `/manifest.webmanifest` & `/pwa-attendance/manifest.webmanifest`: 200 OK.
   - Endpoint `/waste/`: 200 OK, terverifikasi scrolling vertikal halaman aktif dengan `touch-action: pan-y` di seluruh penampang pemindai kamera.
   - Endpoint `/extracurricular`: 200 OK, terverifikasi modal `.admin-modal-overlay` dan `.admin-modal-card` tampil rapi di tengah tanpa area putih yang memanjang.
   - Endpoint `/attendance/`: 200 OK, terverifikasi fungsionalitas sapaan kontekstual kedatangan dan kepulangan.

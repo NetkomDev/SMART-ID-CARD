@@ -16,8 +16,10 @@ export default defineConfig(({ command, mode }) => {
             ),
             "icon-192.png",
             "icon-512.png",
+            "maskable-icon-512.png",
             "apple-touch-icon.png",
             "brand-mark.webp",
+            "favicon.ico",
             "manifest.webmanifest",
             "Header-PWA.svg",
           ];
