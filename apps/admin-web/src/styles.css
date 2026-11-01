@@ -2056,30 +2056,75 @@ tr.row-inserting {
   color: var(--text, #1b2824);
   border: 1px solid var(--line, #dde3dc);
   border-radius: 1.25rem;
-  max-width: 500px;
+  max-width: 520px;
   width: 100%;
   height: auto;
   max-height: calc(100vh - 2.5rem);
-  padding: 2rem;
+  padding: 1.75rem 2rem 2rem;
   position: relative;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(0, 0, 0, 0.04);
   box-sizing: border-box;
   overflow-y: auto;
   margin: auto;
   animation: aksisModalIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+[data-theme="dark"] .admin-modal-card {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.admin-modal-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding-right: 2.25rem;
+}
+
+.admin-modal-card-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(37, 99, 235, 0.1);
+  color: #2563eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  flex-shrink: 0;
+}
+
+[data-theme="dark"] .admin-modal-card-icon {
+  background: rgba(59, 130, 246, 0.18);
+  color: #93c5fd;
+}
+
+.admin-modal-card-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text, #1b2824);
+  letter-spacing: -0.01em;
+}
+
+.admin-modal-card-subtitle {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+  color: var(--muted, #6d7c76);
+  line-height: 1.4;
+}
+
 .admin-modal-close-btn {
   position: absolute;
   top: 1.25rem;
   right: 1.25rem;
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
-  border: 1px solid transparent;
-  background: rgba(0, 0, 0, 0.04);
-  color: var(--text, #1b2824);
-  font-size: 1.35rem;
+  border: 1px solid var(--line, #dde3dc);
+  background: var(--surface, #ffffff);
+  color: var(--muted, #6d7c76);
+  font-size: 1.25rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2089,25 +2134,147 @@ tr.row-inserting {
 }
 
 .admin-modal-close-btn:hover {
-  background: rgba(0, 0, 0, 0.08);
+  background: var(--bg, #f3f5f0);
+  color: var(--text, #1b2824);
   transform: scale(1.05);
 }
 
 [data-theme="dark"] .admin-modal-close-btn {
-  background: rgba(255, 255, 255, 0.08);
-  color: #ffffff;
+  background: var(--surface, #141f1c);
+  border-color: var(--line, #2c3a36);
+  color: var(--muted, #8da29b);
 }
 
 [data-theme="dark"] .admin-modal-close-btn:hover {
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
 }
 
 .admin-modal-form {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 1.15rem;
-  margin: 1.25rem 0 0;
+  margin: 0;
   width: 100%;
 }
+
+.admin-modal-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--text, #1b2824);
+}
+
+.admin-modal-form input,
+.admin-modal-form textarea,
+.admin-modal-form select {
+  width: 100%;
+  border: 1px solid var(--line, #dde3dc);
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--surface, #ffffff);
+  color: var(--text, #1b2824);
+  font-size: 0.92rem;
+  font-family: inherit;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+[data-theme="dark"] .admin-modal-form input,
+[data-theme="dark"] .admin-modal-form textarea,
+[data-theme="dark"] .admin-modal-form select {
+  background: #101917;
+  border-color: #2c3a36;
+  color: #e8f5f1;
+}
+
+.admin-modal-form input:focus,
+.admin-modal-form textarea:focus,
+.admin-modal-form select:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+  background: var(--surface, #ffffff);
+}
+
+[data-theme="dark"] .admin-modal-form input:focus,
+[data-theme="dark"] .admin-modal-form textarea:focus,
+[data-theme="dark"] .admin-modal-form select:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+  background: #141f1c;
+}
+
+.admin-modal-form .form-hint {
+  font-size: 0.75rem;
+  color: var(--muted, #6d7c76);
+  font-weight: 400;
+  margin-top: 0.15rem;
+  line-height: 1.4;
+}
+
+.admin-modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  padding-top: 1.15rem;
+  border-top: 1px solid var(--line, #dde3dc);
+}
+
+.admin-modal-actions .btn-save {
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+  color: #ffffff;
+  padding: 0.75rem 1.4rem;
+  font-size: 0.92rem;
+  border-radius: 0.65rem;
+  font-weight: 600;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  transition: all 0.15s ease;
+}
+
+.admin-modal-actions .btn-save:hover:not(:disabled) {
+  background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 100%);
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.35);
+  transform: translateY(-1px);
+}
+
+.admin-modal-actions .btn-cancel {
+  background: var(--surface, #ffffff);
+  color: var(--muted, #6d7c76);
+  border: 1px solid var(--line, #dde3dc);
+  padding: 0.75rem 1.25rem;
+  font-size: 0.92rem;
+  border-radius: 0.65rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.admin-modal-actions .btn-cancel:hover {
+  background: var(--bg, #f3f5f0);
+  color: var(--text, #1b2824);
+}
+
+[data-theme="dark"] .admin-modal-actions .btn-cancel {
+  background: transparent;
+  border-color: var(--line, #2c3a36);
+  color: var(--muted, #8da29b);
+}
+
+[data-theme="dark"] .admin-modal-actions .btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+}
+
 
 /* ========================================================
    Parent Access Modal Redesign

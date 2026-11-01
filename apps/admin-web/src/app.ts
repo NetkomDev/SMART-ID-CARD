@@ -2549,55 +2549,115 @@ async function libraryPage(): Promise<void> {
 
 
 async function extracurricularPage(): Promise<void> {
-  shell(`<section class="stats-grid">${Array.from({ length: 2 }, () => skeleton(1)).join("")}</section>`, "Ekstrakurikuler", "Kelola kegiatan dan keanggotaan ekstrakurikuler.");
+  shell(`<section class="stats-grid">${Array.from({ length: 4 }, () => skeleton(1)).join("")}</section>`, "Ekstrakurikuler", "Kelola kegiatan dan keanggotaan ekstrakurikuler.");
   try {
     const res = await api<Extracurricular[]>("/extracurriculars");
     const data = res.data;
     const activeCount = data.filter(e => e.is_active).length;
+    const inactiveCount = data.length - activeCount;
 
-    const rows = data.map(item => `<tr><td><code>${escapeHtml(item.code)}</code></td><td><strong>${escapeHtml(item.name)}</strong></td><td>${escapeHtml(item.description ?? "—")}</td><td><button class="status ${item.is_active ? "success" : "neutral"} toggle-status-btn" data-id="${item.id}" data-current="${item.is_active ? 'true' : 'false'}" style="border:none;cursor:pointer;" title="Klik untuk mengubah status">${item.is_active ? "Aktif" : "Nonaktif"} ⟳</button></td></tr>`).join("");
+    const rows = data.map(item => `<tr>
+      <td><code style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:0.85rem;padding:0.25rem 0.6rem;background:rgba(37,99,235,0.08);color:#1d4ed8;border-radius:0.4rem;font-weight:600;">${escapeHtml(item.code)}</code></td>
+      <td>
+        <div style="display:flex;align-items:center;gap:0.6rem;">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:var(--bg);border-radius:6px;font-size:0.95rem;">⚽</span>
+          <strong>${escapeHtml(item.name)}</strong>
+        </div>
+      </td>
+      <td style="color:var(--muted);font-size:0.88rem;">${escapeHtml(item.description ?? "—")}</td>
+      <td style="text-align:center;">
+        <button class="status ${item.is_active ? "success" : "neutral"} toggle-status-btn" data-id="${item.id}" data-current="${item.is_active ? 'true' : 'false'}" style="border:none;cursor:pointer;padding:0.4rem 0.85rem;border-radius:0.5rem;font-size:0.8rem;font-weight:600;transition:all 0.15s ease;" title="Klik untuk mengubah status">
+          ${item.is_active ? "● Aktif" : "○ Nonaktif"} ⟳
+        </button>
+      </td>
+    </tr>`).join("");
 
     shell(`<section class="stats-grid">
-      <article class="stat-card blue"><div><span>Total Ekstrakurikuler</span><strong>${data.length} Kegiatan</strong></div><span class="trend">⚽</span></article>
-      <article class="stat-card lime"><div><span>Ekskul Aktif</span><strong>${activeCount} Kegiatan</strong></div><span class="trend">✓</span></article>
+      <article class="stat-card blue"><div><span>Total Ekstrakurikuler</span><strong>${data.length} Kegiatan</strong><small>Terdaftar di sekolah</small></div><span class="trend">⚽</span></article>
+      <article class="stat-card lime"><div><span>Ekskul Aktif</span><strong>${activeCount} Kegiatan</strong><small>Dapat dicatat presensinya</small></div><span class="trend">✓</span></article>
+      <article class="stat-card orange"><div><span>Ekskul Nonaktif</span><strong>${inactiveCount} Kegiatan</strong><small>Sedang tidak berjalan</small></div><span class="trend">⏸</span></article>
+      <article class="stat-card blue"><div><span>Presensi Pembina</span><strong>Tersinkron</strong><small>PWA Ekstrakurikuler aktif</small></div><span class="trend">📱</span></article>
     </section>
     <section class="dashboard-grid single-column">
       <article class="panel">
         <div class="panel-head">
-          <div><h2>Daftar Ekstrakurikuler</h2><p>Data referensi kegiatan siswa</p></div>
-          <button id="btn-add-ekskul" class="button primary">+ Tambah Ekskul</button>
+          <div><h2>Daftar Ekstrakurikuler</h2><p>Data referensi kegiatan siswa untuk pemindai kehadiran pembina ekskul</p></div>
+          <button id="btn-add-ekskul" class="button primary" style="gap:0.45rem;">
+            <span style="font-size:1.15rem;line-height:1;">+</span> Tambah Ekstrakurikuler
+          </button>
         </div>
-        ${rows ? `<div class="table-wrap"><table id="ekskul-table"><thead><tr><th>Kode</th><th>Nama Ekskul</th><th>Deskripsi</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>` : emptyState("Belum ada ekstrakurikuler", "Tambahkan ekstrakurikuler pertama untuk memulai.")}
+        ${rows ? `<div class="table-wrap"><table id="ekskul-table"><thead><tr><th style="width:14%;">Kode</th><th style="width:30%;">Nama Ekstrakurikuler</th><th style="width:38%;">Deskripsi Kegiatan</th><th style="width:18%;text-align:center;">Status & Aksi</th></tr></thead><tbody>${rows}</tbody></table></div>` : `
+          <div style="text-align:center;padding:3.5rem 1.5rem;background:var(--surface);border-radius:1rem;margin:1rem 0;">
+            <div style="width:64px;height:64px;margin:0 auto 1.15rem;background:rgba(37,99,235,0.08);color:#2563eb;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.85rem;">⚽</div>
+            <h3 style="margin:0 0 0.45rem;font-size:1.2rem;font-weight:700;color:var(--text);">Belum Ada Ekstrakurikuler</h3>
+            <p style="margin:0 auto 1.5rem;max-width:420px;font-size:0.88rem;color:var(--muted);line-height:1.5;">Tambahkan kegiatan non-akademik pertama (seperti Pramuka, Bola Basket, PMR) agar pembina dapat mencatat presensi via kartu siswa.</p>
+            <button id="btn-add-ekskul-empty" class="button primary" style="gap:0.45rem;margin:auto;">
+              <span style="font-size:1.15rem;line-height:1;">+</span> Tambah Ekstrakurikuler Sekarang
+            </button>
+          </div>
+        `}
       </article>
     </section>
     
     <div id="ekskul-modal" class="admin-modal-overlay" style="display:none;">
       <div class="admin-modal-card">
         <button id="close-ekskul-modal" class="admin-modal-close-btn" aria-label="Tutup modal">&times;</button>
-        <h2 style="margin:0 0 0.35rem; font-size:1.35rem; font-weight:700; color:var(--text);">Tambah Ekstrakurikuler</h2>
-        <p style="margin:0 0 1.25rem; font-size:0.875rem; color:var(--text-light);">Tambahkan referensi kegiatan ekstrakurikuler baru.</p>
-        <form id="ekskul-form" class="admin-modal-form" style="margin:0;">
-          <div id="ekskul-error" style="display:none;background:var(--red);color:white;padding:0.75rem;border-radius:0.5rem;font-size:0.875rem;"></div>
-          <label>Kode (Singkatan)<input id="ekskul-code" type="text" placeholder="Cth: PRAM, BSKT, PASK" pattern="[A-Za-z0-9_-]+" required maxlength="32" /></label>
-          <label>Nama Ekstrakurikuler<input id="ekskul-name" type="text" placeholder="Cth: Pramuka, Bola Basket" required maxlength="120" /></label>
-          <label>Deskripsi (Opsional)<textarea id="ekskul-desc" rows="3" placeholder="Penjelasan singkat mengenai ekskul..." style="width:100%;padding:.85rem;border-radius:.75rem;border:1px solid var(--line);background:var(--bg);color:var(--text);font-family:inherit;box-sizing:border-box;resize:vertical;"></textarea></label>
-          <button id="ekskul-submit" class="button primary" type="submit" style="margin-top:0.35rem; width:100%;">Simpan Ekstrakurikuler</button>
+        <div class="admin-modal-card-header">
+          <div class="admin-modal-card-icon">⚽</div>
+          <div>
+            <h2 class="admin-modal-card-title">Tambah Ekstrakurikuler</h2>
+            <p class="admin-modal-card-subtitle">Buat referensi kegiatan baru untuk presensi siswa di PWA Guru Pembina.</p>
+          </div>
+        </div>
+        <form id="ekskul-form" class="admin-modal-form">
+          <div id="ekskul-error" style="display:none;background:#fee2e2;color:#991b1b;border:1px solid #f87171;padding:0.75rem 1rem;border-radius:0.6rem;font-size:0.85rem;font-weight:500;"></div>
+          
+          <label>
+            <span>Kode Singkatan <span style="color:#ef4444;">*</span></span>
+            <input id="ekskul-code" type="text" placeholder="Cth: PRAM, BSKT, PASK" pattern="[A-Za-z0-9_-]+" required maxlength="32" style="text-transform:uppercase;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;" />
+            <span class="form-hint">Gunakan huruf kapital dan angka tanpa spasi (maksimal 32 karakter).</span>
+          </label>
+
+          <label>
+            <span>Nama Ekstrakurikuler <span style="color:#ef4444;">*</span></span>
+            <input id="ekskul-name" type="text" placeholder="Cth: Pramuka, Bola Basket, PMR" required maxlength="120" />
+          </label>
+
+          <label>
+            <span>Deskripsi Kegiatan <small style="color:var(--muted);font-weight:normal;">(Opsional)</small></span>
+            <textarea id="ekskul-desc" rows="3" placeholder="Tuliskan jadwal rutin atau rincian pembinaan kegiatan ini..."></textarea>
+          </label>
+
+          <div class="admin-modal-actions">
+            <button type="button" id="cancel-ekskul-modal" class="button btn-cancel">Batal</button>
+            <button id="ekskul-submit" class="button btn-save" type="submit">
+              <span>✓</span> Simpan Ekstrakurikuler
+            </button>
+          </div>
         </form>
       </div>
     </div>`, "Ekstrakurikuler", "Kelola referensi kegiatan untuk aplikasi presensi guru.");
 
     afterPagePaint(() => {
       const modal = document.getElementById("ekskul-modal") as HTMLDivElement;
+      const codeInput = document.getElementById("ekskul-code") as HTMLInputElement;
       const openModal = () => {
         modal.style.display = "flex";
-        setTimeout(() => (document.getElementById("ekskul-code") as HTMLInputElement)?.focus(), 50);
+        setTimeout(() => codeInput?.focus(), 50);
       };
       const closeModal = () => {
         modal.style.display = "none";
       };
 
       document.getElementById("btn-add-ekskul")?.addEventListener("click", openModal);
+      document.getElementById("btn-add-ekskul-empty")?.addEventListener("click", openModal);
       document.getElementById("close-ekskul-modal")?.addEventListener("click", closeModal);
+      document.getElementById("cancel-ekskul-modal")?.addEventListener("click", closeModal);
+      
+      codeInput?.addEventListener("input", () => {
+        codeInput.value = codeInput.value.toUpperCase();
+      });
+
       modal.addEventListener("click", (e) => {
         if (e.target === modal) closeModal();
       });
@@ -2613,7 +2673,7 @@ async function extracurricularPage(): Promise<void> {
         e.preventDefault();
         errorDiv.style.display = "none";
         submitBtn.disabled = true;
-        submitBtn.textContent = "Menyimpan...";
+        submitBtn.innerHTML = `<span>⏳</span> Menyimpan...`;
 
         try {
           const code = (document.getElementById("ekskul-code") as HTMLInputElement).value;
@@ -2623,40 +2683,20 @@ async function extracurricularPage(): Promise<void> {
           await api("/extracurriculars", {
             method: "POST",
             body: JSON.stringify({
-              code: code.trim(),
+              code: code.trim().toUpperCase(),
               name: name.trim(),
               description: desc.trim() || null
             })
           });
 
-          // Optimistic: close modal, append row, show toast
           modal.style.display = "none";
-          const tbody = document.querySelector("#ekskul-table tbody");
-          if (tbody) {
-            const newRow = document.createElement("tr");
-            newRow.className = "row-inserting";
-            newRow.innerHTML = `<td><code>${escapeHtml(code.trim())}</code></td><td><strong>${escapeHtml(name.trim())}</strong></td><td>${escapeHtml(desc.trim() || "—")}</td><td><span class="status success">Aktif</span></td>`;
-            tbody.appendChild(newRow);
-          }
-          // Update stat counts
-          const statCards = document.querySelectorAll(".stat-card strong");
-          if (statCards[0]) {
-            const prev = parseInt(statCards[0].textContent || "0");
-            statCards[0].textContent = `${prev + 1} Kegiatan`;
-          }
-          if (statCards[1]) {
-            const prev = parseInt(statCards[1].textContent || "0");
-            statCards[1].textContent = `${prev + 1} Kegiatan`;
-          }
           toastSuccess(`Ekstrakurikuler "${name.trim()}" berhasil ditambahkan.`);
-          form.reset();
-          submitBtn.disabled = false;
-          submitBtn.textContent = "Simpan Ekstrakurikuler";
+          await extracurricularPage();
         } catch (err: any) {
           errorDiv.textContent = err.message || "Gagal menyimpan data.";
           errorDiv.style.display = "block";
           submitBtn.disabled = false;
-          submitBtn.textContent = "Simpan Ekstrakurikuler";
+          submitBtn.innerHTML = `<span>✓</span> Simpan Ekstrakurikuler`;
         }
       });
 
@@ -2672,7 +2712,7 @@ async function extracurricularPage(): Promise<void> {
           const prevText = target.textContent;
           const prevClass = isCurrentlyActive ? "success" : "neutral";
           const nextClass = newStatus ? "success" : "neutral";
-          target.textContent = newStatus ? "Aktif ⟳" : "Nonaktif ⟳";
+          target.textContent = newStatus ? "● Aktif ⟳" : "○ Nonaktif ⟳";
           target.classList.remove(prevClass);
           target.classList.add(nextClass);
           target.setAttribute("data-current", String(newStatus));

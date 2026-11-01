@@ -24,6 +24,15 @@
      - Menambahkan endpoint `GET /api/v1/library/visits` di backend API untuk memuat riwayat log 50 tap kartu terbaru di perpustakaan.
      - Memperkaya UI Perpustakaan di `apps/admin-web/src/app.ts` dengan 3 Stat Card (Total Kunjungan, Buku Dipinjam, Kelas Teraktif), tabel Kunjungan Per Kelas, tabel Peminjaman Buku Aktif (dengan indikator status Jatuh Tempo/Dipinjam), dan tabel Riwayat Kunjungan Terbaru.
 
+3. **Halaman Ekstrakurikuler (`/extracurricular`)**:
+   - Tampilan modal Tambah Ekstrakurikuler sebelumnya kaku, input field bernuansa kusam `#f3f5f0` dengan outline kuning di dalam modal card putih, tombol submit hitam pekat yang berat, dan belum ada tombol batal.
+   - Di halaman utama, hanya terdapat 2 stat card yang sempit di kiri, empty state belum interaktif, dan penambahan item baru saat data kosong terkendala karena ketiadaan tabel di DOM.
+   - **Solusi**:
+     - Memperbarui gaya modal `.admin-modal-card`, `.admin-modal-card-header`, `.admin-modal-form`, dan `.admin-modal-actions` di `apps/admin-web/src/styles.css`.
+     - Memberikan background putih bersih pada input, border halus, focus ring biru modern (`rgba(37,99,235,0.18)`), badge preview kode otomatis uppercase, dan tombol aksi seimbang (Batal & Simpan dengan gradient biru khas Aksis).
+     - Menjadikan layout halaman penuh dan seimbang dengan 4 Stat Card (*Total Ekstrakurikuler*, *Ekskul Aktif*, *Ekskul Nonaktif*, dan *Presensi Pembina*).
+     - Menyediakan empty state interaktif dengan tombol call-to-action langsung di tengah card, serta re-render halaman otomatis setelah penambahan berhasil.
+
 ---
 
 ## 2. Hasil Pengujian
@@ -38,5 +47,7 @@
 ## 3. Berkas yang Diubah
 
 - `apps/api/src/routes/library.ts`: Menambahkan endpoint `GET /visits`.
-- `apps/admin-web/src/app.ts`: Memperbarui `libraryPage()` dan `reportsPage()`.
+- `apps/admin-web/src/app.ts`: Memperbarui `libraryPage()`, `reportsPage()`, dan `extracurricularPage()`.
+- `apps/admin-web/src/styles.css`: Memperbarui styling `.admin-modal-*` agar form modal lebih modern dan profesional.
 - `supabase/migrations/202611020001_reports_and_library_admin_fix.sql`: Berkas migrasi database untuk RPC pelaporan dan izin peminjaman buku admin.
+
