@@ -396,6 +396,134 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+.btn-voice-guide {
+  background: #fff8e6 !important;
+  color: #92400e !important;
+  border-color: #fcd34d !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.btn-voice-guide:hover {
+  background: #fef3c7 !important;
+  border-color: #f59e0b !important;
+}
+
+dialog.voice-guide-modal {
+  border: none;
+  border-radius: 20px;
+  padding: 0;
+  max-width: 480px;
+  width: 90vw;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  background: #fff;
+  color: #1e293b;
+  font-family: inherit;
+}
+dialog.voice-guide-modal::backdrop {
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+}
+.voice-guide-content {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+.voice-guide-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.voice-guide-header h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  color: #064e3b;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.voice-guide-close {
+  background: transparent;
+  border: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: #64748b;
+  cursor: pointer;
+  padding: 4px;
+}
+.voice-guide-platform-tabs {
+  display: flex;
+  gap: 8px;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 12px;
+}
+.voice-guide-tab-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #475569;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.voice-guide-tab-btn.active {
+  background: #fff;
+  color: #064e3b;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+.voice-guide-steps {
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: #334155;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+.voice-guide-steps ol {
+  margin: 0;
+  padding-left: 20px;
+}
+.voice-guide-steps li {
+  margin-bottom: 8px;
+}
+.voice-guide-steps li:last-child {
+  margin-bottom: 0;
+}
+.voice-guide-playstore {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #064e3b;
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 10px;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.85rem;
+  margin-top: 10px;
+  transition: background 0.15s ease;
+}
+.voice-guide-playstore:hover {
+  background: #04382a;
+}
+.voice-guide-note {
+  font-size: 0.8rem;
+  color: #047857;
+  background: #ecfdf5;
+  border-left: 3px solid #10b981;
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin: 0;
+}
 @media (max-width: 420px) {
   .voice-panel {
     gap: 8px;
@@ -407,4 +535,3 @@
     padding: 8px;
   }
 }
-

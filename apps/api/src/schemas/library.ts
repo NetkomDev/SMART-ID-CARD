@@ -11,3 +11,7 @@ export const librarySummaryQuerySchema = z.object({
 }).strict().refine((value) => !value.occurred_from || !value.occurred_to || new Date(value.occurred_to) >= new Date(value.occurred_from), {
   message: "occurred_to must not precede occurred_from", path: ["occurred_to"]
 });
+export const libraryLoanSchema = z.object({
+  event_id: z.uuid(), student_id: z.uuid(), book_title: z.string().trim().min(1).max(200),
+  book_author: z.string().trim().min(1).max(200), borrowed_at: z.iso.datetime({offset:true}), due_date: z.iso.date()
+}).strict();

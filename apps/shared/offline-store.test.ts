@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { StudentCache, OfflineQueue, BackgroundSyncCoordinator } from "./offline-store.js";
 
 describe("StudentCache", () => {
@@ -16,6 +16,19 @@ describe("StudentCache", () => {
         Object.keys(store).forEach((k) => delete store[k]);
       },
     };
+  });
+
+  it("does not extend the complete roster expiry when one student is updated", () => {
+    const now = Date.now();
+    const clock = vi.spyOn(Date, "now").mockReturnValue(now);
+    try {
+      const cache = new StudentCache("expiry-test");
+      cache.saveAll([{ id: "a", full_name: "Siswa A" }]);
+      clock.mockReturnValue(now + 6 * 24 * 60 * 60 * 1000);
+      cache.put({ id: "b", full_name: "Siswa B" });
+      clock.mockReturnValue(now + 8 * 24 * 60 * 60 * 1000);
+      expect(cache.getAll()).toEqual([]);
+    } finally { clock.mockRestore(); }
   });
 
   it("stores and resolves students by student_number, nisn, and card_uid", () => {

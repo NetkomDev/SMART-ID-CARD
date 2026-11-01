@@ -205,3 +205,12 @@ body::before{display:none}
 @keyframes toast-spin {
   to { transform: rotate(360deg); }
 }
+.library-content { padding-bottom: calc(96px + env(safe-area-inset-bottom)) !important; }
+.library-bottom-nav { position:fixed; bottom:0; left:0; right:0; z-index:100; display:flex; justify-content:center; gap:8px; padding:8px 16px calc(8px + env(safe-area-inset-bottom)); background:#fff; border-top:1px solid #dce9e2; }
+.library-bottom-nav button { flex:1; max-width:240px; min-height:48px; background:transparent; color:#537267; border:0; border-radius:12px; font-size:1.1rem; }
+.library-bottom-nav button span { display:block; font-size:.77rem; font-weight:700; }
+.library-bottom-nav button[aria-current] { color:#086443; background:#e7f6ee; }
+.loan-card { background:white; border:1px solid #dce9e2; border-radius:18px; padding:20px; margin-bottom:16px; color:#183e30; }
+.loan-card h2,.loan-card h3 { margin:8px 0; }.loan-card p { color:#667d72; line-height:1.45; }
+#loan-form { display:grid; gap:8px; } #loan-form label { margin-top:7px; font-size:.85rem; font-weight:700; } #loan-form input { width:100%; min-height:46px; border:1px solid #cfddd5; border-radius:10px; padding:10px; font:inherit; } #loan-form button { margin-top:12px; min-height:48px; }
+.loan-item { padding:12px 0; border-top:1px solid #edf2ef; overflow-wrap:anywhere; }.loan-item strong,.loan-item span { display:block; }.loan-item span { font-size:.84rem; color:#617b6e; margin-top:4px; }

@@ -1,7 +1,9 @@
 import { defineConfig, loadEnv } from "vite";
+import { portalOffline } from "../shared/neural-build";
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), "VITE_");
   return { 
+    plugins: [portalOffline("waste-pwa")],
     root: "apps/waste-pwa", 
     cacheDir: "../../node_modules/.vite/waste-pwa",
     base: env.VITE_BASE_PATH ?? (command === "build" ? "/waste/" : "/"),

@@ -60,6 +60,14 @@ router.get("/", requirePermission("student.read"), validate({ query: studentQuer
   sendData(res, formattedData, 200, { page, page_size: pageSize, total: count ?? 0 });
 }));
 
+router.get("/portal-roster", asyncHandler(async (req,res)=>{
+  const after=typeof req.query.after === "string" && req.query.after ? req.query.after : null;
+  if(after && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(after)) throw new Error("Invalid cursor");
+  const {data,error}=await req.auth!.client.rpc("portal_scanner_roster",{p_school:req.tenant!.schoolId,p_after:after,p_limit:500});
+  if(error)throw fromDatabaseError(error);
+  sendData(res,data);
+}));
+
 router.post("/resolve", requirePermission("student.read"), validate({body:studentIdentitySchema}), asyncHandler(async(req,res)=>{
   sendData(res, await resolvePortalStudent(req, req.body.identity));
 }));

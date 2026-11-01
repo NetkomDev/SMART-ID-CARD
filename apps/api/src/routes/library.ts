@@ -6,7 +6,7 @@ import { createPublicClient } from "../lib/supabase.js";
 import { asyncHandler } from "../middleware/async-handler.js";
 import { requirePermission } from "../middleware/tenant.js";
 import { validate } from "../middleware/validate.js";
-import { librarySummaryQuerySchema, libraryVisitBatchSchema, libraryVisitSchema } from "../schemas/library.js";
+import { librarySummaryQuerySchema, libraryVisitBatchSchema, libraryVisitSchema, libraryLoanSchema } from "../schemas/library.js";
 
 export const libraryDeviceRouter = Router();
 libraryDeviceRouter.post("/visits", validate({ body: libraryVisitSchema }), asyncHandler(async (req, res) => {
@@ -44,4 +44,17 @@ libraryRouter.post("/visits", requirePermission("library.visit"), validate({ bod
   });
   if (error) throw fromDatabaseError(error);
   sendData(res, data, data?.duplicate ? 200 : 201);
+}));
+
+// Book title and author are recorded as entered by library staff; no catalog is required.
+libraryRouter.get("/loans", requirePermission("library.read"), asyncHandler(async (req, res) => {
+  const {data,error}=await req.auth!.client.rpc("list_portal_library_loans",{p_school:req.tenant!.schoolId});
+  if(error) throw fromDatabaseError(error);
+  sendData(res,data);
+}));
+libraryRouter.post("/loans", requirePermission("library.visit"), validate({body:libraryLoanSchema}), asyncHandler(async(req,res)=>{
+  const loan=req.body;
+  const {data,error}=await req.auth!.client.rpc("record_portal_library_loan",{p_school:req.tenant!.schoolId,p_event_id:loan.event_id,p_student_id:loan.student_id,p_title:loan.book_title,p_author:loan.book_author,p_borrowed_at:loan.borrowed_at,p_due_date:loan.due_date});
+  if(error) throw fromDatabaseError(error);
+  sendData(res,data,201);
 }));

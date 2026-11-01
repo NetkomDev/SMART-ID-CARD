@@ -1,4 +1,5 @@
-import { StudentCache, OfflineQueue } from "../../shared/offline-store";
+import { DurableQueue } from "../../shared/durable-queue";
+import { StudentCache, startRosterRefresh } from "../../shared/offline-store";
 import { QRCamera, bindLoginCamera } from "../../shared/qr-camera";
 import { renderPortrait } from "../../shared/portrait";
 import { gateIntro, gateHelp, schoolLabel } from "../../shared/portal-ui";
@@ -23,10 +24,10 @@ export type EkskulAttendanceRecord = {
   occurred_at: string;
 };
 
-const studentCache = new StudentCache("ekskul");
-const attendanceQueue = new OfflineQueue<EkskulAttendanceRecord>("ekskul_attendance");
+const studentCache = new StudentCache(() => "ekskul:" + (portal.context?.school_id ?? "none") + ":" + (portal.context?.id ?? "none"));
+const attendanceQueue = new DurableQueue<EkskulAttendanceRecord>(() => "ekskul_attendance:" + (portal.context?.school_id ?? "none") + ":" + (portal.context?.id ?? "none"));
 
-const speaker = new NaturalVoice("ekskul", ({ enabled, text }) => {
+const speaker = new NaturalVoice("ekskul", ({ enabled, text, hasVoice }) => {
   const toggle = document.getElementById("voice-toggle") as HTMLButtonElement | null;
   if (toggle) {
     toggle.setAttribute("aria-pressed", String(enabled));
@@ -35,14 +36,30 @@ const speaker = new NaturalVoice("ekskul", ({ enabled, text }) => {
   const testBtn = document.getElementById("voice-test") as HTMLButtonElement | null;
   if (testBtn) testBtn.disabled = !enabled;
   const statusEl = document.getElementById("voice-status");
-  if (statusEl) statusEl.textContent = text;
+  if (statusEl) {
+    statusEl.textContent = text;
+    statusEl.style.cursor = hasVoice ? "default" : "pointer";
+    statusEl.title = hasVoice ? "" : "Ketuk untuk melihat panduan pemasangan suara Bahasa Indonesia";
+  }
+  const guideBtn = document.getElementById("voice-guide-btn") as HTMLButtonElement | null;
+  if (guideBtn) {
+    guideBtn.style.display = (!hasVoice && enabled) ? "inline-flex" : "none";
+  }
 });
 document.getElementById("voice-toggle")?.addEventListener("click", () => {
   speaker.setEnabled(!speaker.enabled);
 });
 document.getElementById("voice-test")?.addEventListener("click", () => {
   speaker.unlock();
-  speaker.speak("Suara siap digunakan");
+  if (!speaker.hasIndonesianVoice) {
+    speaker.openGuide();
+  } else {
+    speaker.speak("Suara siap digunakan");
+  }
+});
+document.getElementById("voice-guide-btn")?.addEventListener("click", () => speaker.openGuide());
+document.getElementById("voice-status")?.addEventListener("click", () => {
+  if (!speaker.hasIndonesianVoice) speaker.openGuide();
 });
 try { for (const key of Object.keys(localStorage)) if (key.startsWith("ekskul_cache_")) localStorage.removeItem(key); } catch { /* Historical profile cache is no longer used. */ }
 
@@ -227,11 +244,25 @@ function triggerHapticFeedback() {
 }
 
 const request = <T>(path: string, init: RequestInit = {}) => portal.request<T>(path, init);
+const activityScopeKey = () => `aksis.ekskul.session.${portal.context?.school_id ?? "none"}:${portal.context?.id ?? "none"}`;
+const schoolDay = () => new Intl.DateTimeFormat("en-CA", {timeZone:"Asia/Makassar",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
+function restoreOfflineSession(): boolean {
+  try {
+    const cached=JSON.parse(localStorage.getItem(activityScopeKey()) ?? "null") as {day:string;activityId:string;activityName:string;sessionId:string}|null;
+    if(!cached || cached.day!==schoolDay() || !cached.activityId || !cached.sessionId)return false;
+    currentEkskulId=cached.activityId;currentSessionId=cached.sessionId;
+    document.getElementById("school-name-display")!.textContent=portal.context?.school_name ?? "";
+    document.getElementById("scan-ekskul-title")!.textContent=cached.activityName;
+    document.getElementById("session-date-label")!.textContent=new Date().toLocaleDateString("id-ID",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
+    switchView("scan");document.getElementById("scan-status")!.textContent="Offline · presensi tersimpan di HP dan menunggu sinkronisasi";return true;
+  } catch {return false;}
+}
 async function init() {
   try {
     const isLoginFlow = new URL(window.location.href).searchParams.has("token") || new URL(window.location.href).hash.includes("token");
 
     if (portal.connected && !isLoginFlow) {
+      if (!navigator.onLine && restoreOfflineSession()) return;
       const schoolDisplay = document.getElementById("school-name-display");
       if (schoolDisplay && portal.context) {
         schoolDisplay.textContent = portal.context.school_name;
@@ -280,8 +311,10 @@ async function loadDashboard() {
   
   const urlParams = new URLSearchParams(window.location.search);
   const ekskulParam = urlParams.get("ekskulId");
-  const lastEkskulId = localStorage.getItem("aksis_last_ekskul_id");
-  const lastEkskulName = localStorage.getItem("aksis_last_ekskul_name");
+  let remembered: {activityId?:string;activityName?:string}|null=null;
+  try { remembered=JSON.parse(localStorage.getItem(activityScopeKey()) ?? "null"); } catch { /* no remembered activity */ }
+  const lastEkskulId = remembered?.activityId;
+  const lastEkskulName = remembered?.activityName;
   
   // Optimistically switch to scan view if we know we are auto-selecting
   const willAutoSelect = Boolean(ekskulParam || (lastEkskulId && lastEkskulName));
@@ -358,8 +391,7 @@ async function selectEkskul(id: string, name: string, isSilent = false) {
   window.history.replaceState(null, "", newUrl.toString());
   
   // Remember for future visits
-  localStorage.setItem("aksis_last_ekskul_id", id);
-  localStorage.setItem("aksis_last_ekskul_name", name);
+
 
   // Tampilkan popup instalasi (kini menggunakan nama umum "Ekstrakurikuler")
   offerInstall();
@@ -383,6 +415,7 @@ async function selectEkskul(id: string, name: string, isSilent = false) {
     }
 
     currentSessionId = todaySession.id;
+    try {localStorage.setItem(activityScopeKey(),JSON.stringify({day:schoolDay(),activityId:id,activityName:name,sessionId:todaySession.id}));} catch { /* online scanning remains available */ }
     document.getElementById("enrollment-overlay")!.style.display = "none";
     document.getElementById("error-overlay")!.style.display = "none";
     switchView("scan");
@@ -406,8 +439,7 @@ document.querySelectorAll(".back-btn").forEach(btn => btn.addEventListener("clic
     window.history.replaceState(null, "", newUrl.toString());
     document.title = "AKSIS Ekskul";
     // Clear remembered activity
-    localStorage.removeItem("aksis_last_ekskul_id");
-    localStorage.removeItem("aksis_last_ekskul_name");
+    localStorage.removeItem(activityScopeKey());
   }
   switchView(target);
 }));
@@ -416,11 +448,13 @@ document.querySelectorAll(".back-btn").forEach(btn => btn.addEventListener("clic
 let syncingAttendance = false;
 async function syncAttendanceQueue() {
   if (syncingAttendance || !navigator.onLine) return;
-  const pending = attendanceQueue.getPending();
-  if (!pending.length) return;
   syncingAttendance = true;
+  const scope = attendanceQueue.currentScope;
   try {
+    const pending = await attendanceQueue.getPending(scope);
+    if (!pending.length) return;
     for (const item of pending) {
+      if (scope !== attendanceQueue.currentScope) break;
       try {
         await request(`/extracurriculars/${item.payload.ekskul_id}/sessions/${item.payload.session_id}/attendance`, {
           method: "POST",
@@ -429,18 +463,15 @@ async function syncAttendanceQueue() {
             status: item.payload.status,
           }),
         });
-        attendanceQueue.markSynced(item.event_id);
+        await attendanceQueue.markSynced(item.event_id, scope);
       } catch (err: any) {
-        if (err instanceof PortalError && [400, 403, 404, 409].includes(err.status)) {
-          // Acknowledged / already recorded
-          attendanceQueue.markSynced(item.event_id);
-        } else {
-          // Temporary network failure; keep in queue for next cycle
-          break;
-        }
+        await attendanceQueue.markFailed(item.event_id, err instanceof Error ? err.message : "Sinkronisasi gagal", scope);
+        if (err instanceof PortalError && err.status >= 400 && err.status < 500 && err.status !== 429) { document.getElementById("scan-error")!.textContent = "Ada presensi tertunda yang perlu diperiksa: " + err.message; continue; }
+        break;
       }
     }
     void loadSessionSummary();
+  } catch { /* Storage or network unavailable: keep events for retry. */
   } finally {
     syncingAttendance = false;
   }
@@ -460,34 +491,22 @@ document.getElementById("form-scan")!.addEventListener("submit", async (e) => {
   // 1. FAST PATH (Instant local resolution & queue)
   const cached = studentCache.resolve(query);
   if (cached) {
+    submitting = true;
+    try {
+      await attendanceQueue.enqueue({
+        event_id: crypto.randomUUID(), ekskul_id: currentEkskulId,
+        session_id: currentSessionId, student_id: cached.id,
+        student_name: cached.full_name, status: "PRESENT", photo_url: cached.photo_url,
+        occurred_at: new Date().toISOString(),
+      });
+    } catch {
+      errorEl.textContent = "Gagal menyimpan di perangkat. Periksa ruang penyimpanan dan coba lagi.";
+      return;
+    } finally { submitting = false; }
     input.value = "";
-    const avatar = document.getElementById("student-avatar")!;
-    if (cached.photo_url) {
-      renderPortrait(avatar, cached.photo_url);
-    } else {
-      avatar.innerHTML = `<div class="avatar-fallback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke-linecap="round"/><circle cx="12" cy="7" r="4"/></svg></div>`;
-    }
-    document.getElementById("success-student-name")!.textContent = cached.full_name;
-    document.getElementById("success-time")!.textContent = new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit" }).format(new Date());
+    errorEl.textContent = `${cached.full_name}: tersimpan di HP, menunggu verifikasi.`;
     if (navigator.vibrate) navigator.vibrate(50);
     speaker.speak(`${cached.full_name}, hadir`);
-    const overlay = document.getElementById("success-overlay")!;
-    overlay.style.display = "flex";
-
-    if (scanTimeout) clearTimeout(scanTimeout);
-    scanTimeout = window.setTimeout(() => { overlay.style.display = "none"; }, 1800);
-
-    attendanceQueue.enqueue({
-      event_id: crypto.randomUUID(),
-      ekskul_id: currentEkskulId,
-      session_id: currentSessionId,
-      student_id: cached.id,
-      student_name: cached.full_name,
-      status: "PRESENT",
-      photo_url: cached.photo_url,
-      occurred_at: new Date().toISOString(),
-    });
-
     void syncAttendanceQueue();
     return;
   }
@@ -520,11 +539,8 @@ document.getElementById("form-scan")!.addEventListener("submit", async (e) => {
     document.getElementById("success-time")!.textContent = new Intl.DateTimeFormat("id-ID",{hour:"2-digit",minute:"2-digit"}).format(new Date());
     if (navigator.vibrate) navigator.vibrate(50);
     speaker.speak(`${student.full_name}, hadir`);
-    const overlay = document.getElementById("success-overlay")!;
-    overlay.style.display = "flex";
+    errorEl.textContent = `${student.full_name}: kehadiran tercatat.`;
     void loadSessionSummary();
-    if (scanTimeout) clearTimeout(scanTimeout);
-    scanTimeout = window.setTimeout(()=>overlay.style.display="none",1800);
   } catch(error) {
     const text = error instanceof Error ? error.message : "Presensi belum dapat disimpan. Coba kembali.";
     errorEl.textContent = text;
@@ -710,7 +726,7 @@ void init();
 // Background sync loop: sync attendance quietly every 8.5 seconds
 const SYNC_INTERVAL_MS = 8500;
 window.setInterval(() => {
-  if (attendanceQueue.getPendingCount() > 0) void syncAttendanceQueue();
+  void syncAttendanceQueue();
 }, SYNC_INTERVAL_MS);
 
 window.addEventListener("online", () => {
@@ -722,3 +738,5 @@ document.addEventListener("visibilitychange", () => {
   if (!document.hidden) void syncAttendanceQueue();
 });
 
+
+startRosterRefresh(portal, studentCache);

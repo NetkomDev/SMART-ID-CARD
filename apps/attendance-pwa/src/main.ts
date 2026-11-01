@@ -23,7 +23,7 @@ import {
   type Snapshot,
   type Student,
 } from "./store";
-import { OfflineVoice } from "./offline-voice";
+import { NaturalVoice } from "../../shared/natural-voice";
 import "./style.css";
 
 const portal = new PortalSession(
@@ -121,18 +121,38 @@ function beep() {
     /* Sound is optional. */
   }
 }
-const speaker = new OfflineVoice(({ enabled, text }) => {
-  const toggle = el("voice-toggle") as HTMLButtonElement;
-  toggle.setAttribute("aria-pressed", String(enabled));
-  toggle.textContent = enabled ? "🔊 Aktif" : "🔇 Nonaktif";
-  (el("voice-test") as HTMLButtonElement).disabled = !enabled;
-  el("voice-status").textContent = text;
+const speaker = new NaturalVoice("attendance", ({ enabled, text, hasVoice }) => {
+  const toggle = el("voice-toggle") as HTMLButtonElement | null;
+  if (toggle) {
+    toggle.setAttribute("aria-pressed", String(enabled));
+    toggle.textContent = enabled ? "🔊 Aktif" : "🔇 Nonaktif";
+  }
+  const testBtn = el("voice-test") as HTMLButtonElement | null;
+  if (testBtn) testBtn.disabled = !enabled;
+  const statusEl = el("voice-status");
+  if (statusEl) {
+    statusEl.textContent = text;
+    statusEl.style.cursor = hasVoice ? "default" : "pointer";
+    statusEl.title = hasVoice ? "" : "Ketuk untuk melihat panduan pemasangan suara Bahasa Indonesia";
+  }
+  const guideBtn = el("voice-guide-btn") as HTMLButtonElement | null;
+  if (guideBtn) {
+    guideBtn.style.display = (!hasVoice && enabled) ? "inline-flex" : "none";
+  }
 });
 el("voice-toggle").onclick = () => speaker.setEnabled(!speaker.enabled);
 el("voice-test").onclick = () => {
   speaker.unlock();
-  speaker.speak("Suara siap digunakan");
+  if (!speaker.hasIndonesianVoice) {
+    speaker.openGuide();
+  } else {
+    speaker.speak("Suara siap digunakan");
+  }
 };
+el("voice-guide-btn")?.addEventListener("click", () => speaker.openGuide());
+el("voice-status")?.addEventListener("click", () => {
+  if (!speaker.hasIndonesianVoice) speaker.openGuide();
+});
 void speaker.prepare().catch(() => undefined);
 const camera = new QRCamera({
   readerId: "qr-reader",

@@ -1,7 +1,9 @@
 import { defineConfig, loadEnv } from "vite";
+import { portalOffline } from "../shared/neural-build";
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), "VITE_");
   return {
+    plugins: [portalOffline("library-terminal")],
     root: "apps/library-terminal",
     cacheDir: "../../node_modules/.vite/library-terminal",
     base: env.VITE_BASE_PATH ?? (command === "build" ? "/library/" : "/"),

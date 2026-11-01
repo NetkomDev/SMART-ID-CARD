@@ -1,4 +1,5 @@
-import { StudentCache } from "../../shared/offline-store";
+import { DurableQueue } from "../../shared/durable-queue";
+import { StudentCache, startRosterRefresh } from "../../shared/offline-store";
 import { QRCamera, bindLoginCamera } from "../../shared/qr-camera";
 import { renderPortrait } from "../../shared/portrait";
 import { gateIntro, gateHelp } from "../../shared/portal-ui";
@@ -9,10 +10,10 @@ import { PortalError, PortalSession } from "../../shared/portal-session";
 import { setupInstallPrompt, offerInstall } from "../../shared/install-prompt";
 
 const portal = new PortalSession("LIBRARY_STAFF", import.meta.env.VITE_API_BASE_URL ?? "/api/v1");
-const studentCache = new StudentCache("library");
+const studentCache = new StudentCache(() => "library:" + (portal.context?.school_id ?? "none") + ":" + (portal.context?.id ?? "none"));
 setupInstallPrompt("Perpustakaan", import.meta.env.BASE_URL, import.meta.env.PROD);
 
-const speaker = new NaturalVoice("perpustakaan", ({ enabled, text }) => {
+const speaker = new NaturalVoice("perpustakaan", ({ enabled, text, hasVoice }) => {
   const toggle = document.getElementById("voice-toggle") as HTMLButtonElement | null;
   if (toggle) {
     toggle.setAttribute("aria-pressed", String(enabled));
@@ -21,14 +22,30 @@ const speaker = new NaturalVoice("perpustakaan", ({ enabled, text }) => {
   const testBtn = document.getElementById("voice-test") as HTMLButtonElement | null;
   if (testBtn) testBtn.disabled = !enabled;
   const statusEl = document.getElementById("voice-status");
-  if (statusEl) statusEl.textContent = text;
+  if (statusEl) {
+    statusEl.textContent = text;
+    statusEl.style.cursor = hasVoice ? "default" : "pointer";
+    statusEl.title = hasVoice ? "" : "Ketuk untuk melihat panduan pemasangan suara Bahasa Indonesia";
+  }
+  const guideBtn = document.getElementById("voice-guide-btn") as HTMLButtonElement | null;
+  if (guideBtn) {
+    guideBtn.style.display = (!hasVoice && enabled) ? "inline-flex" : "none";
+  }
 });
 document.getElementById("voice-toggle")?.addEventListener("click", () => {
   speaker.setEnabled(!speaker.enabled);
 });
 document.getElementById("voice-test")?.addEventListener("click", () => {
   speaker.unlock();
-  speaker.speak("Suara siap digunakan");
+  if (!speaker.hasIndonesianVoice) {
+    speaker.openGuide();
+  } else {
+    speaker.speak("Suara siap digunakan");
+  }
+});
+document.getElementById("voice-guide-btn")?.addEventListener("click", () => speaker.openGuide());
+document.getElementById("voice-status")?.addEventListener("click", () => {
+  if (!speaker.hasIndonesianVoice) speaker.openGuide();
 });
 try { for (const key of Object.keys(localStorage)) if (key.startsWith("library_cache_")) localStorage.removeItem(key); } catch { /* Historical profile cache is no longer used. */ }
 type Visit = { event_id: string; card_uid: string; occurred_at: string; local_sequence: number; metadata: Record<string, unknown> };
@@ -43,11 +60,17 @@ const todayVisits = document.querySelector<HTMLElement>("#today-visits")!;
 const activeClasses = document.querySelector<HTMLElement>("#active-classes")!;
 
 const panel = document.getElementById("panel")!;
-const queueKey = () => `aksis.library.queue.${portal.context?.id ?? "none"}`;
-function queue(key = queueKey()): Visit[] {
-  try { return JSON.parse(localStorage.getItem(key) ?? "[]") as Visit[]; } catch { return []; }
+const queueKey = () => `library:${portal.context?.school_id ?? "none"}:${portal.context?.id ?? "none"}`;
+const visits = new DurableQueue<Visit>(queueKey);
+async function updateVisitCount() { queued.textContent = String((await visits.getPending()).length); }
+async function migrateVisitQueue() {
+  const key=`aksis.library.queue.${portal.context?.id ?? "none"}`;
+  const raw=localStorage.getItem(key);if(!raw)return;
+  const legacy=JSON.parse(raw) as Visit[];
+  const existing=new Set((await visits.getPending()).map(item=>item.event_id));
+  for(const visit of legacy)if(!existing.has(visit.event_id))await visits.enqueue(visit,visit.event_id);
+  localStorage.removeItem(key);
 }
-function save(items: Visit[], key = queueKey()) { localStorage.setItem(key, JSON.stringify(items)); queued.textContent = String(items.length); }
 
 const login = document.getElementById("view-login")!;
 const loginForm = document.getElementById("form-login") as HTMLFormElement;
@@ -82,53 +105,27 @@ async function loadDailySummary() {
 async function sync() {
   if (syncing) return syncing;
   const work = async () => {
-    const key = queueKey();
-    const currentQueue = queue(key);
-    if (!currentQueue.length) {
-      queued.textContent = "0";
-      return;
-    }
-    let failed = 0;
-    for (const visit of currentQueue) {
+    const scope=queueKey();
+    await migrateVisitQueue();
+    const items=await visits.getPending(scope);
+    for(const item of items) {
+      if(scope!==queueKey())break;
+      const visit=item.payload;
       try {
-        const result = await portal.request<{ student_name?: string; class_name?: string; duplicate?: boolean; photo_url?: string }>("/library/visits", {
-          method: "POST",
-          body: JSON.stringify(visit),
-        });
-        if (result?.student_name) {
-          studentCache.put({
-            id: visit.card_uid,
-            full_name: result.student_name,
-            class_name: result.class_name,
-            photo_url: result.photo_url,
-            cards: [{ card_uid: visit.card_uid, qr_key: visit.card_uid }],
-          });
-        }
-        save(queue(key).filter(item => item.event_id !== visit.event_id), key);
-      } catch (error) {
-        if (error instanceof PortalError && [400, 403, 404, 409, 422].includes(error.status)) {
-          const failedKey = `${key}.failed`;
-          const prior = JSON.parse(localStorage.getItem(failedKey) ?? "[]");
-          localStorage.setItem(failedKey, JSON.stringify([...prior, { event: visit, code: error.code, failed_at: new Date().toISOString() }]));
-          save(queue(key).filter(item => item.event_id !== visit.event_id), key);
-          failed++;
-        } else {
-          // Network temporary error: leave remaining in queue for next sync loop
-          break;
-        }
+        const result=await portal.request<{student_id?:string;student_name?:string;class_name?:string;photo_url?:string}>("/library/visits",{method:"POST",body:JSON.stringify(visit)});
+        if(result?.student_name&&result.student_id)studentCache.put({id:result.student_id,full_name:result.student_name,class_name:result.class_name,photo_url:result.photo_url,cards:[{card_uid:visit.card_uid,qr_key:visit.card_uid}]});
+        await visits.markSynced(item.event_id,scope);
+      } catch(error) {
+        await visits.markFailed(item.event_id,error instanceof Error?error.message:"Sinkronisasi gagal",scope);
+        if (error instanceof PortalError && error.status >= 400 && error.status < 500 && error.status !== 429) continue;
+        break;
       }
     }
-    const remaining = queue(key).length;
-    queued.textContent = String(remaining);
-    status.value = failed
-      ? `${failed} kunjungan memerlukan rekonsiliasi; kunjungan lain disinkronisasi.`
-      : remaining > 0
-        ? `${remaining} kunjungan menunggu sinkronisasi latar belakang`
-        : "Semua kunjungan tersinkronisasi";
+    const remaining=(await visits.getPending(scope)).length;
+    if(scope===queueKey()){queued.textContent=String(remaining);status.value=remaining?`${remaining} kunjungan menunggu sinkronisasi atau pemeriksaan`:"Semua kunjungan tersinkronisasi";}
     void loadDailySummary();
   };
-  syncing = Promise.resolve(navigator.locks ? navigator.locks.request(queueKey(), work) : work()).then(() => undefined).finally(() => { syncing = null; });
-  return syncing;
+  syncing=Promise.resolve(navigator.locks?navigator.locks.request(queueKey(),work):work()).then(()=>undefined).finally(()=>{syncing=null;});return syncing;
 }
 function showLoadingOverlay(show: boolean) {
   const overlay = document.getElementById("loading-overlay");
@@ -156,7 +153,6 @@ async function processVisit(uid: string, isFromCamera: boolean = false) {
   const submit = form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
   submit.disabled = true;
 
-  const key = queueKey();
   const visit: Visit = {
     event_id: crypto.randomUUID(),
     card_uid: uid,
@@ -176,13 +172,24 @@ async function processVisit(uid: string, isFromCamera: boolean = false) {
     }
   }
 
-  // Enqueue locally first so physical line never stalls
-  save([...queue(key), visit], key);
-  queued.textContent = String(queue(key).length);
-
-  // Instant local student lookup
-  const cached = studentCache.resolve(uid);
-  const studentName = cached?.full_name ?? "Siswa";
+  let cached = studentCache.resolve(uid);
+  if (!cached && !navigator.onLine) {
+    status.value = "Siswa belum tersedia di perangkat. Hubungkan internet untuk mengenali kartu.";
+    visitBusy = false; submit.disabled = false; return;
+  }
+  try { await visits.enqueue(visit,visit.event_id); await updateVisitCount(); }
+  catch { status.value = "Gagal menyimpan di perangkat. Periksa ruang penyimpanan."; visitBusy = false; submit.disabled = false; return; }
+  if (!cached) {
+    await sync();
+    cached = studentCache.resolve(uid);
+    if (!cached) {
+      status.value = "Kartu belum dapat diverifikasi. Periksa koneksi atau antrean.";
+      visitBusy = false; submit.disabled = false; return;
+    }
+  }
+  const studentName = cached.full_name;
+  const loanStudent = document.getElementById("loan-student") as HTMLInputElement | null;
+  if (loanStudent) loanStudent.value = cached.nisn ?? cached.student_number ?? uid;
   const className = cached?.class_name ?? "—";
 
   document.getElementById("success-student-name")!.textContent = studentName;
@@ -348,8 +355,9 @@ async function start() {
       login.style.display = "none";
       const libSchool = document.querySelector("#library-school");
       if (libSchool && portal.context) libSchool.textContent = portal.context.school_name;
-      queued.textContent = String(queue().length); 
+      void updateVisitCount();
       offerInstall();
+      if (!navigator.onLine) { status.value = "Offline · transaksi tersimpan di HP"; return; }
       
       await Promise.all([
         portal.start(),
@@ -357,7 +365,7 @@ async function start() {
       ]);
       
       if (libSchool && portal.context) libSchool.textContent = portal.context.school_name;
-      if (queue().length) void sync().catch(showError);
+      void sync().catch(showError);
       return;
     }
 
@@ -370,9 +378,9 @@ async function start() {
     login.style.display = "none";
     const libSchool = document.querySelector("#library-school");
     if (libSchool) libSchool.textContent = portal.context!.school_name;
-    queued.textContent = String(queue().length); offerInstall();
+    void updateVisitCount(); offerInstall();
     void loadDailySummary();
-    if (queue().length) void sync().catch(showError);
+    void sync().catch(showError);
   } catch (error) {
     panel.hidden = true;
     login.style.display = "block";
@@ -385,7 +393,7 @@ void start();
 // Background sync loop: sync quietly every 8.5 seconds without blocking scanner
 const SYNC_INTERVAL_MS = 8500;
 window.setInterval(() => {
-  if (portal.connected && queue().length > 0) void sync().catch(() => {});
+  if (portal.connected) void sync().catch(() => {});
 }, SYNC_INTERVAL_MS);
 
 window.addEventListener("online", () => {
@@ -394,3 +402,64 @@ window.addEventListener("online", () => {
     void loadDailySummary();
   }
 });
+
+// Loan events use per-event IndexedDB records so retries cannot replace another queued event.
+type Loan = { event_id:string; student_id:string; student_name:string; book_title:string; book_author:string; borrowed_at:string; due_date:string };
+const loanScope = () => `${portal.context?.school_id ?? "none"}:${portal.context?.id ?? "none"}`;
+const loanDb = new Promise<IDBDatabase>((resolve,reject) => {
+  const request=indexedDB.open("aksis-library-loans-v1",1);
+  request.onupgradeneeded=()=>request.result.createObjectStore("events",{keyPath:"key"});
+  request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);
+});
+async function loanOperation<T>(mode:IDBTransactionMode,action:(store:IDBObjectStore)=>IDBRequest<T>):Promise<T> {
+  const db=await loanDb; return new Promise((resolve,reject)=>{const tx=db.transaction("events",mode);const request=action(tx.objectStore("events"));let result:T;request.onsuccess=()=>{result=request.result;};tx.oncomplete=()=>resolve(result);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);});
+}
+async function queuedLoans(scope=loanScope()):Promise<Loan[]> {
+  const rows=await loanOperation("readonly",store=>store.getAll()) as Array<{scope:string;loan:Loan}>;
+  return rows.filter(row=>row.scope===scope).map(row=>row.loan);
+}
+let syncingLoans=false;
+async function syncLoans() {
+  if(syncingLoans || !navigator.onLine || !portal.context)return;
+  syncingLoans=true;const scope=loanScope();
+  try {for(const loan of await queuedLoans(scope)){
+    if(scope!==loanScope())break;
+    try {const {student_name:_,...payload}=loan;await portal.request("/library/loans",{method:"POST",body:JSON.stringify(payload)});await loanOperation("readwrite",store=>store.delete(`${scope}:${loan.event_id}`));}
+    catch {break;}
+  }} finally {syncingLoans=false;}
+}
+async function renderLoans() {
+  const target=document.getElementById("loan-list")!;const scope=loanScope();
+  let remote:Loan[]=[];try{remote=await portal.request<Loan[]>("/library/loans");}catch{/* offline: retain local events */}
+  if(scope!==loanScope())return;
+  const pending=await queuedLoans(scope);target.replaceChildren();
+  const seen=new Set(remote.map(x=>x.event_id));
+  const rows=[...pending.filter(x=>!seen.has(x.event_id)).map(x=>({loan:x,pending:true})),...remote.map(x=>({loan:x,pending:false}))];
+  if(!rows.length){target.textContent=navigator.onLine?"Belum ada peminjaman aktif.":"Tidak ada pinjaman lokal yang menunggu sinkronisasi.";return;}
+  for(const row of rows){const el=document.createElement("div");el.className="loan-item";const title=document.createElement("strong");title.textContent=row.loan.book_title;const details=document.createElement("span");details.textContent=`${row.loan.book_author} · ${row.loan.student_name} · Jatuh tempo ${row.loan.due_date}${row.pending?" · menunggu sinkronisasi":""}`;el.append(title,details);target.append(el);}
+}
+const loanForm=document.getElementById("loan-form") as HTMLFormElement;
+const loanStatus=document.getElementById("loan-status")!;
+loanForm.addEventListener("submit",async event=>{
+  event.preventDefault();if(!portal.context)return;
+  const value=(id:string)=>(document.getElementById(id) as HTMLInputElement).value.trim();
+  const student=studentCache.resolve(value("loan-student"));
+  if(!student){loanStatus.textContent="Siswa belum dikenali. Pindai kartu siswa pada tab Scan terlebih dahulu.";return;}
+  const loan:Loan={event_id:crypto.randomUUID(),student_id:student.id,student_name:student.full_name,book_title:value("loan-title"),book_author:value("loan-author"),borrowed_at:new Date().toISOString(),due_date:value("loan-due")};
+  if(!loan.book_title||!loan.book_author||!loan.due_date){loanStatus.textContent="Lengkapi data buku dan jatuh tempo.";return;}
+  const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Makassar',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  if(loan.due_date<today){loanStatus.textContent="Jatuh tempo tidak boleh sebelum hari ini.";return;}
+  try {const scope=loanScope();await loanOperation("readwrite",store=>store.add({key:`${scope}:${loan.event_id}`,scope,loan}));loanStatus.textContent="Peminjaman tersimpan di HP dan menunggu sinkronisasi.";loanForm.reset();void syncLoans().then(renderLoans);void renderLoans();}
+  catch {loanStatus.textContent="Gagal menyimpan di perangkat. Periksa ruang penyimpanan dan coba lagi.";}
+});
+const scanTab=document.getElementById("tab-scan")!,loansTab=document.getElementById("tab-loans")!;
+function setLibraryTab(tab:"scan"|"loans") {
+  document.getElementById("view-scan")!.hidden=tab!=="scan";document.getElementById("view-loans")!.hidden=tab!=="loans";
+  scanTab.toggleAttribute("aria-current",tab==="scan");loansTab.toggleAttribute("aria-current",tab==="loans");
+  if(tab==="loans")void renderLoans();
+}
+scanTab.addEventListener("click",()=>setLibraryTab("scan"));loansTab.addEventListener("click",()=>setLibraryTab("loans"));
+window.addEventListener("online",()=>{void syncLoans().then(renderLoans);});
+window.setInterval(()=>{void syncLoans();},8500);
+
+startRosterRefresh(portal, studentCache);

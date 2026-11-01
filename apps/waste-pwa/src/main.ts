@@ -1,4 +1,5 @@
-import { StudentCache, OfflineQueue } from "../../shared/offline-store";
+import { DurableQueue } from "../../shared/durable-queue";
+import { StudentCache, startRosterRefresh } from "../../shared/offline-store";
 import { QRCamera, bindLoginCamera } from "../../shared/qr-camera";
 import { gateIntro, gateHelp, escapePortal as esc } from "../../shared/portal-ui";
 import { NaturalVoice } from "../../shared/natural-voice";
@@ -23,10 +24,10 @@ export type WasteQueueItem = {
   occurred_at: string;
 };
 
-const studentCache = new StudentCache("waste");
-const wasteQueue = new OfflineQueue<WasteQueueItem>("waste_deposits");
+const studentCache = new StudentCache(() => "waste:" + (portal.context?.school_id ?? "none") + ":" + (portal.context?.id ?? "none"));
+const wasteQueue = new DurableQueue<WasteQueueItem>(() => "waste_deposits:" + (portal.context?.school_id ?? "none") + ":" + (portal.context?.id ?? "none"));
 
-const speaker = new NaturalVoice("waste", ({ enabled, text }) => {
+const speaker = new NaturalVoice("waste", ({ enabled, text, hasVoice }) => {
   const toggle = document.getElementById("voice-toggle") as HTMLButtonElement | null;
   if (toggle) {
     toggle.setAttribute("aria-pressed", String(enabled));
@@ -35,14 +36,30 @@ const speaker = new NaturalVoice("waste", ({ enabled, text }) => {
   const testBtn = document.getElementById("voice-test") as HTMLButtonElement | null;
   if (testBtn) testBtn.disabled = !enabled;
   const statusEl = document.getElementById("voice-status");
-  if (statusEl) statusEl.textContent = text;
+  if (statusEl) {
+    statusEl.textContent = text;
+    statusEl.style.cursor = hasVoice ? "default" : "pointer";
+    statusEl.title = hasVoice ? "" : "Ketuk untuk melihat panduan pemasangan suara Bahasa Indonesia";
+  }
+  const guideBtn = document.getElementById("voice-guide-btn") as HTMLButtonElement | null;
+  if (guideBtn) {
+    guideBtn.style.display = (!hasVoice && enabled) ? "inline-flex" : "none";
+  }
 });
 document.getElementById("voice-toggle")?.addEventListener("click", () => {
   speaker.setEnabled(!speaker.enabled);
 });
 document.getElementById("voice-test")?.addEventListener("click", () => {
   speaker.unlock();
-  speaker.speak("Suara siap digunakan");
+  if (!speaker.hasIndonesianVoice) {
+    speaker.openGuide();
+  } else {
+    speaker.speak("Suara siap digunakan");
+  }
+});
+document.getElementById("voice-guide-btn")?.addEventListener("click", () => speaker.openGuide());
+document.getElementById("voice-status")?.addEventListener("click", () => {
+  if (!speaker.hasIndonesianVoice) speaker.openGuide();
 });
 const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const input = <T extends HTMLInputElement | HTMLSelectElement = HTMLInputElement>(id: string) => el<T>(id);
@@ -70,7 +87,7 @@ let view: View = "login", classId = "", className = "", student: Student | null 
 let dashboard: Dashboard | null = null, dashboardRequest = 0;
 let activePortalId = "";
 let scanning = false, cameraBusy = false, facing: "environment" | "user" = "environment";
-let resolving = false, saving = false;
+let resolving = false, saving = false, resumeCameraAfterDeposit = false;
 type PendingDeposit = { event_id: string; class_id: string; student_id: string; organic_kg: number; inorganic_kg: number; source: string };
 let pending: PendingDeposit | null = null;
 const pendingKey = () => `aksis.waste.pending.${portal.context?.id ?? ""}`;
@@ -425,11 +442,13 @@ async function init() {
 let syncingWaste = false;
 async function syncWasteQueue() {
   if (syncingWaste || !navigator.onLine) return;
-  const pendingItems = wasteQueue.getPending();
-  if (!pendingItems.length) return;
   syncingWaste = true;
+  const scope = wasteQueue.currentScope;
   try {
+    const pendingItems = await wasteQueue.getPending(scope);
+    if (!pendingItems.length) return;
     for (const item of pendingItems) {
+      if (scope !== wasteQueue.currentScope) break;
       try {
         await portal.request("/waste/transactions", {
           method: "POST",
@@ -442,16 +461,15 @@ async function syncWasteQueue() {
             source: item.payload.source,
           }),
         });
-        wasteQueue.markSynced(item.event_id);
+        await wasteQueue.markSynced(item.event_id, scope);
       } catch (err) {
-        if (err instanceof PortalError && [400, 403, 404, 409, 422].includes(err.status)) {
-          wasteQueue.markSynced(item.event_id);
-        } else {
-          break;
-        }
+        await wasteQueue.markFailed(item.event_id, err instanceof Error ? err.message : "Sinkronisasi gagal", scope);
+        if (err instanceof PortalError && err.status >= 400 && err.status < 500 && err.status !== 429) { el("scan-error").textContent = "Ada setoran tertunda yang perlu diperiksa: " + err.message; el("scan-error").style.display = "block"; continue; }
+        break;
       }
     }
     void loadDashboard();
+  } catch { /* Storage or network unavailable: keep events for retry. */
   } finally {
     syncingWaste = false;
   }
@@ -459,6 +477,7 @@ async function syncWasteQueue() {
 
 async function resolveStudent(scannedText?: string) {
   const query = (scannedText ?? input("scan-input").value).trim();
+  resumeCameraAfterDeposit = Boolean(scannedText);
   if (!query || resolving || pending) return;
 
   hideNotFoundModal();
@@ -562,7 +581,10 @@ async function saveDeposit(e: SubmitEvent) {
   };
 
   // Enqueue locally first so line never blocks on network
-  wasteQueue.enqueue(depositPayload, depositPayload.event_id);
+  saving = true;
+  try { await wasteQueue.enqueue(depositPayload, depositPayload.event_id); }
+  catch { el("input-error").textContent = "Gagal menyimpan di perangkat. Periksa ruang penyimpanan dan coba lagi."; return; }
+  finally { saving = false; }
 
   speaker.speak("Setoran berhasil disimpan");
   el("success-detail").textContent = `${student.full_name} · ${number(measurement.total_kg)} kg. Setoran tersimpan di HP & sinkronisasi berjalan di latar belakang.`;
@@ -571,7 +593,9 @@ async function saveDeposit(e: SubmitEvent) {
   student = null;
   el("input-error").textContent = "";
   lockForm(false);
-  switchView("success");
+  switchView("scan");
+  el("scan-status").textContent = "Setoran tersimpan di HP · siap memindai siswa berikutnya.";
+  if (resumeCameraAfterDeposit) void startCamera();
 
   // Non-blocking silent background sync
   void syncWasteQueue();
@@ -632,7 +656,7 @@ void init();
 // Background sync loop: sync waste transactions quietly every 8.5 seconds
 const SYNC_INTERVAL_MS = 8500;
 window.setInterval(() => {
-  if (wasteQueue.getPendingCount() > 0) void syncWasteQueue();
+  void syncWasteQueue();
 }, SYNC_INTERVAL_MS);
 
 window.addEventListener("online", () => {
@@ -640,3 +664,5 @@ window.addEventListener("online", () => {
   void loadDashboard();
 });
 
+
+startRosterRefresh(portal, studentCache);

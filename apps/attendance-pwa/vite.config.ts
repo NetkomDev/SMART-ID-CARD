@@ -20,29 +20,14 @@ export default defineConfig(({ command, mode }) => {
             "brand-mark.webp",
             "manifest.webmanifest",
             "Header-PWA.svg",
-            "tts/espeakng.worker.js",
-            "tts/espeakng.worker.data",
-            "tts/LICENSE.txt",
-            "tts/NOTICE.txt",
           ];
-          const version = createHash("sha256")
-            .update(assets.join("|"))
-            .update(
-              readFileSync(
-                resolve("apps/attendance-pwa/public/tts/espeakng.worker.js"),
-              ),
-            )
-            .update(
-              readFileSync(
-                resolve("apps/attendance-pwa/public/tts/espeakng.worker.data"),
-              ),
-            )
-            .digest("hex")
-            .slice(0, 16);
+          const hasher = createHash("sha256").update(assets.join("|"));
+          hasher.update(readFileSync(resolve("apps/attendance-pwa/public/sw.js")));
+          const version = hasher.digest("hex").slice(0, 16);
           this.emitFile({
             type: "asset",
             fileName: "offline-assets.json",
-            source: JSON.stringify(assets),
+            source: JSON.stringify([...new Set(assets)]),
           });
           this.emitFile({
             type: "asset",

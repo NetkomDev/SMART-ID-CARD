@@ -46,4 +46,44 @@ describe("NaturalVoice", () => {
     expect(voice.enabled).toBe(true);
     voice.stop();
   });
+
+  it("detects Indonesian voices and prioritizes Google Bahasa Indonesia / Damayanti", () => {
+    const mockVoices = [
+      { name: "Microsoft David", lang: "en-US", localService: true },
+      { name: "Google Bahasa Indonesia", lang: "id-ID", localService: true },
+    ] as any;
+
+    (globalThis as any).speechSynthesis = {
+      getVoices: () => mockVoices,
+      speak: () => {},
+      cancel: () => {},
+      resume: () => {},
+      paused: false,
+    };
+
+    const statuses: any[] = [];
+    const voice = new NaturalVoice("attendance", (s) => statuses.push(s));
+    expect(voice.hasIndonesianVoice).toBe(true);
+    expect(voice.voiceName).toBe("Google Bahasa Indonesia");
+    expect(statuses.at(-1)?.text).toContain("Google Bahasa Indonesia");
+  });
+
+  it("indicates missing voice when no Indonesian voice is available in the device", () => {
+    const mockVoices = [
+      { name: "Microsoft David", lang: "en-US", localService: true },
+    ] as any;
+
+    (globalThis as any).speechSynthesis = {
+      getVoices: () => mockVoices,
+      speak: () => {},
+      cancel: () => {},
+      resume: () => {},
+      paused: false,
+    };
+
+    const statuses: any[] = [];
+    const voice = new NaturalVoice("attendance", (s) => statuses.push(s));
+    expect(voice.hasIndonesianVoice).toBe(false);
+    expect(statuses.at(-1)?.text).toContain("Paket suara Bahasa Indonesia belum terpasang");
+  });
 });

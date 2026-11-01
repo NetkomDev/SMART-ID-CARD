@@ -40,11 +40,8 @@ const storage = {
     return null;
   },
   set(key: string, val: string): void {
-    try {
-      if (typeof localStorage !== "undefined") {
-        localStorage.setItem(key, val);
-      }
-    } catch {}
+    if (typeof localStorage === "undefined") throw new Error("Penyimpanan perangkat tidak tersedia");
+    localStorage.setItem(key, val);
   },
   remove(key: string): void {
     try {
@@ -56,26 +53,23 @@ const storage = {
 };
 
 export class StudentCache {
-  private schoolId: string;
-  private cacheKey: string;
-
-  constructor(schoolId: string) {
-    this.schoolId = schoolId;
-    this.cacheKey = `aksis_student_cache_${schoolId}`;
-  }
+  constructor(private scope: string | (() => string)) {}
+  private get cacheKey(): string { return `aksis_student_cache_${typeof this.scope === "function" ? this.scope() : this.scope}`; }
 
   getAll(): CachedStudent[] {
     const raw = storage.get(this.cacheKey);
     if (!raw) return [];
     try {
-      return JSON.parse(raw) as CachedStudent[];
+      const snapshot = JSON.parse(raw) as { saved_at?: number; students?: CachedStudent[] };
+      if (!snapshot.saved_at || Date.now() - snapshot.saved_at > 7 * 24 * 60 * 60 * 1000 || !Array.isArray(snapshot.students)) return [];
+      return snapshot.students;
     } catch {
       return [];
     }
   }
 
   saveAll(students: CachedStudent[]): void {
-    storage.set(this.cacheKey, JSON.stringify(students));
+    storage.set(this.cacheKey, JSON.stringify({ saved_at: Date.now(), students }));
   }
 
   put(student: CachedStudent): void {
@@ -88,7 +82,12 @@ export class StudentCache {
     }
     // Limit cache size to reasonable bounds (e.g. 5000 students)
     if (list.length > 5000) list.splice(0, list.length - 5000);
-    this.saveAll(list);
+    try {
+      const current = JSON.parse(storage.get(this.cacheKey) ?? "null") as {saved_at?:number}|null;
+      const previous = current?.saved_at;
+      const savedAt = previous && Date.now() - previous <= 7 * 24 * 60 * 60 * 1000 ? previous : Date.now();
+      storage.set(this.cacheKey, JSON.stringify({saved_at:savedAt,students:list}));
+    } catch { /* A failed cache update must not change an already saved server transaction. */ }
   }
 
   resolve(identifier: string, atIso?: string): CachedStudent | undefined {
@@ -122,16 +121,13 @@ export class StudentCache {
       return false;
     });
 
-    return matches.length > 0 ? matches[0] : undefined;
+    return matches.length === 1 ? matches[0] : undefined;
   }
 }
 
 export class OfflineQueue<T> {
-  private queueKey: string;
-
-  constructor(scopeKey: string) {
-    this.queueKey = `aksis_queue_${scopeKey}`;
-  }
+  constructor(private scope: string | (() => string)) {}
+  private get queueKey(): string { return `aksis_queue_${typeof this.scope === "function" ? this.scope() : this.scope}`; }
 
   getAll(): QueueItem<T>[] {
     const raw = storage.get(this.queueKey);
@@ -295,4 +291,27 @@ export class BackgroundSyncCoordinator<T> {
       this.onStatusChange(this.syncing, this.queue.getPendingCount());
     }
   }
+}
+
+/** Refresh a complete, tenant-scoped roster in the background; replace only after all pages arrive. */
+export function startRosterRefresh(portal: {context: {id:string;school_id:string}|null; request<T>(path:string):Promise<T>}, cache: StudentCache): void {
+  let loading=false, lastScope='', lastUpdate=0;
+  const refresh=async()=>{
+    const context=portal.context;if(!context||!navigator.onLine||loading)return;
+    const scope=`${context.school_id}:${context.id}`;
+    if(scope===lastScope && Date.now()-lastUpdate<15*60_000)return;
+    loading=true;
+    try {
+      const students:CachedStudent[]=[];let cursor:string|null=null;
+      do {
+        const page:{school_id:string;students:CachedStudent[];next_cursor:string|null}=await portal.request(`/students/portal-roster${cursor?`?after=${encodeURIComponent(cursor)}`:''}`);
+        if(page.school_id!==context.school_id || portal.context?.id!==context.id || portal.context?.school_id!==context.school_id)throw new Error('Konteks portal berubah');
+        if(!Array.isArray(page.students) || page.next_cursor===cursor && cursor!==null)throw new Error('Data siswa tidak lengkap');
+        students.push(...page.students);cursor=page.next_cursor;
+      } while(cursor);
+      cache.saveAll(students);lastScope=scope;lastUpdate=Date.now();
+    } catch { /* Keep previous complete roster; retry on a later interval. */ }
+    finally {loading=false;}
+  };
+  window.setInterval(()=>void refresh(),5000);window.addEventListener('online',()=>void refresh());void refresh();
 }

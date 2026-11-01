@@ -79,6 +79,7 @@
         <div class="voice-panel-actions">
           <button type="button" id="voice-toggle" aria-pressed="true">🔊 Suara aktif</button>
           <button type="button" id="voice-test">Uji suara</button>
+          <button type="button" id="voice-guide-btn" class="btn-voice-guide" style="display:none;" title="Panduan pasang paket suara Bahasa Indonesia">⚙️ Pasang Suara</button>
         </div>
       </section>
 
@@ -100,6 +101,22 @@
         <div class="sync-banner"><span class="round-icon"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span><div><strong>Status sinkronisasi</strong><span>Antrean akan dikirim saat koneksi tersedia.</span></div></div>
         <div class="actions-row"><button id="sync">Sinkronkan sekarang</button></div>
       </div>
+      <div id="view-loans" hidden>
+        <div class="loan-card">
+          <small>LAYANAN PERPUSTAKAAN</small><h2>Peminjaman Buku</h2>
+          <p>Pindai siswa pada tab Scan, lalu lengkapi data buku.</p>
+          <form id="loan-form">
+            <label for="loan-student">NISN / kartu siswa</label><input id="loan-student" required autocomplete="off" placeholder="Nomor siswa yang sudah dipindai">
+            <label for="loan-title">Judul buku</label><input id="loan-title" required maxlength="200" autocomplete="off">
+            <label for="loan-author">Penulis</label><input id="loan-author" required maxlength="200" autocomplete="off">
+            <label for="loan-due">Jatuh tempo</label><input id="loan-due" type="date" required>
+            <button type="submit">Simpan peminjaman</button>
+          </form>
+          <p id="loan-status" role="status" aria-live="polite"></p>
+        </div>
+        <div class="loan-card"><h3>Daftar peminjaman</h3><div id="loan-list">Memuat data…</div></div>
+      </div>
+      <nav class="library-bottom-nav" aria-label="Navigasi perpustakaan"><button type="button" id="tab-scan" aria-current="page">⌗ <span>Scan</span></button><button type="button" id="tab-loans">▤ <span>Peminjaman buku</span></button></nav>
     </section>
 
     <div id="view-success" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); backdrop-filter:blur(5px); -webkit-backdrop-filter:blur(5px); z-index:2000; justify-content:center; align-items:center;">
