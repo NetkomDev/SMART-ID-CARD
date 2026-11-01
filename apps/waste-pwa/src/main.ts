@@ -220,7 +220,8 @@ function setupScannerPinchZoom() {
 
   stage.addEventListener("touchstart", handleTouchStart, { passive: false });
   stage.addEventListener("touchmove", handleTouchMove, { passive: false });
-  stage.addEventListener("touchend", handleTouchEnd);
+  stage.addEventListener("touchend", handleTouchEnd, { passive: true });
+  stage.addEventListener("touchcancel", handleTouchEnd, { passive: true });
 }
 
 function hideNotFoundModal() {

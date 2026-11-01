@@ -68,6 +68,14 @@ Tanggal: 1 November 2026. Lingkup: PWA Piket Kehadiran, Piket Bank Sampah, Perpu
      - Menerapkan standardisasi ini pada modal `#ekskul-modal` (Ekstrakurikuler), `#year-modal` (Tahun Ajaran), dan `#led-modal` (LED Board).
      - Menambahkan interaksi ramah pengguna: menutup modal saat klik di luar kartu (backdrop click) atau saat menekan tombol `Escape`, serta auto-focus ke input pertama saat modal dibuka.
 
+10. **Perbaikan Scrolling Touch pada Area Scanner PWA Piket Bank Sampah**:
+   - **Masalah**: Halaman PWA Piket Bank Sampah (`/waste/`) tidak dapat digulir (*scrolling*) jika jari pengguna menyentuh area pemindai kamera (*scanner*), memaksa pengguna harus menempatkan jari persis di pinggir luar kotak scanner untuk bisa scroll ke bawah melihat ringkasan harian atau klasemen.
+   - **Penyebab**: File `apps/waste-pwa/src/style.css` menerapkan deklarasi `touch-action: none !important;` pada `#scanner-stage, #qr-reader, #qr-reader video, #qr-reader canvas`. Properti ini secara eksplisit menginstruksikan browser untuk mematikan seluruh penanganan gestur gulir native saat sentuhan dimulai dari area scanner.
+   - **Solusi**:
+     - Memperbarui deklarasi CSS menjadi `touch-action: pan-y !important;` pada `#scanner-stage`, `#qr-reader`, `#qr-reader video`, `#qr-reader canvas`, `.scanner-stage`, `.scanner-viewport`, dan `#scanner-placeholder`.
+     - Dengan `touch-action: pan-y`, sapuan satu jari vertikal di titik mana pun pada area pemindai (baik saat kamera aktif maupun mati) langsung direspons oleh browser untuk menggulir halaman secara halus dan bebas hambatan.
+     - Gestur dua jari (*pinch-to-zoom*) tetap ditangani oleh JavaScript (`setupScannerPinchZoom`) dengan penambahan listener `touchcancel` untuk transisi zoom kamera yang mulus.
+
 ## Hasil verifikasi
 
 - **Pemeriksaan Tipe Data**: `npm run typecheck:all` lulus 100% tanpa kesalahan di seluruh 11 aplikasi.
@@ -78,6 +86,7 @@ Tanggal: 1 November 2026. Lingkup: PWA Piket Kehadiran, Piket Bank Sampah, Perpu
   - `tooling/test-library-loans-offline.mjs`: Peminjaman buku tersimpan offline di HP dan tersinkronisasi 1x saat kembali online (PASS).
   - `tooling/test-durable-pwa-queue.mjs`: 40 penulisan transaksi simultan dari 2 tab tetap tersimpan utuh dan terisolasi per sekolah (PASS).
 - **Vercel Production Deployment**: Berhasil di-deploy ke organisasi `netkom-developers-projects` proyek `aksis`, aliased ke `https://www.aksis.co.id`.
+  - Endpoint `/waste/`: 200 OK, terverifikasi scrolling vertikal halaman aktif dengan `touch-action: pan-y` di seluruh penampang pemindai kamera.
   - Endpoint `/extracurricular`: 200 OK, terverifikasi modal `.admin-modal-overlay` dan `.admin-modal-card` tampil rapi di tengah tanpa area putih yang memanjang.
   - Endpoint `/attendance/`: 200 OK, terverifikasi fungsionalitas sapaan kontekstual kedatangan dan kepulangan.
   - Endpoint `/library/`: 200 OK, terverifikasi elemen `#loan-scanner-stage`, `#loan-qr-reader`, `#btn-switch-loan-camera`, `#loan-zoom-controls`, dan `#loan-student-result`.
