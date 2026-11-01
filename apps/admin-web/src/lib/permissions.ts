@@ -21,7 +21,7 @@ export function isPlatformRoute(path: string): boolean {
 
 export function canAccess(path: string, permissions: string[], roles: string[] = []): boolean {
   if (roles.includes("SUPER_ADMIN")) return isPlatformRoute(path);
-  if ((path === "/pwa-portals" || path === "/school-hours")) return roles.includes("SCHOOL_ADMIN");
+  if (path === "/pwa-portals") return roles.includes("SCHOOL_ADMIN");
   // Platform routes are exclusively for SUPER_ADMIN
   if (isPlatformRoute(path)) {
     return roles.includes("SUPER_ADMIN");

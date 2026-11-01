@@ -61,7 +61,6 @@ const navItems = [
   ["/cards", "Kartu siswa", "▰"],
   ["/pwa-portals", "Portal PWA & QR", "📱"],
   ["/attendance", "Kehadiran", "✓"],
-  ["/school-hours", "Jam Pelajaran", "◷"],
   ["/reports", "Laporan Wali Kelas", "↗"],
   ["/waste", "Bank sampah", "♻"],
   ["/library", "Perpustakaan", "▤"],
@@ -1699,7 +1698,7 @@ async function devicesPage(): Promise<void> {
     });
   } catch (error) { if (isCancelled(error)) return; shell(errorState(error), "Perangkat", "Status IoT gate, terminal, LED, dan card station sekolah."); }
 }
-async function attendancePage(hoursOnly = false): Promise<void> {
+async function attendancePage(): Promise<void> {
   shell(`<section class="stats-grid">${Array.from({ length: 3 }, () => skeleton(1)).join("")}</section>`, "Kehadiran", "Pengaturan jam presensi sekolah dan log kehadiran guru piket & gerbang.");
   try {
     const [summaryRes, logsRes, rulesRes] = await Promise.all([
@@ -1742,12 +1741,12 @@ async function attendancePage(hoursOnly = false): Promise<void> {
       <article class="stat-card blue"><div><span>Jam Datang & Pulang</span><strong>${currentRules.check_in_end} / ${currentRules.check_out_start}</strong></div><span class="trend">⏰</span></article>
     </section>
 
-    ${hoursOnly ? `<!-- Jam Pelajaran -->
+    <!-- Pengaturan Jam Sekolah & Batas Presensi -->
     <section class="dashboard-grid single-column" style="margin-bottom: 24px;">
       <article class="panel">
         <div class="panel-head">
           <div>
-            <h2>Pengaturan Jam Pelajaran & Batas Presensi</h2>
+            <h2>Pengaturan Jam Sekolah & Batas Presensi</h2>
             <p>Ditetapkan oleh admin sekolah dan otomatis disinkronkan ke seluruh smartphone guru piket dan satpam.</p>
           </div>
         </div>
@@ -1769,13 +1768,12 @@ async function attendancePage(hoursOnly = false): Promise<void> {
       </article>
     </section>
 
-    ` : `<p><a href="/school-hours" data-link>Pengaturan Jam Pelajaran →</a></p>`}
-    <section class="dashboard-grid single-column" ${hoursOnly ? 'hidden' : ''}>
+    <section class="dashboard-grid single-column">
       <article class="panel">
         <div class="panel-head"><h2>Riwayat Kehadiran (50 Terakhir)</h2><p>Log presensi multi-scanner guru piket & gerbang yang tervalidasi</p></div>
         ${logRows ? `<div class="table-wrap"><table><thead><tr><th>Siswa</th><th>Kelas</th><th>Arah & Petugas</th><th>Waktu</th><th>Status & Keterangan</th></tr></thead><tbody>${logRows}</tbody></table></div>` : emptyState("Data belum tersedia", "Belum ada presensi tercatat hari ini.")}
       </article>
-    </section>`, hoursOnly ? "Jam Pelajaran" : "Kehadiran", "Jam sekolah dan presensi guru piket menggunakan zona waktu sekolah.");
+    </section>`, "Kehadiran", "Jam sekolah dan presensi guru piket menggunakan zona waktu sekolah.");
 
     afterPagePaint(() => {
       const rulesForm = document.getElementById("attendance-rules-form") as HTMLFormElement | null;
@@ -3368,7 +3366,7 @@ export async function render(): Promise<void> {
     else if (path === "/students") await studentsPage();
     else if (path === "/academic-years") await academicYearsPage();
     else if (path === "/attendance") await attendancePage();
-    else if (path === "/school-hours") await attendancePage(true);
+    else if (path === "/school-hours") navigate("/attendance");
     else if (path === "/cards") await cardsPage();
     else if (path === "/devices") await devicesPage();
     else if (path === "/student-import") studentImportPage();
