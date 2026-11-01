@@ -44,6 +44,14 @@ type ParentTodayData = {
   library?: {
     today_visits: number;
     month_visits: number | null;
+    active_loans?: Array<{
+      id: string;
+      book_title: string;
+      book_author: string;
+      borrowed_at: string;
+      due_date: string;
+      is_overdue?: boolean;
+    }>;
   };
   extracurricular?: {
     name: string;
@@ -876,12 +884,18 @@ function renderDashboardUI(children: Child[], selected: Child, data: ParentToday
             </div>
             <div class="stat-sub">
               Total bulan ini <b>${number(library.month_visits)} kunjungan</b>
+              ${library.active_loans && library.active_loans.length > 0 ? `
+                <div style="margin-top:6px;display:flex;align-items:center;gap:6px;font-size:0.8rem;font-weight:700;color:#0284c7;">
+                  <span>📖</span>
+                  <span>${library.active_loans.length} buku sedang dipinjam</span>
+                </div>
+              ` : ""}
             </div>
           </div>
 
           <div class="card-banner blue">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-            <span>Membaca membuka lebih banyak peluang!</span>
+            <span>${library.active_loans && library.active_loans.length > 0 && library.active_loans[0] ? `${library.active_loans.length} buku dipinjam · Jatuh tempo terdekat ${formatDateIndo(library.active_loans[0].due_date)}` : "Membaca membuka lebih banyak peluang!"}</span>
           </div>
         </div>
 
@@ -985,8 +999,15 @@ function renderDashboardUI(children: Child[], selected: Child, data: ParentToday
   const openDrawer = (prefix = "") => {
     const events = data.events.filter(event => event.type.startsWith(prefix));
     const labels: Record<string, string> = { "attendance.": "Kehadiran", "waste.": "Bank Sampah", "library.": "Perpustakaan", "extracurricular.": "Ekstrakurikuler" };
-    document.getElementById("drawer-title")!.textContent = `${labels[prefix] ?? "Aktivitas"} hari ini`;
-    drawer.querySelector(".timeline-content")!.innerHTML = events.length ? renderTimelineEvents(events, data.timezone) : '<p class="empty">Belum ada aktivitas tercatat hari ini.</p>';
+    document.getElementById("drawer-title")!.textContent = prefix === "library." ? `Layanan Perpustakaan (${esc(profile.first_name)})` : `${labels[prefix] ?? "Aktivitas"} hari ini`;
+    
+    let contentHtml = "";
+    if (prefix === "library.") {
+      contentHtml = renderLibraryDrawerContent(data, events, data.timezone);
+    } else {
+      contentHtml = events.length ? renderTimelineEvents(events, data.timezone) : '<p class="empty">Belum ada aktivitas tercatat hari ini.</p>';
+    }
+    drawer.querySelector(".timeline-content")!.innerHTML = contentHtml;
     drawer.showModal();
   };
 
@@ -1173,6 +1194,7 @@ function renderTimelineEvents(events: ParentTodayData["events"], timezone: strin
         else if (ev.type === "attendance.check_out") { title = "Pulang dari sekolah"; desc = "Terverifikasi gerbang sekolah"; icon = "🏠"; }
         else if (ev.type === "waste.transaction") { title = ev.extra_info || "Setoran Bank Sampah"; desc = ""; icon = "♻"; color = "#214b38"; }
         else if (ev.type === "library.visit") { title = ev.extra_info || "Kunjungan Perpustakaan"; desc = ""; icon = "📚"; color = "#0f5132"; }
+        else if (ev.type === "library.loan") { title = "Peminjaman Buku"; desc = ev.extra_info || ""; icon = "📖"; color = "#0284c7"; }
         else if (ev.type === "extracurricular.attendance") { title = (ev.extra_info || "").replace(/^Kehadiran Ekskul\s+/i, ""); desc = ""; icon = "🏅"; color = "#243b67"; }
         return `
           <article style="display: grid; grid-template-columns: 50px 12px 1fr 25px; gap: 12px; padding: 14px 0; border-bottom: 1px solid #edf1f4;">
@@ -1219,7 +1241,100 @@ function calculateWasteFallback(events: ParentTodayData["events"]) {
 
 function calculateLibraryFallback(events: ParentTodayData["events"]) {
   const count = events.filter(e => e.type === "library.visit").length;
-  return { today_visits: count, month_visits: null };
+  return { today_visits: count, month_visits: null, active_loans: [] };
+}
+
+function formatDateIndo(dateStr: string): string {
+  try {
+    const clean = dateStr.split("T")[0]!;
+    const parts = clean.split("-");
+    if (parts.length === 3) {
+      const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des"];
+      const day = parseInt(parts[2]!, 10);
+      const monthIdx = parseInt(parts[1]!, 10) - 1;
+      const year = parts[0];
+      if (monthIdx >= 0 && monthIdx < 12) {
+        return `${day} ${months[monthIdx]} ${year}`;
+      }
+    }
+    return dateStr;
+  } catch {
+    return dateStr;
+  }
+}
+
+function renderLibraryDrawerContent(data: ParentTodayData, events: ParentTodayData["events"], timezone: string): string {
+  const loans = data.library?.active_loans ?? [];
+  const loansHtml = loans.length > 0
+    ? `
+      <section class="drawer-loan-section" aria-label="Buku yang sedang dipinjam">
+        <div class="drawer-loan-header">
+          <div class="icon-badge blue" style="width:34px;height:34px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          </div>
+          <div>
+            <strong style="font-size:0.95rem;color:#0c4a6e;">Buku yang Sedang Dipinjam</strong>
+            <span style="font-size:0.78rem;color:#475569;display:block;">${loans.length} buku aktif tercatat di perpustakaan</span>
+          </div>
+        </div>
+        <div class="drawer-loan-list">
+          ${loans.map(loan => {
+            const dueDate = new Date(loan.due_date + "T00:00:00");
+            const now = new Date();
+            const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const diffDays = Math.ceil((dueDate.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24));
+            
+            let statusBadge = "";
+            if (diffDays < 0) {
+              statusBadge = `<span class="loan-badge overdue">⚠️ Terlambat ${Math.abs(diffDays)} hari</span>`;
+            } else if (diffDays === 0) {
+              statusBadge = `<span class="loan-badge due-today">⏱️ Jatuh tempo HARI INI</span>`;
+            } else if (diffDays <= 3) {
+              statusBadge = `<span class="loan-badge due-soon">⏱️ Sisa ${diffDays} hari</span>`;
+            } else {
+              statusBadge = `<span class="loan-badge ok">Jatuh tempo: ${formatDateIndo(loan.due_date)}</span>`;
+            }
+
+            const borrowFormatted = loan.borrowed_at ? formatDateIndo(loan.borrowed_at) : "—";
+
+            return `
+              <div class="drawer-loan-item">
+                <div class="drawer-loan-title-row">
+                  <strong class="loan-book-title">📖 ${esc(loan.book_title)}</strong>
+                  ${statusBadge}
+                </div>
+                <div class="drawer-loan-author">Penulis: <b>${esc(loan.book_author)}</b></div>
+                <div class="drawer-loan-dates">
+                  <span>Dipinjam: ${borrowFormatted}</span>
+                  <span>Jatuh Tempo: <b>${formatDateIndo(loan.due_date)}</b></span>
+                </div>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      </section>
+    `
+    : `
+      <div class="drawer-loan-empty">
+        <span style="font-size:1.6rem;">📖</span>
+        <strong>Tidak Ada Buku yang Sedang Dipinjam</strong>
+        <p>Saat ini siswa tidak memiliki tanggungan peminjaman buku perpustakaan.</p>
+      </div>
+    `;
+
+  const visitsHtml = events.length
+    ? renderTimelineEvents(events, timezone)
+    : '<p class="empty" style="padding:16px 0;">Belum ada kunjungan tercatat hari ini.</p>';
+
+  return `
+    <div class="drawer-library-wrap">
+      ${loansHtml}
+      <div class="drawer-section-heading">
+        <strong>📚 Riwayat Kunjungan Hari Ini</strong>
+      </div>
+      ${visitsHtml}
+    </div>
+  `;
 }
 
 function calculateEkskulFallback(events: ParentTodayData["events"], timezone: string) {

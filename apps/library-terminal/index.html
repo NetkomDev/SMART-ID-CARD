@@ -104,11 +104,41 @@
       <div id="view-loans" hidden>
         <div class="loan-card">
           <small>LAYANAN PERPUSTAKAAN</small><h2>Peminjaman Buku</h2>
-          <p>Pindai siswa pada tab Scan, lalu lengkapi data buku.</p>
+          <p>Pindai QR Smart ID Card siswa atau ketik NISN, lalu lengkapi data buku.</p>
+
+          <!-- Kamera Scan QR Khusus Peminjaman -->
+          <div class="loan-scan-action-box">
+            <button type="button" id="btn-loan-scan-qr" class="btn-loan-scan-qr">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>
+              <span>Scan QR Kartu Siswa</span>
+            </button>
+            <div id="loan-scanner-stage" class="loan-scanner-stage" style="display:none;">
+              <div id="loan-qr-reader" class="scanner-viewport"></div>
+              <div class="loan-scanner-bar">
+                <span id="loan-scan-status">Arahkan kamera ke QR Kartu Siswa…</span>
+                <div class="loan-scanner-actions">
+                  <button type="button" id="btn-loan-flip-camera" class="btn-tool-sm">🔄 Balik</button>
+                  <button type="button" id="btn-loan-stop-camera" class="btn-tool-sm btn-tool-cancel">✕ Tutup</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pratinjau Siswa Terverifikasi -->
+          <div id="loan-student-preview" class="loan-student-preview" style="display:none;">
+            <div class="student-avatar" id="loan-student-avatar" style="width:56px;height:70px;border-radius:10px;"></div>
+            <div class="loan-student-details">
+              <strong id="loan-student-name" class="loan-student-name">-</strong>
+              <div id="loan-student-meta" class="loan-student-meta">-</div>
+            </div>
+            <button type="button" id="btn-clear-loan-student" class="btn-clear-student" aria-label="Ganti siswa">&times;</button>
+          </div>
+
           <form id="loan-form">
-            <label for="loan-student">NISN / kartu siswa</label><input id="loan-student" required autocomplete="off" placeholder="Nomor siswa yang sudah dipindai">
-            <label for="loan-title">Judul buku</label><input id="loan-title" required maxlength="200" autocomplete="off">
-            <label for="loan-author">Penulis</label><input id="loan-author" required maxlength="200" autocomplete="off">
+            <label for="loan-student">NISN / Nomor Siswa</label>
+            <input id="loan-student" required autocomplete="off" placeholder="Pindai QR di atas atau masukkan NISN">
+            <label for="loan-title">Judul buku</label><input id="loan-title" required maxlength="200" autocomplete="off" placeholder="Contoh: Laskar Pelangi">
+            <label for="loan-author">Penulis</label><input id="loan-author" required maxlength="200" autocomplete="off" placeholder="Contoh: Andrea Hirata">
             <label for="loan-due">Jatuh tempo</label><input id="loan-due" type="date" required>
             <button type="submit">Simpan peminjaman</button>
           </form>
@@ -137,7 +167,10 @@
         </div>
         
         <div id="duplicate-warning" class="duplicate-warning" style="display:none; color: #f57c00; font-size: 0.85rem; margin-top: 12px; font-weight: 600;">Kunjungan ini sudah tercatat sebelumnya.</div>
-        <button id="btn-next-scan" type="button" class="btn-next-scan">Pindai siswa berikutnya</button>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:14px;">
+          <button id="btn-loan-from-visit" type="button" style="min-height:44px;border:1px solid #bae6fd;background:#f0f9ff;color:#0369a1;border-radius:12px;font-weight:700;font-size:0.9rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">📖 Pinjamkan Buku ke Siswa Ini</button>
+          <button id="btn-next-scan" type="button" class="btn-next-scan">Pindai siswa berikutnya</button>
+        </div>
       </div>
     </div>
 

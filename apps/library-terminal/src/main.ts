@@ -1,5 +1,5 @@
 import { DurableQueue } from "../../shared/durable-queue";
-import { StudentCache, startRosterRefresh } from "../../shared/offline-store";
+import { StudentCache, startRosterRefresh, type CachedStudent } from "../../shared/offline-store";
 import { QRCamera, bindLoginCamera } from "../../shared/qr-camera";
 import { renderPortrait } from "../../shared/portrait";
 import { gateIntro, gateHelp } from "../../shared/portal-ui";
@@ -147,6 +147,50 @@ function switchView(view: "scan" | "success") {
 document.getElementById("btn-next-scan")?.addEventListener("click", () => switchView("scan"));
 
 let visitBusy = false;
+let lastScannedStudent: CachedStudent | null = null;
+let selectedLoanStudent: CachedStudent | null = null;
+let isLoanScanning = false;
+
+function renderLoanStudentPreview(student: CachedStudent | null) {
+  selectedLoanStudent = student;
+  const preview = document.getElementById("loan-student-preview");
+  const avatar = document.getElementById("loan-student-avatar");
+  const name = document.getElementById("loan-student-name");
+  const meta = document.getElementById("loan-student-meta");
+  const input = document.getElementById("loan-student") as HTMLInputElement | null;
+
+  if (!preview || !avatar || !name || !meta) return;
+
+  if (student) {
+    preview.style.display = "flex";
+    name.textContent = student.full_name;
+    const nisnText = student.nisn ? `NISN: ${student.nisn}` : (student.student_number ? `No: ${student.student_number}` : "");
+    const classText = student.class_name ? `Kelas: ${student.class_name}` : "";
+    meta.textContent = [classText, nisnText].filter(Boolean).join(" · ") || "Siswa Terverifikasi";
+    if (student.photo_url) {
+      renderPortrait(avatar, student.photo_url);
+    } else {
+      avatar.innerHTML = `<div class="avatar-fallback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke-linecap="round"/><circle cx="12" cy="7" r="4"/></svg></div>`;
+    }
+    if (input) {
+      input.value = student.nisn || student.student_number || student.id;
+    }
+  } else {
+    preview.style.display = "none";
+    avatar.replaceChildren();
+    name.textContent = "-";
+    meta.textContent = "-";
+  }
+}
+
+function selectLoanStudent(student: CachedStudent | null) {
+  renderLoanStudentPreview(student);
+  if (student) {
+    speaker.speak(`Peminjaman buku untuk ${student.full_name}`);
+    loanStatus.textContent = `Siswa terpilih: ${student.full_name}`;
+    (document.getElementById("loan-title") as HTMLInputElement | null)?.focus();
+  }
+}
 async function processVisit(uid: string, isFromCamera: boolean = false) {
   if (visitBusy) return;
   visitBusy = true;
@@ -187,9 +231,9 @@ async function processVisit(uid: string, isFromCamera: boolean = false) {
       visitBusy = false; submit.disabled = false; return;
     }
   }
+  lastScannedStudent = cached;
   const studentName = cached.full_name;
-  const loanStudent = document.getElementById("loan-student") as HTMLInputElement | null;
-  if (loanStudent) loanStudent.value = cached.nisn ?? cached.student_number ?? uid;
+  renderLoanStudentPreview(cached);
   const className = cached?.class_name ?? "—";
 
   document.getElementById("success-student-name")!.textContent = studentName;
@@ -440,23 +484,141 @@ async function renderLoans() {
 }
 const loanForm=document.getElementById("loan-form") as HTMLFormElement;
 const loanStatus=document.getElementById("loan-status")!;
+
+const loanCamera = new QRCamera({
+  readerId: "loan-qr-reader",
+  stageId: "loan-scanner-stage",
+  statusId: "loan-scan-status",
+  errorId: "loan-status",
+  once: true,
+  canRead: () => document.getElementById("view-loans")?.hidden === false,
+  onState: phase => {
+    isLoanScanning = phase === "active";
+    const stage = document.getElementById("loan-scanner-stage");
+    if (stage) stage.style.display = phase === "active" ? "block" : "none";
+  },
+  onDecode: async value => {
+    let student = studentCache.resolve(value);
+    if (!student && navigator.onLine) {
+      try {
+        const res = await portal.request<{ student_id?: string; student_name?: string; class_name?: string; photo_url?: string; nisn?: string }>(
+          `/students/resolve?identifier=${encodeURIComponent(value)}`
+        );
+        if (res?.student_id && res.student_name) {
+          student = {
+            id: res.student_id,
+            full_name: res.student_name,
+            class_name: res.class_name,
+            photo_url: res.photo_url,
+            nisn: res.nisn,
+          };
+          studentCache.put(student);
+        }
+      } catch {}
+    }
+    if (student) {
+      selectLoanStudent(student);
+      await loanCamera.stop();
+    } else {
+      const input = document.getElementById("loan-student") as HTMLInputElement | null;
+      if (input) input.value = value;
+      loanStatus.textContent = "QR terbaca. Siswa belum ada di cache, sistem akan memvalidasi saat simpan.";
+      await loanCamera.stop();
+    }
+  }
+});
+
+document.getElementById("btn-loan-scan-qr")?.addEventListener("click", () => {
+  if (isLoanScanning) {
+    void loanCamera.stop();
+  } else {
+    if (isScanning) void stopCameraScanner();
+    void loanCamera.start();
+  }
+});
+
+document.getElementById("btn-loan-stop-camera")?.addEventListener("click", () => {
+  void loanCamera.stop();
+});
+
+document.getElementById("btn-loan-flip-camera")?.addEventListener("click", () => {
+  void loanCamera.flip();
+});
+
+document.getElementById("btn-clear-loan-student")?.addEventListener("click", () => {
+  renderLoanStudentPreview(null);
+  const input = document.getElementById("loan-student") as HTMLInputElement | null;
+  if (input) {
+    input.value = "";
+    input.focus();
+  }
+  loanStatus.textContent = "";
+});
+
+// Auto-lookup when admin types or pastes NISN
+let lookupTimer: number | undefined;
+const loanStudentInput = document.getElementById("loan-student") as HTMLInputElement | null;
+loanStudentInput?.addEventListener("input", () => {
+  if (lookupTimer) clearTimeout(lookupTimer);
+  lookupTimer = window.setTimeout(() => {
+    const val = loanStudentInput.value.trim();
+    if (!val) {
+      renderLoanStudentPreview(null);
+      return;
+    }
+    const student = studentCache.resolve(val);
+    if (student) {
+      renderLoanStudentPreview(student);
+      loanStatus.textContent = `Siswa ditemukan: ${student.full_name}`;
+    }
+  }, 200);
+});
+
+// Quick loan from visit success modal
+document.getElementById("btn-loan-from-visit")?.addEventListener("click", () => {
+  switchView("scan");
+  setLibraryTab("loans");
+  if (lastScannedStudent) {
+    selectLoanStudent(lastScannedStudent);
+  }
+});
+
 loanForm.addEventListener("submit",async event=>{
   event.preventDefault();if(!portal.context)return;
   const value=(id:string)=>(document.getElementById(id) as HTMLInputElement).value.trim();
-  const student=studentCache.resolve(value("loan-student"));
-  if(!student){loanStatus.textContent="Siswa belum dikenali. Pindai kartu siswa pada tab Scan terlebih dahulu.";return;}
+  const student = selectedLoanStudent || studentCache.resolve(value("loan-student"));
+  if(!student){loanStatus.textContent="Siswa belum dikenali. Pindai kartu siswa dengan kamera di atas atau masukkan NISN yang terdaftar.";return;}
   const loan:Loan={event_id:crypto.randomUUID(),student_id:student.id,student_name:student.full_name,book_title:value("loan-title"),book_author:value("loan-author"),borrowed_at:new Date().toISOString(),due_date:value("loan-due")};
   if(!loan.book_title||!loan.book_author||!loan.due_date){loanStatus.textContent="Lengkapi data buku dan jatuh tempo.";return;}
   const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Makassar',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
   if(loan.due_date<today){loanStatus.textContent="Jatuh tempo tidak boleh sebelum hari ini.";return;}
-  try {const scope=loanScope();await loanOperation("readwrite",store=>store.add({key:`${scope}:${loan.event_id}`,scope,loan}));loanStatus.textContent="Peminjaman tersimpan di HP dan menunggu sinkronisasi.";loanForm.reset();void syncLoans().then(renderLoans);void renderLoans();}
+  try {
+    const scope=loanScope();
+    await loanOperation("readwrite",store=>store.add({key:`${scope}:${loan.event_id}`,scope,loan}));
+    loanStatus.textContent=`Peminjaman "${loan.book_title}" untuk ${loan.student_name} tersimpan di HP.`;
+    speaker.speak(`Peminjaman ${loan.book_title} berhasil`);
+    loanForm.reset();
+    renderLoanStudentPreview(null);
+    void syncLoans().then(renderLoans);
+    void renderLoans();
+  }
   catch {loanStatus.textContent="Gagal menyimpan di perangkat. Periksa ruang penyimpanan dan coba lagi.";}
 });
 const scanTab=document.getElementById("tab-scan")!,loansTab=document.getElementById("tab-loans")!;
 function setLibraryTab(tab:"scan"|"loans") {
-  document.getElementById("view-scan")!.hidden=tab!=="scan";document.getElementById("view-loans")!.hidden=tab!=="loans";
-  scanTab.toggleAttribute("aria-current",tab==="scan");loansTab.toggleAttribute("aria-current",tab==="loans");
-  if(tab==="loans")void renderLoans();
+  document.getElementById("view-scan")!.hidden=tab!=="scan";
+  document.getElementById("view-loans")!.hidden=tab!=="loans";
+  scanTab.toggleAttribute("aria-current",tab==="scan");
+  loansTab.toggleAttribute("aria-current",tab==="loans");
+  if(tab==="loans"){
+    if (isScanning) void stopCameraScanner();
+    void renderLoans();
+    if (!selectedLoanStudent && lastScannedStudent) {
+      selectLoanStudent(lastScannedStudent);
+    }
+  } else {
+    if (isLoanScanning) void loanCamera.stop();
+  }
 }
 scanTab.addEventListener("click",()=>setLibraryTab("scan"));loansTab.addEventListener("click",()=>setLibraryTab("loans"));
 window.addEventListener("online",()=>{void syncLoans().then(renderLoans);});

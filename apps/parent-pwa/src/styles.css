@@ -167,3 +167,23 @@ dialog.modal-overlay { position: fixed; inset: auto 0 0; width: min(680px,100%);
 }
 @media(max-width:359px) { .parent-grid { grid-template-columns: 1fr; } .brand-subtitle { font-size: .7rem; } .student-avatar,.avatar-fallback { width: 58px; height: 58px; } .grid-card { padding: 18px; } .card-title { font-size: .95rem; } .time-cols { margin: 0; } }
 @media(prefers-reduced-motion:reduce) { * { transition: none!important; } }
+
+/* Library Loans Drawer & Badges */
+.drawer-library-wrap { display: flex; flex-direction: column; gap: 16px; }
+.drawer-loan-section { background: linear-gradient(135deg, #f0f9ff, #e0f2fe); border: 1px solid #bae6fd; border-radius: 18px; padding: 16px; }
+.drawer-loan-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.drawer-loan-list { display: flex; flex-direction: column; gap: 10px; }
+.drawer-loan-item { background: white; border: 1px solid #e0f2fe; border-radius: 14px; padding: 12px 14px; box-shadow: 0 2px 8px rgba(2,132,199,0.06); }
+.drawer-loan-title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.loan-book-title { font-size: 0.95rem; color: #0369a1; }
+.drawer-loan-author { font-size: 0.8rem; color: #475569; margin-bottom: 6px; }
+.drawer-loan-dates { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 0.76rem; color: #64748b; border-top: 1px solid #f1f5f9; padding-top: 6px; flex-wrap: wrap; }
+.loan-badge { font-size: 0.72rem; font-weight: 700; padding: 3px 8px; border-radius: 999px; line-height: 1.2; display: inline-flex; align-items: center; }
+.loan-badge.overdue { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+.loan-badge.due-today { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+.loan-badge.due-soon { background: #ffedd5; color: #c2410c; border: 1px solid #fed7aa; }
+.loan-badge.ok { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
+.drawer-loan-empty { background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 16px; padding: 20px 16px; text-align: center; color: #64748b; }
+.drawer-loan-empty strong { display: block; font-size: 0.95rem; color: #334155; margin: 6px 0 2px; }
+.drawer-loan-empty p { margin: 0; font-size: 0.8rem; }
+.drawer-section-heading { padding-top: 6px; font-size: 0.92rem; color: #1e293b; }

@@ -91,7 +91,34 @@ router.get("/children/:id/today", requireAuth, validate({ params: idParamsSchema
   const { data, error } = await req.auth!.client.rpc("get_verified_parent_child_today", { target_student_id: req.params.id });
   if (error?.code === "AP002") throw new ApiError(404, "CHILD_NOT_LINKED", "Child relationship was not found");
   if (error) throw fromDatabaseError(error);
-  sendData(res, data);
+
+  const payload = data as Record<string, any>;
+  if (payload && (!payload.library?.active_loans || !Array.isArray(payload.library.active_loans))) {
+    try {
+      const admin = createServiceClient();
+      const { data: loans } = await admin
+        .from("library_loans")
+        .select("id,book_title,book_author,borrowed_at,due_date")
+        .eq("student_id", req.params.id)
+        .is("returned_at", null)
+        .order("due_date", { ascending: true });
+      if (loans) {
+        const tz = payload.timezone || "Asia/Makassar";
+        const todayStr = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+        payload.library = {
+          ...payload.library,
+          active_loans: loans.map((l: any) => ({
+            ...l,
+            is_overdue: l.due_date < todayStr,
+          })),
+        };
+      }
+    } catch {
+      /* Retain existing payload if loan lookup cannot proceed */
+    }
+  }
+
+  sendData(res, payload);
 }));
 
 router.post("/children/:id/photo", requireAuth, validate({ params: idParamsSchema }), asyncHandler(async (req, res) => {
