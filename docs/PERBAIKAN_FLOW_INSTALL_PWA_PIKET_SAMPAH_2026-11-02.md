@@ -27,15 +27,14 @@ Petugas piket bank sampah sekolah membutuhkan alur kerja instalasi aplikasi dari
 - Memperbarui styling `.loading-overlay-container` dan `.loading-toast-card` dengan palet hijau hutan (*forest green* `#163e2c` hingga `#0e291d`), bayangan lembut (*ambient elevation*), frosted blur backdrop, spinner hijau mint `#63ef8d`, dan teks *"Memproses..."* yang melayang presisi di tengah layar HP.
 - Mengembangkan fungsi `showLoadingOverlay(show: boolean, text = "Memproses...")` di `apps/waste-pwa/src/main.ts` agar dapat mengubah teks dan menampilkan/menyembunyikan overlay dengan transisi halus.
 
-### C. Alur Sinkronisasi Roster Kelas Terisolasi (`apps/waste-pwa/src/main.ts`)
-- Pada saat portal diinisialisasi (`setupUI`):
-  1. Tampilkan indikator melayang *"Memproses..."*.
-  2. Ambil metadata kelas portal (`classId`).
-  3. Tarik data siswa kelas tersebut menggunakan `syncPortalRoster(portal, studentCache, true)`.
-  4. Database PostgreSQL RPC `portal_scanner_roster` menjamin isolasi penuh: hanya mengambil siswa aktif dari `student_class_history` yang memiliki `school_id = p_school` dan `class_id = assigned_class_id`. Siswa dari sekolah lain atau kelas lain tidak akan pernah bocor.
-  5. Sembunyikan indikator melayang *"Memproses..."*.
-  6. Jika dijalankan di browser (`!isInstalled()`), otomatis panggil `promptOrOfferInstall()` untuk memandu pemasangan ke homescreen.
-  7. Jika dibuka dari icon launcher (`isInstalled() === true`), aplikasi langsung menuju ke scanner pemindai tanpa popup instalasi lagi.
+### C. Alur Sinkronisasi Roster Kelas Terisolasi & Pemicu Cepat Install (`apps/waste-pwa/src/main.ts`)
+- **Pemicu Cepat Popup Install (Browser Flow):**
+  - Pemanggilan `promptOrOfferInstall()` dipindahkan ke awal inisialisasi aplikasi (`init()`). Tepat saat tampilan PWA muncul di peramban, popup instalasi langsung ditampilkan seketika hampir bersamaan tanpa harus menunggu koneksi lambat, permintaan detail kelas, atau proses penarikan data siswa selesai. Pengguna dapat langsung mengambil tindakan memasang aplikasi ke layar utama HP.
+- **Isolasi Roster Kelas & Indikator Melayang:**
+  - Penarikan data siswa (`syncPortalRoster`) dijalankan secara atomik.
+  - Database PostgreSQL RPC `portal_scanner_roster` menjamin isolasi penuh: hanya mengambil siswa aktif dari `student_class_history` yang memiliki `school_id = p_school` dan `class_id = assigned_class_id`. Siswa dari sekolah lain atau kelas lain tidak akan pernah bocor.
+  - Indikator melayang *"Memproses..."* ditampilkan selama proses penyiapan data siswa kelas berlangsung dan langsung menutup halus setelah data siap.
+  - Jika aplikasi dibuka dari ikon launcher di HP (`isInstalled() === true`), aplikasi langsung membuka layar pemindai tanpa menampilkan popup instalasi lagi.
 
 ---
 

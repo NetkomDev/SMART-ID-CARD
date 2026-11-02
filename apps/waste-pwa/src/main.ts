@@ -385,6 +385,12 @@ async function init() {
     switchView("scan");
   }
 
+  // Tahap 3: Popup Install Aplikasi langsung tampil bersamaan saat PWA muncul di browser
+  // agar user bisa langsung mengambil tindakan tanpa menunggu proses penarikan data selesai
+  if (!isInstalled()) {
+    void promptOrOfferInstall();
+  }
+
   const schoolEl = document.getElementById("school-name");
   const classEl = document.getElementById("class-name-label");
 
@@ -441,11 +447,6 @@ async function init() {
     } catch { /* Ignore */ }
 
     void loadDashboard(true);
-
-    // Di browser (bukan aplikasi terinstall launcher di HP): panggil popup install
-    if (!isInstalled()) {
-      void promptOrOfferInstall();
-    }
   };
 
   if (portal.connected && !isLoginFlow) {
