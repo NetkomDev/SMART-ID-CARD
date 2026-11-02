@@ -88,17 +88,33 @@ let summaryVersion=0;
 async function loadSessionSummary() {
   if (!currentEkskulId || !currentSessionId) return;
   const revision=++summaryVersion,activity=currentEkskulId,session=currentSessionId;
+  const cacheKey = `aksis_ekskul_summary_${activity}_${session}`;
+  try {
+    const cached = JSON.parse(localStorage.getItem(cacheKey) ?? "null");
+    if (cached && typeof cached.present === "number") {
+      document.getElementById("session-present")!.textContent = String(cached.present);
+      document.getElementById("session-excused")!.textContent = String(cached.excused);
+      document.getElementById("session-total")!.textContent = String(cached.total);
+    }
+  } catch {}
+
   try {
     const summary = await request<SessionSummary>(`/extracurriculars/${currentEkskulId}/sessions/${currentSessionId}/summary`);
     if(revision!==summaryVersion||activity!==currentEkskulId||session!==currentSessionId)return;
     document.getElementById("session-present")!.textContent = String(summary.present);
     document.getElementById("session-excused")!.textContent = String(summary.excused);
     document.getElementById("session-total")!.textContent = String(summary.total);
+    try {
+      localStorage.setItem(cacheKey, JSON.stringify(summary));
+    } catch {}
   } catch {
     if(revision!==summaryVersion||activity!==currentEkskulId||session!==currentSessionId)return;
-    document.getElementById("session-present")!.textContent = "—";
-    document.getElementById("session-excused")!.textContent = "—";
-    document.getElementById("session-total")!.textContent = "—";
+    const currentPresent = document.getElementById("session-present")!.textContent;
+    if (!currentPresent || currentPresent === "" || currentPresent === "—") {
+      document.getElementById("session-present")!.textContent = "—";
+      document.getElementById("session-excused")!.textContent = "—";
+      document.getElementById("session-total")!.textContent = "—";
+    }
   }
 }
 
@@ -192,6 +208,7 @@ document.getElementById("btn-toggle-camera")?.addEventListener("click", () => {
 });
 
 function switchView(viewName: keyof typeof views) {
+  hideInitialLoader();
   if (viewName !== "scan") { stopCameraScanner(); }
   Object.values(views).forEach(v => v.style.display = "none");
   views[viewName].style.display = "block";
@@ -246,19 +263,45 @@ function triggerHapticFeedback() {
 const request = <T>(path: string, init: RequestInit = {}) => portal.request<T>(path, init);
 const activityScopeKey = () => `aksis.ekskul.session.${portal.context?.school_id ?? "none"}:${portal.context?.id ?? "none"}`;
 const schoolDay = () => new Intl.DateTimeFormat("en-CA", {timeZone:"Asia/Makassar",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
+
+function showSyncBar(active: boolean) {
+  const bar = document.getElementById("sync-bar");
+  if (bar) {
+    if (active) bar.classList.add("active");
+    else bar.classList.remove("active");
+  }
+}
+
+function hideInitialLoader() {
+  const loader = document.getElementById("initial-loader");
+  if (loader) loader.style.display = "none";
+}
+
+function updateOfflineStatus() {
+  const badge = document.getElementById("offline-badge");
+  if (badge) {
+    badge.style.display = navigator.onLine ? "none" : "flex";
+  }
+}
+
 function restoreOfflineSession(): boolean {
   try {
     const cached=JSON.parse(localStorage.getItem(activityScopeKey()) ?? "null") as {day:string;activityId:string;activityName:string;sessionId:string}|null;
     if(!cached || cached.day!==schoolDay() || !cached.activityId || !cached.sessionId)return false;
     currentEkskulId=cached.activityId;currentSessionId=cached.sessionId;
-    document.getElementById("school-name-display")!.textContent=portal.context?.school_name ?? "";
+    const schoolDisplay = document.getElementById("school-name-display");
+    if (schoolDisplay) schoolDisplay.textContent=portal.context?.school_name ?? "";
     document.getElementById("scan-ekskul-title")!.textContent=cached.activityName;
     document.getElementById("session-date-label")!.textContent=new Date().toLocaleDateString("id-ID",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
-    switchView("scan");document.getElementById("scan-status")!.textContent="Offline · presensi tersimpan di HP dan menunggu sinkronisasi";return true;
+    switchView("scan");
+    document.getElementById("scan-status")!.textContent="Offline · presensi tersimpan di HP dan menunggu sinkronisasi";
+    void loadSessionSummary();
+    return true;
   } catch {return false;}
 }
 
 function showLoadingOverlay(show: boolean, text = "Memproses...") {
+  showSyncBar(show);
   const overlay = document.getElementById("loading-overlay");
   if (overlay) {
     if (show) {
@@ -274,6 +317,7 @@ function showLoadingOverlay(show: boolean, text = "Memproses...") {
 }
 
 async function init() {
+  updateOfflineStatus();
   // Tahap 3: Popup Install Aplikasi langsung tampil bersamaan saat PWA muncul di browser
   // agar user bisa langsung mengambil tindakan tanpa menunggu proses penarikan data selesai
   if (!isInstalled()) {
@@ -284,17 +328,22 @@ async function init() {
     const isLoginFlow = new URL(window.location.href).searchParams.has("token") || new URL(window.location.href).hash.includes("token");
 
     if (portal.connected && !isLoginFlow) {
-      if (!navigator.onLine && restoreOfflineSession()) return;
       const schoolDisplay = document.getElementById("school-name-display");
       if (schoolDisplay && portal.context) {
         schoolDisplay.textContent = portal.context.school_name;
       }
+
+      if (!navigator.onLine && restoreOfflineSession()) {
+        hideInitialLoader();
+        return;
+      }
       
-      await Promise.all([
+      await Promise.allSettled([
         portal.start(),
         loadDashboard()
       ]);
       
+      hideInitialLoader();
       if (schoolDisplay && portal.context) {
         schoolDisplay.textContent = portal.context.school_name;
       }
@@ -302,6 +351,7 @@ async function init() {
     }
 
     if (!await portal.start()) {
+      hideInitialLoader();
       switchView("login");
       document.getElementById("login-error")!.textContent = "Pindai QR Akses dari admin sekolah untuk masuk.";
       document.getElementById("btn-start-login-scan")!.style.display = "block";
@@ -313,7 +363,12 @@ async function init() {
       schoolDisplay.textContent = portal.context!.school_name;
     }
     await loadDashboard();
+    hideInitialLoader();
   } catch (error) {
+    hideInitialLoader();
+    if (portal.connected && restoreOfflineSession()) {
+      return;
+    }
     switchView("login");
     document.getElementById("login-error")!.textContent = error instanceof Error ? error.message : "Belum dapat terhubung.";
     document.getElementById("btn-login-retry")!.style.display = "block";
@@ -351,8 +406,39 @@ async function loadDashboard() {
     container.innerHTML = "Memuat data...";
   }
 
+  const listCacheKey = `aksis.ekskul.list.${portal.context?.school_id ?? "none"}`;
+  let cachedActivities: any[] | null = null;
+  try {
+    cachedActivities = JSON.parse(localStorage.getItem(listCacheKey) ?? "null");
+  } catch {}
+
+  const renderActivities = (activities: any[]) => {
+    if (!activities.length) {
+      container.innerHTML = "<p>Anda belum ditugaskan ke ekstrakurikuler manapun.</p>";
+      return;
+    }
+    container.replaceChildren();
+    for (const item of activities) {
+      const article = document.createElement("article");
+      const code = document.createElement("small"); code.textContent = item.code;
+      const name = document.createElement("h2"); name.textContent = item.name;
+      const button = document.createElement("button"); button.textContent = "Pilih Kegiatan";
+      button.onclick = () => { triggerHapticFeedback(); selectEkskul(item.id, item.name); };
+      article.append(code, name, button); container.append(article);
+    }
+  };
+
+  // Render from cache if available and not auto-selecting
+  if (cachedActivities && !willAutoSelect) {
+    renderActivities(cachedActivities);
+  }
+
+  showSyncBar(true);
   try {
     const activities = await request<any[]>("/extracurriculars");
+    try {
+      localStorage.setItem(listCacheKey, JSON.stringify(activities));
+    } catch {}
     
     // Auto-select if URL parameter exists
     if (ekskulParam) {
@@ -376,36 +462,36 @@ async function loadDashboard() {
       switchView("dashboard");
     }
 
-    if (!activities.length) {
-      container.innerHTML = "<p>Anda belum ditugaskan ke ekstrakurikuler manapun.</p>";
+    renderActivities(activities);
+  } catch (err: any) { 
+    if (cachedActivities && cachedActivities.length > 0) {
+      if (willAutoSelect) {
+        if (lastEkskulId) {
+          const match = cachedActivities.find(a => a.id === lastEkskulId);
+          if (match) return selectEkskul(match.id, match.name, true);
+        }
+        switchView("dashboard");
+      }
+      renderActivities(cachedActivities);
       return;
     }
-    container.replaceChildren();
-    for (const item of activities) {
-      const article = document.createElement("article");
-      const code = document.createElement("small"); code.textContent = item.code;
-      const name = document.createElement("h2"); name.textContent = item.name;
-      const button = document.createElement("button"); button.textContent = "Pilih Kegiatan";
-      button.onclick = () => { triggerHapticFeedback(); selectEkskul(item.id, item.name); };
-      article.append(code, name, button); container.append(article);
-    }
-  } catch (err: any) { 
     if (willAutoSelect) switchView("dashboard");
     container.textContent = err.message; 
     throw err; 
+  } finally {
+    showSyncBar(false);
   }
 }
 
 async function selectEkskul(id: string, name: string, isSilent = false) {
   if (selecting || submitting) return;
   selecting = true;
-  if (!isSilent) showLoadingOverlay(true, "Memproses...");
+  showSyncBar(true);
   currentSessionId = "";
   currentEkskulId = id;
   document.getElementById("scan-ekskul-title")!.textContent = name;
-  if (isSilent) {
-    document.getElementById("scan-status")!.textContent = "Menyiapkan sesi presensi...";
-  }
+  document.getElementById("scan-status")!.textContent = "Menyiapkan sesi presensi...";
+  switchView("scan");
 
   // Set URL for iOS Add to Home Screen/bookmarking
   const newUrl = new URL(window.location.href);
@@ -434,15 +520,23 @@ async function selectEkskul(id: string, name: string, isSilent = false) {
     try {localStorage.setItem(activityScopeKey(),JSON.stringify({day:schoolDay(),activityId:id,activityName:name,sessionId:todaySession.id}));} catch { /* online scanning remains available */ }
     document.getElementById("enrollment-overlay")!.style.display = "none";
     document.getElementById("error-overlay")!.style.display = "none";
-    switchView("scan");
     document.getElementById("scan-status")!.textContent = "Aktifkan kamera atau masukkan nomor siswa";
     void loadSessionSummary();
   } catch (err: any) {
+    try {
+      const cached = JSON.parse(localStorage.getItem(activityScopeKey()) ?? "null");
+      if (cached && cached.activityId === id && cached.sessionId) {
+        currentSessionId = cached.sessionId;
+        document.getElementById("scan-status")!.textContent = "Offline · presensi tersimpan di HP";
+        void loadSessionSummary();
+        return;
+      }
+    } catch {}
     alert("Gagal memuat atau membuat sesi: " + err.message);
     switchView("dashboard");
   } finally { 
     selecting = false; 
-    showLoadingOverlay(false);
+    showSyncBar(false);
   }
 }
 
@@ -465,6 +559,7 @@ let syncingAttendance = false;
 async function syncAttendanceQueue() {
   if (syncingAttendance || !navigator.onLine) return;
   syncingAttendance = true;
+  showSyncBar(true);
   const scope = attendanceQueue.currentScope;
   try {
     const pending = await attendanceQueue.getPending(scope);
@@ -490,6 +585,7 @@ async function syncAttendanceQueue() {
   } catch { /* Storage or network unavailable: keep events for retry. */
   } finally {
     syncingAttendance = false;
+    showSyncBar(false);
   }
 }
 
@@ -746,8 +842,13 @@ window.setInterval(() => {
 }, SYNC_INTERVAL_MS);
 
 window.addEventListener("online", () => {
+  updateOfflineStatus();
   void syncAttendanceQueue();
   void loadSessionSummary();
+});
+
+window.addEventListener("offline", () => {
+  updateOfflineStatus();
 });
 
 document.addEventListener("visibilitychange", () => {
