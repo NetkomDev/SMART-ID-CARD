@@ -120,7 +120,7 @@
                 <path d="M23 23h12v12H23zm22 0h12v12H45zM23 45h12v12H23zm22 0h5v5h7v7H45z" fill="currentColor"/>
               </svg>
             </div>
-            <p id="scanner-hint">Aktifkan kamera untuk mulai memindai</p>
+            <p id="scanner-hint">Ketuk area ini untuk memindai</p>
           </div>
           <div id="camera-shutter-flash" class="camera-shutter-flash"></div>
           <div id="zoom-controls" class="zoom-controls-bar" style="display:none">
@@ -129,10 +129,10 @@
             <button type="button" class="zoom-btn" data-zoom="3">3×</button>
           </div>
         </div>
-        <button id="btn-toggle-camera" type="button" class="camera-button" aria-pressed="false">Aktifkan kamera</button>
+        <button id="btn-toggle-camera" type="button" class="camera-button" aria-pressed="false" style="display:none">Aktifkan kamera</button>
         <div class="scan-state" role="status" aria-live="polite">
           <span class="live-dot" aria-hidden="true"></span>
-          <span id="scan-status">Kamera nonaktif · Input manual tersedia</span>
+          <span id="scan-status">Kamera nonaktif · ketuk area scan atau input manual</span>
         </div>
       </div>
 
@@ -230,6 +230,14 @@
             <button type="button" id="btn-close-scanner-name" class="btn-secondary-reason">Batal</button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <!-- Loading Toast Overlay ("Memproses...") -->
+    <div id="loading-overlay" class="loading-overlay-container" style="display:none;">
+      <div class="loading-toast-card">
+        <div class="toast-spinner" aria-hidden="true"></div>
+        <span>Memproses...</span>
       </div>
     </div>
 

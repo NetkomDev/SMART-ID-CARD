@@ -4,6 +4,7 @@ import {
   setupInstallPrompt,
   offerInstall,
   promptOrOfferInstall,
+  isInstalled,
 } from "../../shared/install-prompt";
 import {
   acknowledge,
@@ -162,6 +163,7 @@ const camera = new QRCamera({
   placeholderId: "scanner-placeholder",
   statusId: "scan-status",
   zoomId: "zoom-controls",
+  once: true,
   canRead: () =>
     usable() &&
     !busy &&
@@ -772,7 +774,26 @@ async function refreshState() {
     }
   }
 }
+
+function showLoadingOverlay(show: boolean, text = "Memproses...") {
+  const overlay = document.getElementById("loading-overlay");
+  if (!overlay) return;
+  if (show) {
+    const textEl = overlay.querySelector("span");
+    if (textEl && text) textEl.textContent = text;
+    overlay.style.display = "flex";
+  } else {
+    overlay.style.display = "none";
+  }
+}
+
 async function start() {
+  // Tahap 3: Popup Install Aplikasi langsung tampil bersamaan saat PWA muncul di browser
+  // agar user bisa langsung mengambil tindakan tanpa menunggu proses penarikan data selesai
+  if (!isInstalled()) {
+    void promptOrOfferInstall();
+  }
+
   try {
     const incoming = /(?:[?#&])token=/.test(location.href);
     // An existing validated snapshot opens immediately even when Wi-Fi has no internet.
@@ -849,8 +870,6 @@ async function start() {
       await render();
       if (!name()) {
         editName();
-      } else {
-        offerInstall();
       }
       // Force background update if online without blocking scanner
       if (navigator.onLine) {
@@ -860,7 +879,12 @@ async function start() {
       }
     } else {
       // First time on this device or expired snapshot: fetch initial data
-      await refreshState();
+      showLoadingOverlay(true, "Memproses...");
+      try {
+        await refreshState();
+      } finally {
+        showLoadingOverlay(false);
+      }
       el("view-login").style.display = "none";
       el("view-scan").style.display = "block";
       el("workspace-nav").hidden = false;
@@ -875,8 +899,6 @@ async function start() {
       await render();
       if (!name()) {
         editName();
-      } else {
-        offerInstall();
       }
     }
     if (localStorage.getItem("aksis_attendance_queue_v1"))

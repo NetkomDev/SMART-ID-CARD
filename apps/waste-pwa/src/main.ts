@@ -263,10 +263,10 @@ function switchView(next: View) {
   el("workspace-nav").hidden = next === "login";
   el("today-panel").hidden = next !== "ranking";
   el("form-scan").hidden = false;
-  el("btn-toggle-camera").hidden = false;
+  el("btn-toggle-camera").hidden = true;
   el("btn-switch-camera").hidden = false;
-  el("scanner-hint").textContent = "Kartu kecil, langkah besar untuk bumi yang lebih bersih.";
-  el("scan-status").textContent = next === "input" ? "✓ Siswa terdeteksi · siap mencatat setoran" : "Kamera nonaktif · input nomor siswa tersedia";
+  el("scanner-hint").textContent = "Ketuk area ini untuk memindai";
+  el("scan-status").textContent = next === "input" ? "✓ Siswa terdeteksi · siap mencatat setoran" : "Kamera nonaktif · ketuk area scan untuk memindai";
   document.body.classList.toggle("show-ranking", next === "ranking");
   const subEl = document.getElementById("header-subtitle");
   if (subEl) subEl.textContent = "Piket Sampah";

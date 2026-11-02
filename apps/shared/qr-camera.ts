@@ -54,7 +54,42 @@ export class QRCamera {
   private viewportSize = "";
   active = false;
   facing: "environment" | "user" = "environment";
-  constructor(private options: Options) {}
+  constructor(private options: Options) {
+    this.bindScanArea();
+  }
+  private bindScanArea() {
+    if (typeof window === "undefined" || typeof document === "undefined") return;
+    const setup = () => {
+      const stage = this.element(this.options.stageId);
+      const placeholder = this.element(this.options.placeholderId);
+      const reader = this.element(this.options.readerId);
+      const viewport = placeholder?.parentElement || reader?.parentElement;
+
+      const clickTarget = viewport || placeholder || stage;
+      if (!clickTarget) return;
+
+      clickTarget.style.cursor = "pointer";
+      clickTarget.addEventListener("click", (e) => {
+        const target = e.target as HTMLElement | null;
+        if (target?.closest("#btn-switch-camera, .camera-switch, #zoom-controls, .zoom-controls-bar, button")) {
+          return;
+        }
+        if (!this.active) {
+          const centerTarget = stage || clickTarget;
+          centerTarget.scrollIntoView({ behavior: "smooth", block: "center" });
+          void this.start();
+        } else {
+          void this.stop();
+        }
+      });
+    };
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", setup, { once: true });
+    } else {
+      setup();
+    }
+  }
   private element(id?: string) {
     return id && typeof document !== "undefined"
       ? document.getElementById(id)
@@ -91,7 +126,7 @@ export class QRCamera {
           ? "Kamera aktif · arahkan QR ke dalam bingkai"
           : phase === "starting"
             ? "Menunggu izin kamera…"
-            : "Kamera nonaktif · input nomor siswa tetap tersedia");
+            : "Kamera nonaktif · ketuk area scan untuk memindai");
     if (stage) stage.dataset.cameraState = phase;
     o.onState?.(phase);
   }
@@ -120,6 +155,8 @@ export class QRCamera {
     if (zoom) zoom.style.display = "none";
   }
   start(facing = this.facing): Promise<void> {
+    const stage = this.element(this.options.stageId) || this.element(this.options.placeholderId)?.parentElement;
+    stage?.scrollIntoView({ behavior: "smooth", block: "center" });
     this.facing = facing;
     this.wanted = true;
     const version = ++this.epoch;
@@ -203,7 +240,7 @@ export class QRCamera {
     this.last = value;
     this.lastAt = now;
     try {
-      if (this.options.once) await this.stop();
+      await this.stop();
       await this.options.onDecode(value);
     } catch {
       await this.stop();

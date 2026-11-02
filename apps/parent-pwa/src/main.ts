@@ -1,7 +1,20 @@
 import { gateIntro, gateHelp } from "../../shared/portal-ui";
 import "./styles.css";
 import { ParentSession } from "../../shared/parent-session";
-import { setupInstallPrompt, offerInstall } from "../../shared/install-prompt";
+import { setupInstallPrompt, promptOrOfferInstall, isInstalled } from "../../shared/install-prompt";
+
+function showLoadingOverlay(show: boolean, text = "Memproses...") {
+  const overlay = document.getElementById("loading-overlay");
+  if (overlay) {
+    if (show) {
+      const textEl = overlay.querySelector("span");
+      if (textEl && text) textEl.textContent = text;
+      overlay.style.display = "flex";
+    } else {
+      overlay.style.display = "none";
+    }
+  }
+}
 
 const portal = new ParentSession( import.meta.env.VITE_API_BASE_URL ?? "/api/v1");
 setupInstallPrompt("Portal Orang Tua", import.meta.env.BASE_URL, import.meta.env.PROD);
@@ -1054,6 +1067,8 @@ async function fetchDashboardData(targetChildId?: string): Promise<boolean> {
   if (isRefreshingData) return true;
   isRefreshingData = true;
   showSyncBar(true);
+  const shouldShowOverlay = !cachedChildren || !cachedChildren.length;
+  if (shouldShowOverlay) showLoadingOverlay(true, "Memproses...");
 
   try {
     const fetchProfilePromise = !cachedParentName
@@ -1114,6 +1129,7 @@ async function fetchDashboardData(targetChildId?: string): Promise<boolean> {
   } finally {
     isRefreshingData = false;
     showSyncBar(false);
+    if (shouldShowOverlay) showLoadingOverlay(false);
   }
 }
 
@@ -1472,6 +1488,9 @@ async function profileView() {
 }
 
 async function start() {
+  if (!isInstalled()) {
+    void promptOrOfferInstall();
+  }
   loginView("Memeriksa sesi…");
   try {
     if (!await portal.start()) { loginView(); return; }
@@ -1480,7 +1499,7 @@ async function start() {
       const form = document.querySelector<HTMLFormElement>("#new-password")!;
       form.onsubmit = async e => { e.preventDefault(); try { await request("/parent/session/password", { method: "POST", body: JSON.stringify({password:new FormData(form).get("password")}) }); sessionStorage.removeItem("aksis.parent.recovery"); loginView("Password diperbarui. Masuk kembali."); } catch(error) { form.querySelector("p")!.textContent = error instanceof Error ? error.message : "Gagal menyimpan."; } }; return;
     }
-    offerInstall(); await dashboard();
+    await dashboard();
   } catch(error) { loginView(error instanceof Error ? error.message : "Belum dapat terhubung.", true); }
 }
 void start();

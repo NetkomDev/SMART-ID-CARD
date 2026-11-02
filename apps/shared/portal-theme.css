@@ -277,3 +277,11 @@ body>main>#gate.portal-gate{margin:24px 16px!important}
   margin-top: 24px;
   width: 100%;
 }
+
+/* Loading Toast Overlay ("Memproses...") */
+.loading-overlay-container{position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;background:rgba(10,30,22,0.52);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);animation:fadeIn 0.15s ease forwards}
+.loading-toast-card{background:linear-gradient(135deg,#163e2c,#0e291d);color:#ffffff;padding:16px 24px;border-radius:18px;display:flex;align-items:center;gap:14px;box-shadow:0 16px 45px rgba(0,0,0,0.45),0 0 0 1px rgba(255,255,255,0.12);font-size:1.05rem;font-weight:650;letter-spacing:-.01em;animation:popIn 0.2s cubic-bezier(0.175,0.885,0.32,1.275) forwards}
+.toast-spinner{width:22px;height:22px;border:3px solid rgba(255,255,255,0.22);border-top-color:#63ef8d;border-radius:50%;animation:spinToast 0.75s linear infinite;flex-shrink:0}
+@keyframes spinToast{to{transform:rotate(360deg)}}
+@keyframes popIn{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}

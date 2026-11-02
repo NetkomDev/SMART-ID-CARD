@@ -7,7 +7,20 @@ import { NaturalVoice } from "../../shared/natural-voice";
 import "./style.css";
 import "../../shared/scanner.css";
 import { PortalError, PortalSession } from "../../shared/portal-session";
-import { setupInstallPrompt, offerInstall } from "../../shared/install-prompt";
+import { setupInstallPrompt, promptOrOfferInstall, isInstalled } from "../../shared/install-prompt";
+
+function showLoadingOverlay(show: boolean, text = "Memproses...") {
+  const overlay = document.getElementById("loading-overlay");
+  if (overlay) {
+    if (show) {
+      const textEl = overlay.querySelector("span");
+      if (textEl && text) textEl.textContent = text;
+      overlay.style.display = "flex";
+    } else {
+      overlay.style.display = "none";
+    }
+  }
+}
 
 const portal = new PortalSession("LIBRARY_STAFF", import.meta.env.VITE_API_BASE_URL ?? "/api/v1");
 const studentCache = new StudentCache(() => "library:" + (portal.context?.school_id ?? "none") + ":" + (portal.context?.id ?? "none"));
@@ -126,10 +139,6 @@ async function sync() {
     void loadDailySummary();
   };
   syncing=Promise.resolve(navigator.locks?navigator.locks.request(queueKey(),work):work()).then(()=>undefined).finally(()=>{syncing=null;});return syncing;
-}
-function showLoadingOverlay(show: boolean) {
-  const overlay = document.getElementById("loading-overlay");
-  if (overlay) overlay.style.display = show ? "flex" : "none";
 }
 
 let scanTimeout: number | undefined;
@@ -378,7 +387,7 @@ document.querySelectorAll<HTMLButtonElement>(".zoom-btn").forEach(btn => {
 
 setupScannerPinchZoom();
 
-const camera = new QRCamera({readerId:"qr-reader",toggleId:"btn-toggle-camera",stageId:"scanner-stage",placeholderId:"scanner-placeholder",statusId:"scan-status",errorId:"status",zoomId:"zoom-controls",once:false,canRead:()=>!visitBusy && document.getElementById("view-success")!.style.display!=="flex" && document.getElementById("error-overlay")!.style.display!=="flex",onState:phase=>{isScanning=phase==="active";},onDecode:async value=>{await processVisit(value,true);}});
+const camera = new QRCamera({readerId:"qr-reader",toggleId:"btn-toggle-camera",stageId:"scanner-stage",placeholderId:"scanner-placeholder",statusId:"scan-status",errorId:"status",zoomId:"zoom-controls",once:true,canRead:()=>!visitBusy && document.getElementById("view-success")!.style.display!=="flex" && document.getElementById("error-overlay")!.style.display!=="flex",onState:phase=>{isScanning=phase==="active";},onDecode:async value=>{await processVisit(value,true);}});
 async function stopCameraScanner(){await camera.stop();currentZoom=1;}
 async function startCameraScanner(){await camera.start();}
 document.getElementById("btn-switch-camera")!.addEventListener("click",()=>{void camera.flip();});
@@ -391,6 +400,9 @@ document.getElementById("btn-toggle-camera")!.addEventListener("click", () => {
 });
 
 async function start() {
+  if (!isInstalled()) {
+    void promptOrOfferInstall();
+  }
   try {
     const isLoginFlow = new URL(window.location.href).searchParams.has("token") || new URL(window.location.href).hash.includes("token");
 
@@ -402,13 +414,17 @@ async function start() {
       const libLoanSchool = document.querySelector("#library-loan-school");
       if (libLoanSchool && portal.context) libLoanSchool.textContent = portal.context.school_name;
       void updateVisitCount();
-      offerInstall();
       if (!navigator.onLine) { status.value = "Offline · transaksi tersimpan di HP"; return; }
       
-      await Promise.all([
-        portal.start(),
-        loadDailySummary()
-      ]);
+      showLoadingOverlay(true, "Memproses...");
+      try {
+        await Promise.all([
+          portal.start(),
+          loadDailySummary()
+        ]);
+      } finally {
+        showLoadingOverlay(false);
+      }
       
       if (libSchool && portal.context) libSchool.textContent = portal.context.school_name;
       if (libLoanSchool && portal.context) libLoanSchool.textContent = portal.context.school_name;
@@ -427,10 +443,16 @@ async function start() {
     if (libSchool) libSchool.textContent = portal.context!.school_name;
     const libLoanSchool = document.querySelector("#library-loan-school");
     if (libLoanSchool) libLoanSchool.textContent = portal.context!.school_name;
-    void updateVisitCount(); offerInstall();
-    void loadDailySummary();
+    void updateVisitCount();
+    showLoadingOverlay(true, "Memproses...");
+    try {
+      await loadDailySummary();
+    } finally {
+      showLoadingOverlay(false);
+    }
     void sync().catch(showError);
   } catch (error) {
+    showLoadingOverlay(false);
     panel.hidden = true;
     login.style.display = "block";
     document.getElementById("login-error")!.textContent = error instanceof Error ? error.message : "Belum dapat terhubung.";
@@ -552,7 +574,7 @@ const loanCamera = new QRCamera({
   statusId: "loan-scan-status",
   errorId: "loan-status",
   zoomId: "loan-zoom-controls",
-  once: false,
+  once: true,
   canRead: () => document.getElementById("view-loans")?.hidden === false,
   onState: phase => {
     isLoanScanning = phase === "active";

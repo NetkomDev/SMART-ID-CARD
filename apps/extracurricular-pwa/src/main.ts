@@ -6,7 +6,7 @@ import { gateIntro, gateHelp, schoolLabel } from "../../shared/portal-ui";
 import { NaturalVoice } from "../../shared/natural-voice";
 
 import { PortalError, PortalSession } from "../../shared/portal-session";
-import { setupInstallPrompt, offerInstall } from "../../shared/install-prompt";
+import { setupInstallPrompt, offerInstall, promptOrOfferInstall, isInstalled } from "../../shared/install-prompt";
 import "./style.css";
 import "../../shared/scanner.css";
 
@@ -164,7 +164,7 @@ const camera = new QRCamera({
   statusId: "scan-status",
   errorId: "scan-error",
   zoomId: "zoom-controls",
-  once: false,
+  once: true,
   canRead: () =>
     !submitting &&
     Boolean(currentSessionId) &&
@@ -257,7 +257,29 @@ function restoreOfflineSession(): boolean {
     switchView("scan");document.getElementById("scan-status")!.textContent="Offline · presensi tersimpan di HP dan menunggu sinkronisasi";return true;
   } catch {return false;}
 }
+
+function showLoadingOverlay(show: boolean, text = "Memproses...") {
+  const overlay = document.getElementById("loading-overlay");
+  if (overlay) {
+    if (show) {
+      const textEl = overlay.querySelector("span");
+      if (textEl && text) textEl.textContent = text;
+      overlay.style.display = "flex";
+    } else {
+      overlay.style.display = "none";
+    }
+  }
+  const toast = document.getElementById("processing-toast");
+  if (toast) toast.style.display = "none";
+}
+
 async function init() {
+  // Tahap 3: Popup Install Aplikasi langsung tampil bersamaan saat PWA muncul di browser
+  // agar user bisa langsung mengambil tindakan tanpa menunggu proses penarikan data selesai
+  if (!isInstalled()) {
+    void promptOrOfferInstall();
+  }
+
   try {
     const isLoginFlow = new URL(window.location.href).searchParams.has("token") || new URL(window.location.href).hash.includes("token");
 
@@ -377,7 +399,7 @@ async function loadDashboard() {
 async function selectEkskul(id: string, name: string, isSilent = false) {
   if (selecting || submitting) return;
   selecting = true;
-  if (!isSilent) document.getElementById("processing-toast")!.style.display = "flex";
+  if (!isSilent) showLoadingOverlay(true, "Memproses...");
   currentSessionId = "";
   currentEkskulId = id;
   document.getElementById("scan-ekskul-title")!.textContent = name;
@@ -389,12 +411,6 @@ async function selectEkskul(id: string, name: string, isSilent = false) {
   const newUrl = new URL(window.location.href);
   newUrl.searchParams.set("ekskulId", id);
   window.history.replaceState(null, "", newUrl.toString());
-  
-  // Remember for future visits
-
-
-  // Tampilkan popup instalasi (kini menggunakan nama umum "Ekstrakurikuler")
-  offerInstall();
 
   // Auto-setup today's session
   try {
@@ -426,7 +442,7 @@ async function selectEkskul(id: string, name: string, isSilent = false) {
     switchView("dashboard");
   } finally { 
     selecting = false; 
-    document.getElementById("processing-toast")!.style.display = "none";
+    showLoadingOverlay(false);
   }
 }
 
