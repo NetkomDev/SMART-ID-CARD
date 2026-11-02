@@ -229,7 +229,28 @@ function hideNotFoundModal() {
   if (modal) modal.style.display = "none";
 }
 
+function showSyncBar(active: boolean) {
+  const bar = document.getElementById("sync-bar");
+  if (bar) {
+    if (active) bar.classList.add("active");
+    else bar.classList.remove("active");
+  }
+}
+
+function hideInitialLoader() {
+  const loader = document.getElementById("initial-loader");
+  if (loader) loader.style.display = "none";
+}
+
+function updateOfflineStatus() {
+  const badge = document.getElementById("offline-badge");
+  if (badge) {
+    badge.style.display = navigator.onLine ? "none" : "flex";
+  }
+}
+
 function showLoadingOverlay(show: boolean, text = "Memproses...") {
+  showSyncBar(show);
   const overlay = el("loading-overlay");
   if (!overlay) return;
   if (show) {
@@ -249,6 +270,7 @@ window.addEventListener("pagehide",()=>{void stopCamera();});
 
 function switchView(next: View) {
   view = next;
+  hideInitialLoader();
   hideNotFoundModal();
   showLoadingOverlay(false);
   if (next !== "scan") void stopCamera();
@@ -369,6 +391,7 @@ async function loadDashboard(silent = false) {
   }
 }
 async function init() {
+  updateOfflineStatus();
   clearDailySummary();
   let initialRestored = false;
   try {
@@ -401,9 +424,16 @@ async function init() {
     activePortalId = portal.context!.id;
     if (!classId) throw new Error("QR belum terhubung ke kelas. Hubungi admin sekolah.");
 
-    // Tampilkan indikator melayang di tengah layar "Memproses..."
-    showLoadingOverlay(true, "Memproses...");
+    const cachedClass = localStorage.getItem(`aksis.waste.class.${classId}`);
+    if (cachedClass) {
+      className = cachedClass;
+      if (classEl) classEl.textContent = `Kelas ${className.replace(/^(?:kelas\s+)+/i, "").trim()}`;
+      el("staff-label").textContent = `Piket ${className}`;
+    }
+    if (schoolEl && portal.context?.school_name) schoolEl.textContent = portal.context.school_name;
+    if (portal.context?.school_name) el("today-scope").textContent = `Semua kelas di ${portal.context.school_name}`;
 
+    showSyncBar(true);
     try {
       const cls = await portal.request<{ name: string }>(`/classes/${classId}`);
       className = cls.name;
@@ -416,13 +446,12 @@ async function init() {
       // Penarikan data siswa sesuai kelas portal PWA Piket Sampah (terisolasi per tenant dan kelas)
       await syncPortalRoster(portal, studentCache, true);
     } catch {
-      const cachedClass = localStorage.getItem(`aksis.waste.class.${classId}`);
       if (cachedClass) {
         className = cachedClass;
         if (classEl) classEl.textContent = `Kelas ${className.replace(/^(?:kelas\s+)+/i, "").trim()}`;
       }
     } finally {
-      showLoadingOverlay(false);
+      showSyncBar(false);
     }
 
     try {
@@ -446,19 +475,22 @@ async function init() {
       }
     } catch { /* Ignore */ }
 
+    hideInitialLoader();
     void loadDashboard(true);
   };
 
   if (portal.connected && !isLoginFlow) {
-    if (schoolEl) schoolEl.textContent = portal.context!.school_name;
+    if (schoolEl && portal.context?.school_name) schoolEl.textContent = portal.context.school_name;
     const cachedClass = localStorage.getItem(`aksis.waste.class.${portal.context!.metadata.class_id}`);
     if (classEl && cachedClass) classEl.textContent = `Kelas ${cachedClass.replace(/^(?:kelas\s+)+/i, "").trim()}`;
 
     try {
       await portal.start();
       await setupUI();
+      hideInitialLoader();
       return;
     } catch (error) {
+      hideInitialLoader();
       if (!initialRestored) switchView("scan");
       return;
     }
@@ -469,11 +501,14 @@ async function init() {
 
   try {
     if (!await portal.start()) {
+      hideInitialLoader();
       if (!initialRestored) switchView("login");
       return;
     }
     await setupUI();
+    hideInitialLoader();
   } catch (error) {
+    hideInitialLoader();
     if (!initialRestored) switchView("scan");
   }
 }
@@ -492,6 +527,7 @@ async function syncWasteQueue() {
     if (!pendingItems.length) return;
 
     syncingWaste = true;
+    showSyncBar(true);
     for (const item of pendingItems) {
       if (scope !== wasteQueue.currentScope) break;
       if (typeof navigator !== "undefined" && !navigator.onLine) break;
@@ -533,6 +569,7 @@ async function syncWasteQueue() {
     /* Storage or network error: retain items safely in IndexedDB */
   } finally {
     syncingWaste = false;
+    showSyncBar(false);
   }
 }
 
@@ -730,9 +767,14 @@ function scheduleSilentSync(delayMs?: number) {
 }
 
 window.addEventListener("online", () => {
+  updateOfflineStatus();
   scheduleSilentSync(1500 + Math.floor(Math.random() * 3000));
   void syncPortalRoster(portal, studentCache);
   if (view === "ranking") void loadDashboard(true);
+});
+
+window.addEventListener("offline", () => {
+  updateOfflineStatus();
 });
 
 document.addEventListener("visibilitychange", () => {
