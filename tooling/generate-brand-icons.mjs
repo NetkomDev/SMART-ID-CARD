@@ -2,7 +2,7 @@ import sharp from "sharp";
 import { readFileSync, writeFileSync, copyFileSync, existsSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 
-const masterPath = "/Users/berech/.gemini/antigravity-ide/brain/f380d515-40f5-439d-af34-9f175dfa05be/.user_uploaded/media_1793531938867.png";
+const masterPath = "/Users/berech/.gemini/antigravity-ide/brain/f380d515-40f5-439d-af34-9f175dfa05be/.user_uploaded/media_1793595212557.png";
 
 function createIco(pngBuffers) {
   const header = Buffer.alloc(6);
