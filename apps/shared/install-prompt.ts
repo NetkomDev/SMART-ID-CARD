@@ -6,7 +6,8 @@ let deferred: InstallEvent | null = null;
 let ready = false;
 let title = "AKSIS";
 let shown = false;
-const installed = () => window.matchMedia("(display-mode: standalone)").matches || Boolean((navigator as Navigator & { standalone?: boolean }).standalone);
+export const isInstalled = () => window.matchMedia("(display-mode: standalone)").matches || Boolean((navigator as Navigator & { standalone?: boolean }).standalone);
+const installed = isInstalled;
 
 export function setupInstallPrompt(appName: string, base: string, production = true) {
   title = appName;

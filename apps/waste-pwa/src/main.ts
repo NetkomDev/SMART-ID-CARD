@@ -6,7 +6,7 @@ import { NaturalVoice } from "../../shared/natural-voice";
 import "./style.css";
 import "../../shared/scanner.css";
 import { PortalError, PortalSession } from "../../shared/portal-session";
-import { setupInstallPrompt, offerInstall } from "../../shared/install-prompt";
+import { setupInstallPrompt, offerInstall, promptOrOfferInstall, isInstalled } from "../../shared/install-prompt";
 import { calculateWasteMeasurement, type WasteType, type WasteUnit } from "./waste-calculation.js";
 
 const portal = new PortalSession("WASTE_STAFF", import.meta.env.VITE_API_BASE_URL ?? "/api/v1");
@@ -229,9 +229,16 @@ function hideNotFoundModal() {
   if (modal) modal.style.display = "none";
 }
 
-function showLoadingOverlay(show: boolean) {
+function showLoadingOverlay(show: boolean, text = "Memproses...") {
   const overlay = el("loading-overlay");
-  if (overlay) overlay.style.display = show ? "flex" : "none";
+  if (!overlay) return;
+  if (show) {
+    const textEl = overlay.querySelector("span");
+    if (textEl && text) textEl.textContent = text;
+    overlay.style.display = "flex";
+  } else {
+    overlay.style.display = "none";
+  }
 }
 
 const camera = new QRCamera({readerId:"qr-reader",toggleId:"btn-toggle-camera",stageId:"scanner-stage",placeholderId:"scanner-placeholder",statusId:"scan-status",errorId:"scan-error",zoomId:"zoom-controls",once:true,canRead:()=>view==="scan"&&!resolving&&!pending,onState:phase=>{scanning=phase==="active";},onDecode:async value=>{triggerCameraFlash();await resolveStudent(value);}});
@@ -387,13 +394,30 @@ async function init() {
     classId = portal.context!.metadata.class_id ?? "";
     activePortalId = portal.context!.id;
     if (!classId) throw new Error("QR belum terhubung ke kelas. Hubungi admin sekolah.");
-    const cls = await portal.request<{ name: string }>(`/classes/${classId}`);
-    className = cls.name;
-    try { localStorage.setItem(`aksis.waste.class.${classId}`, className); } catch {}
-    if (classEl) classEl.textContent = `Kelas ${className.replace(/^(?:kelas\s+)+/i, "").trim()}`;
-    if (schoolEl) schoolEl.textContent = portal.context!.school_name;
-    el("today-scope").textContent = `Semua kelas di ${portal.context!.school_name}`;
-    el("staff-label").textContent = `Piket ${className}`;
+
+    // Tampilkan indikator melayang di tengah layar "Memproses..."
+    showLoadingOverlay(true, "Memproses...");
+
+    try {
+      const cls = await portal.request<{ name: string }>(`/classes/${classId}`);
+      className = cls.name;
+      try { localStorage.setItem(`aksis.waste.class.${classId}`, className); } catch {}
+      if (classEl) classEl.textContent = `Kelas ${className.replace(/^(?:kelas\s+)+/i, "").trim()}`;
+      if (schoolEl) schoolEl.textContent = portal.context!.school_name;
+      el("today-scope").textContent = `Semua kelas di ${portal.context!.school_name}`;
+      el("staff-label").textContent = `Piket ${className}`;
+
+      // Penarikan data siswa sesuai kelas portal PWA Piket Sampah (terisolasi per tenant dan kelas)
+      await syncPortalRoster(portal, studentCache, true);
+    } catch {
+      const cachedClass = localStorage.getItem(`aksis.waste.class.${classId}`);
+      if (cachedClass) {
+        className = cachedClass;
+        if (classEl) classEl.textContent = `Kelas ${className.replace(/^(?:kelas\s+)+/i, "").trim()}`;
+      }
+    } finally {
+      showLoadingOverlay(false);
+    }
 
     try {
       const saved = JSON.parse(sessionStorage.getItem(pendingKey()) ?? "null") as { pending: PendingDeposit; student: Student } | null;
@@ -415,9 +439,13 @@ async function init() {
         }
       }
     } catch { /* Ignore */ }
-    void syncPortalRoster(portal, studentCache);
+
     void loadDashboard(true);
-    offerInstall();
+
+    // Di browser (bukan aplikasi terinstall launcher di HP): panggil popup install
+    if (!isInstalled()) {
+      void promptOrOfferInstall();
+    }
   };
 
   if (portal.connected && !isLoginFlow) {
@@ -426,7 +454,8 @@ async function init() {
     if (classEl && cachedClass) classEl.textContent = `Kelas ${cachedClass.replace(/^(?:kelas\s+)+/i, "").trim()}`;
 
     try {
-      await Promise.all([portal.start(), setupUI()]);
+      await portal.start();
+      await setupUI();
       return;
     } catch (error) {
       if (!initialRestored) switchView("scan");
