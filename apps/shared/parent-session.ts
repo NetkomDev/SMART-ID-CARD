@@ -20,8 +20,8 @@ export class ParentSession {
     return this.parse<T>(await fetch(`${this.base}/parent/session/${path}`, { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json", "x-csrf-token": this.csrf }, body: JSON.stringify(body) }));
   }
   async start(): Promise<boolean> {
-    // Deliberately remove old shared sessions and unscoped personal caches.
-    for (const key of Object.keys(localStorage)) if (key === "aksis.portal.PARENT.v1" || key.startsWith("aksis_parent_")) localStorage.removeItem(key);
+    // Deliberately remove old shared sessions and legacy caches.
+    for (const key of Object.keys(localStorage)) if (key === "aksis.portal.PARENT.v1" || key.startsWith("aksis_parent_legacy_")) localStorage.removeItem(key);
     const url = new URL(location.href), fragment = new URLSearchParams(url.hash.slice(1));
     const schoolToken = fragment.get("token") || url.searchParams.get("token");
     const recoveryToken = fragment.get("parent_recovery");
@@ -74,5 +74,5 @@ export class ParentSession {
     if (response.status === 401) this.clear();
     return this.parse<T>(response);
   }
-  async logout() { try { await this.request("/parent/session/logout", { method: "POST", body: "{}" }); } finally { localStorage.setItem("aksis.parent.locked", "1"); this.clear(); } }
+  async logout() { try { await this.request("/parent/session/logout", { method: "POST", body: "{}" }); } finally { localStorage.setItem("aksis.parent.locked", "1"); try { localStorage.removeItem("aksis_parent_snapshot_v4"); } catch {} this.clear(); } }
 }

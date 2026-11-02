@@ -86,7 +86,7 @@ const root = document.querySelector<HTMLDivElement>("#app")!;
 const esc = (v: unknown) => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 const request = <T>(path: string, init: RequestInit = {}) => portal.request<T>(path, init);
 
-// High-Performance Local Cache Layer
+// High-Performance Persistent Local Cache Layer
 const CACHE_KEYS = {
   CHILDREN: "aksis_parent_children_v3",
   PROFILE_NAME: "aksis_parent_name_v3",
@@ -94,9 +94,117 @@ const CACHE_KEYS = {
   TODAY: (studentId: string) => `aksis_parent_today_${studentId}_v3`
 };
 
+const SNAPSHOT_KEY = "aksis_parent_snapshot_v4";
+
+interface ParentOfflineSnapshot {
+  timestamp: number;
+  profileName: string;
+  children: Child[];
+  selectedChildId: string;
+  todayByChild: Record<string, ParentTodayData>;
+}
+
+function loadParentSnapshot(): ParentOfflineSnapshot | null {
+  try {
+    const raw = localStorage.getItem(SNAPSHOT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && Array.isArray(parsed.children)) return parsed;
+  } catch {}
+  return null;
+}
+
+function saveParentSnapshot(patch: Partial<ParentOfflineSnapshot>) {
+  try {
+    const current = loadParentSnapshot() || {
+      timestamp: Date.now(),
+      profileName: "",
+      children: [],
+      selectedChildId: "",
+      todayByChild: {}
+    };
+    const updated: ParentOfflineSnapshot = {
+      ...current,
+      ...patch,
+      todayByChild: {
+        ...current.todayByChild,
+        ...(patch.todayByChild || {})
+      },
+      timestamp: Date.now()
+    };
+    localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(updated));
+  } catch {}
+}
+
+function clearParentSnapshot() {
+  try {
+    localStorage.removeItem(SNAPSHOT_KEY);
+  } catch {}
+}
+
 const parentMemoryCache = new Map<string, unknown>();
-function getStoredCache<T>(key: string): T | null { return (parentMemoryCache.get(key) as T) ?? null; }
-function setStoredCache<T>(key: string, value: T): void { parentMemoryCache.set(key, value); }
+
+function getStoredCache<T>(key: string): T | null {
+  if (parentMemoryCache.has(key)) {
+    return (parentMemoryCache.get(key) as T) ?? null;
+  }
+  const snapshot = loadParentSnapshot();
+  if (!snapshot) return null;
+  if (key === CACHE_KEYS.PROFILE_NAME) {
+    const val = (snapshot.profileName || null) as T;
+    if (val) parentMemoryCache.set(key, val);
+    return val;
+  }
+  if (key === CACHE_KEYS.CHILDREN) {
+    const val = (snapshot.children || null) as T;
+    if (val) parentMemoryCache.set(key, val);
+    return val;
+  }
+  if (key === CACHE_KEYS.SELECTED_CHILD) {
+    const val = (snapshot.selectedChildId || null) as T;
+    if (val) parentMemoryCache.set(key, val);
+    return val;
+  }
+  if (key.startsWith("aksis_parent_today_")) {
+    const studentId = key.replace("aksis_parent_today_", "").replace("_v3", "");
+    const val = (snapshot.todayByChild?.[studentId] || null) as T;
+    if (val) parentMemoryCache.set(key, val);
+    return val;
+  }
+  return null;
+}
+
+function setStoredCache<T>(key: string, value: T): void {
+  parentMemoryCache.set(key, value);
+  if (key === CACHE_KEYS.PROFILE_NAME) {
+    saveParentSnapshot({ profileName: String(value ?? "") });
+  } else if (key === CACHE_KEYS.CHILDREN) {
+    saveParentSnapshot({ children: (value as unknown as Child[]) || [] });
+  } else if (key === CACHE_KEYS.SELECTED_CHILD) {
+    saveParentSnapshot({ selectedChildId: String(value ?? "") });
+  } else if (key.startsWith("aksis_parent_today_")) {
+    const studentId = key.replace("aksis_parent_today_", "").replace("_v3", "");
+    saveParentSnapshot({
+      todayByChild: {
+        [studentId]: value as unknown as ParentTodayData
+      }
+    });
+  }
+}
+
+function showOfflineNotice() {
+  if (!document.getElementById("offline-badge-bar")) {
+    const bar = document.createElement("div");
+    bar.id = "offline-badge-bar";
+    bar.className = "offline-badge-bar";
+    bar.innerHTML = `
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 1l22 22M16.72 11.06A10.94 10.94 0 0 1 19 12.55M5 12.55a10.94 10.94 0 0 1 5.17-2.39M10.71 5.05A16 16 0 0 1 22.58 9M1.42 9a15.91 15.91 0 0 1 4.7-2.88M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/></svg>
+      <span>Mode Offline · Menampilkan data tersimpan di HP</span>
+    `;
+    const shell = document.querySelector(".parent-shell");
+    if (shell) shell.prepend(bar);
+  }
+}
 
 let loginScanner: any = null;
 let cachedParentName = getStoredCache<string>(CACHE_KEYS.PROFILE_NAME) || "";
@@ -575,7 +683,7 @@ function openAbsencePermitModal(
 
 function loginView(message = "Pindai QR Portal Orang Tua dari sekolah untuk mendaftar. Sudah punya akun? Minta QR pribadi kepada admin jika perlu masuk kembali.", _isError = false) {
   viewRevision++; dashboardVisible = false;
-  parentMemoryCache.clear(); cachedChildren = null; cachedParentName = ""; selectedChildId = "";
+  parentMemoryCache.clear(); clearParentSnapshot(); cachedChildren = null; cachedParentName = ""; selectedChildId = "";
   const hasQR = Boolean(portal.enrollmentToken);
   root.innerHTML = `<main class="parent-content"><section class="link-card"><h1>Portal Orang Tua</h1>
     <p id="auth-message" role="status">${esc(hasQR && !_isError ? "Lengkapi data berikut sesuai data anak di sekolah. Tidak perlu email atau password." : message)}</p>
@@ -1062,13 +1170,11 @@ function renderDashboardUI(children: Child[], selected: Child, data: ParentToday
   });
 }
 
-// Background Asynchronous Parallel Fetcher (SWR Pattern)
+// Background Asynchronous Parallel Fetcher (SWR Pattern - Silent Non-Blocking)
 async function fetchDashboardData(targetChildId?: string): Promise<boolean> {
   if (isRefreshingData) return true;
   isRefreshingData = true;
   showSyncBar(true);
-  const shouldShowOverlay = !cachedChildren || !cachedChildren.length;
-  if (shouldShowOverlay) showLoadingOverlay(true, "Memproses...");
 
   try {
     const fetchProfilePromise = !cachedParentName
@@ -1116,6 +1222,9 @@ async function fetchDashboardData(targetChildId?: string): Promise<boolean> {
     const data = await request<ParentTodayData>(`/parent/children/${selected.student_id}/today`);
     setStoredCache(CACHE_KEYS.TODAY(selected.student_id), data);
 
+    // Online fetch succeeded: remove offline badge if present
+    document.getElementById("offline-badge-bar")?.remove();
+
     if (activeTab === "home") {
       renderDashboardUI(cachedChildren, selected, data);
     }
@@ -1124,12 +1233,13 @@ async function fetchDashboardData(targetChildId?: string): Promise<boolean> {
   } catch (err: any) {
     if (activeTab === "home" && !dashboardVisible) {
       loginView(err instanceof Error ? err.message : "Belum dapat memuat aktivitas.", true);
+    } else if (dashboardVisible) {
+      showOfflineNotice();
     }
     return false;
   } finally {
     isRefreshingData = false;
     showSyncBar(false);
-    if (shouldShowOverlay) showLoadingOverlay(false);
   }
 }
 
@@ -1484,24 +1594,72 @@ async function profileView() {
 
   bindGlobalEvents();
   const logout = document.createElement("button"); logout.textContent = "Keluar";
-  logout.onclick = async () => { try { await portal.logout(); } finally { parentMemoryCache.clear(); loginView(); } }; root.append(logout);
+  logout.onclick = async () => { try { await portal.logout(); } finally { parentMemoryCache.clear(); clearParentSnapshot(); loginView(); } }; root.append(logout);
 }
 
 async function start() {
   if (!isInstalled()) {
     void promptOrOfferInstall();
   }
-  loginView("Memeriksa sesi…");
+
+  const snapshot = loadParentSnapshot();
+  const hasOfflineData = Boolean(snapshot?.children && snapshot.children.length > 0);
+
+  if (hasOfflineData) {
+    // 🚀 0ms Instant Cold Start from Persistent Cache (No Login Flicker!)
+    cachedChildren = snapshot!.children;
+    cachedParentName = snapshot!.profileName;
+    selectedChildId = snapshot!.selectedChildId || snapshot!.children[0]!.student_id;
+    const cachedToday = snapshot!.todayByChild?.[selectedChildId] || null;
+    const targetChild = cachedChildren.find(c => c.student_id === selectedChildId) || cachedChildren[0]!;
+
+    if (cachedToday) {
+      renderDashboardUI(cachedChildren, targetChild, cachedToday);
+    } else {
+      void dashboard(selectedChildId);
+    }
+  }
+
   try {
-    if (!await portal.start()) { loginView(); return; }
+    const isAuth = await portal.start();
+    if (!isAuth) {
+      clearParentSnapshot();
+      loginView();
+      return;
+    }
     if (sessionStorage.getItem("aksis.parent.recovery")) {
       root.innerHTML = `<main class="parent-content"><form id="new-password"><h1>Password baru</h1><input type="password" name="password" minlength="12" maxlength="128" autocomplete="new-password" required><button>Simpan password</button><p role="status"></p></form></main>`;
       const form = document.querySelector<HTMLFormElement>("#new-password")!;
       form.onsubmit = async e => { e.preventDefault(); try { await request("/parent/session/password", { method: "POST", body: JSON.stringify({password:new FormData(form).get("password")}) }); sessionStorage.removeItem("aksis.parent.recovery"); loginView("Password diperbarui. Masuk kembali."); } catch(error) { form.querySelector("p")!.textContent = error instanceof Error ? error.message : "Gagal menyimpan."; } }; return;
     }
-    await dashboard();
-  } catch(error) { loginView(error instanceof Error ? error.message : "Belum dapat terhubung.", true); }
+
+    if (hasOfflineData && dashboardVisible) {
+      // Background silent data sync without locking UI
+      void fetchDashboardData(selectedChildId);
+    } else {
+      await dashboard();
+    }
+  } catch(error) {
+    if (hasOfflineData && dashboardVisible) {
+      showOfflineNotice();
+    } else {
+      loginView(error instanceof Error ? error.message : "Belum dapat terhubung ke server sekolah.", true);
+    }
+  }
 }
 void start();
 
-window.addEventListener("storage", event => { if (event.key === "aksis.parent.locked" && event.newValue === "1") { portal.clear(); loginView("Sesi dikunci dari tab lain. Masuk kembali."); } });
+window.addEventListener("online", () => {
+  document.getElementById("offline-badge-bar")?.remove();
+  if (dashboardVisible && selectedChildId) {
+    void fetchDashboardData(selectedChildId);
+  }
+});
+
+window.addEventListener("offline", () => {
+  if (dashboardVisible) {
+    showOfflineNotice();
+  }
+});
+
+window.addEventListener("storage", event => { if (event.key === "aksis.parent.locked" && event.newValue === "1") { portal.clear(); clearParentSnapshot(); loginView("Sesi dikunci dari tab lain. Masuk kembali."); } });
