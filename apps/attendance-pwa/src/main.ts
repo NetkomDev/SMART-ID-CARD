@@ -615,6 +615,7 @@ async function sync() {
   const activeScope = scope;
   syncBusy = true;
   lastSync = Date.now();
+  showSyncBar(true);
   try {
     const batch = (await records(activeScope))
       .filter((v) => v.status === "PENDING")
@@ -669,12 +670,14 @@ async function sync() {
     }
     // Network errors leave every event intact and do not interrupt scanning.
   } finally {
+    showSyncBar(false);
     syncBusy = false;
   }
 }
 async function refreshData() {
   if (!navigator.onLine || !scope || locked || !sameAccess()) return;
   const originalScope = scope;
+  showSyncBar(true);
   try {
     let firstReceived = performance.now();
     let after: string | null = null,
@@ -733,6 +736,8 @@ async function refreshData() {
         "Hubungi admin sekolah. Antrean tetap tersimpan.",
       );
     } else if (!data) throw error;
+  } finally {
+    showSyncBar(false);
   }
 }
 async function refreshState() {
@@ -746,6 +751,7 @@ async function refreshState() {
     return;
   }
   const originalScope = scope;
+  showSyncBar(true);
   try {
     const state = await attendanceRequest<{
       school_id: string;
@@ -772,6 +778,30 @@ async function refreshState() {
         "Hubungi admin sekolah. Antrean tetap tersimpan.",
       );
     }
+  } finally {
+    showSyncBar(false);
+  }
+}
+
+function showSyncBar(active: boolean) {
+  const bar = document.getElementById("sync-bar");
+  if (bar) {
+    if (active) bar.classList.add("active");
+    else bar.classList.remove("active");
+  }
+}
+
+function hideInitialLoader() {
+  const loader = document.getElementById("initial-loader");
+  if (loader) {
+    loader.style.display = "none";
+  }
+}
+
+function updateOfflineStatus() {
+  const badge = document.getElementById("offline-badge");
+  if (badge) {
+    badge.style.display = navigator.onLine ? "none" : "flex";
   }
 }
 
@@ -788,6 +818,7 @@ function showLoadingOverlay(show: boolean, text = "Memproses...") {
 }
 
 async function start() {
+  updateOfflineStatus();
   // Tahap 3: Popup Install Aplikasi langsung tampil bersamaan saat PWA muncul di browser
   // agar user bisa langsung mengambil tindakan tanpa menunggu proses penarikan data selesai
   if (!isInstalled()) {
@@ -829,6 +860,7 @@ async function start() {
       } else {
         try {
           if (!(await portal.start())) {
+            hideInitialLoader();
             el("view-login").style.display = "block";
             return;
           }
@@ -843,6 +875,7 @@ async function start() {
       }
     }
     if (!portal.context) {
+      hideInitialLoader();
       el("view-login").style.display = "block";
       return;
     }
@@ -861,7 +894,8 @@ async function start() {
       );
     }
     if (data && usable()) {
-      // Instantly open scanner view from previously cached snapshot
+      // Instantly open scanner view from previously cached snapshot (0ms cold start)
+      hideInitialLoader();
       el("view-login").style.display = "none";
       el("view-scan").style.display = "block";
       el("workspace-nav").hidden = false;
@@ -878,12 +912,13 @@ async function start() {
         );
       }
     } else {
-      // First time on this device or expired snapshot: fetch initial data
-      showLoadingOverlay(true, "Memproses...");
+      // First time on this device or expired snapshot: fetch initial data with silent sync bar
+      showSyncBar(true);
       try {
         await refreshState();
       } finally {
-        showLoadingOverlay(false);
+        showSyncBar(false);
+        hideInitialLoader();
       }
       el("view-login").style.display = "none";
       el("view-scan").style.display = "block";
@@ -910,6 +945,7 @@ async function start() {
     bindDevice();
     void sync();
   } catch (error) {
+    hideInitialLoader();
     el("view-login").style.display = "block";
     el("login-error").textContent =
       error instanceof Error ? error.message : "Tidak dapat membuka portal.";
@@ -949,11 +985,13 @@ el("btn-refresh-data").onclick = () => {
     );
 };
 window.addEventListener("online", () => {
+  updateOfflineStatus();
   bindDevice(true);
   void sync();
   void refreshState();
 });
 window.addEventListener("offline", () => {
+  updateOfflineStatus();
   void render();
 });
 // Background batches use the same stable event IDs and retry without blocking the scanner.

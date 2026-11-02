@@ -13,10 +13,12 @@ Progressive Web App (PWA) for gate attendance officers ("Piket Kehadiran Gerbang
 - `PortalSession("GATE_STAFF")`: Session state and token lifecycle manager.
 
 ## Invariants
-- Operates offline for up to 7 days using the cached school rules and roster snapshot.
+- Operates offline for up to 7 days using the cached school rules and roster snapshot with 0ms cold-start kiosk readiness.
 - Duplicate scans for the same student in the same direction on the same school day are prevented locally.
 - Server timestamp calibration prevents clock skew manipulation; clock drift > 5 minutes requires resynchronization.
 - Scans are queued in local IndexedDB/localStorage until acknowledged by the backend `/device/attendance/sync` or `/attendance` API.
+- Background sync must never present blocking modal overlays (`#loading-overlay`); all transactional state sync is indicated via top progress bar `#sync-bar`.
+- Offline status is actively indicated via `#offline-badge` without interrupting active camera gate scanning.
 
 ## Side Effects
 - Mutates local IndexedDB storage for offline attendance records and sync flags.

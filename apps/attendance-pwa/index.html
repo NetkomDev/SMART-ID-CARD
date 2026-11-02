@@ -12,8 +12,45 @@
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
   <link rel="manifest" href="manifest.webmanifest">
   <title>Piket Kehadiran · AKSIS</title>
+  <style>
+    .aksis-initial-loader {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 4.5rem 1.5rem;
+      text-align: center;
+      color: #064e3b;
+    }
+    .aksis-loader-spinner {
+      width: 40px;
+      height: 40px;
+      border: 3.5px solid rgba(6, 78, 59, 0.15);
+      border-top-color: #10b981;
+      border-radius: 50%;
+      animation: aksisSpin 0.75s linear infinite;
+      margin-bottom: 1rem;
+    }
+    .aksis-loader-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #064e3b;
+      margin: 0 0 0.25rem 0;
+    }
+    .aksis-loader-subtitle {
+      font-size: 0.82rem;
+      color: #4b6b5e;
+      margin: 0;
+    }
+    @keyframes aksisSpin { to { transform: rotate(360deg); } }
+  </style>
 </head>
 <body>
+  <div id="sync-bar" class="sync-progress-bar"></div>
+  <div id="offline-badge" class="offline-badge-bar" style="display: none;">
+    <span>📡 Mode Offline · Kehadiran gerbang tersimpan di HP dan menunggu sinkronisasi</span>
+  </div>
+
   <header class="aksis-pwa-header">
     <div class="brand">
       <img src="brand-mark.webp" alt="AKSIS Logo">
@@ -26,6 +63,12 @@
   </header>
 
   <main id="app-container">
+    <div id="initial-loader" class="aksis-initial-loader">
+      <div class="aksis-loader-spinner" aria-hidden="true"></div>
+      <p class="aksis-loader-title">Menyiapkan Piket Kehadiran</p>
+      <p class="aksis-loader-subtitle">Memuat data scanner dan konfigurasi gerbang...</p>
+    </div>
+
     <nav id="workspace-nav" hidden aria-label="Navigasi Petugas Piket" class="piket-header-card">
       <div class="piket-header-main">
         <div class="piket-school-info">
