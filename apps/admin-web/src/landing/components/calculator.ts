@@ -1,11 +1,18 @@
-export function calculateMetrics(studentCount: number): { timeMinutes: number; wasteKg: number } {
+export interface EfficiencyMetrics {
+  timeMinutes: number;
+  wasteKg: number;
+  teacherHoursSaved: number;
+}
+
+export function calculateMetrics(studentCount: number): EfficiencyMetrics {
   const timeMinutes = Math.ceil((studentCount * 0.8) / 60);
   const wasteKg = Math.round(studentCount * 0.3);
-  return { timeMinutes, wasteKg };
+  const teacherHoursSaved = Math.round(studentCount * 0.05);
+  return { timeMinutes, wasteKg, teacherHoursSaved };
 }
 
 export function renderCalculator(initialStudents: number = 750): string {
-  const { timeMinutes, wasteKg } = calculateMetrics(initialStudents);
+  const { timeMinutes, wasteKg, teacherHoursSaved } = calculateMetrics(initialStudents);
 
   return `
     <section class="landing-section calculator-section" id="simulasi">
@@ -13,7 +20,7 @@ export function renderCalculator(initialStudents: number = 750): string {
         <div class="calculator-info">
           <span class="eyebrow">SIMULATOR EFISIENSI SEKOLAH</span>
           <h2>Kalkulator Efisiensi AKSIS</h2>
-          <p>Geser jumlah siswa sekolah Anda untuk melihat proyeksi efisiensi operasional bulanan.</p>
+          <p>Geser jumlah siswa sekolah Anda untuk melihat proyeksi penghematan operasional dan dampak positif bulanan.</p>
 
           <div class="slider-group">
             <label for="student-slider">Jumlah Siswa Sekolah: <strong id="slider-val">${initialStudents.toLocaleString("id-ID")}</strong> Siswa</label>
@@ -30,12 +37,17 @@ export function renderCalculator(initialStudents: number = 750): string {
           <div class="calc-res-item">
             <span>Proyeksi Setoran Sampah Terolah</span>
             <strong id="res-waste">~ ${wasteKg.toLocaleString("id-ID")} Kg / Bulan</strong>
-            <small>Edukasi lingkungan bagi seluruh siswa sekolah</small>
+            <small>Aksi nyata program sekolah hijau Adiwiyata</small>
           </div>
           <div class="calc-res-item">
-            <span>Efisiensi Rekap Laporan Wali Kelas</span>
-            <strong id="res-reports">100% Otomatis</strong>
-            <small>Presensi & Predikat Ekskul siap cetak/export CSV</small>
+            <span>Beban Administrasi Guru Dihemat</span>
+            <strong id="res-teacher">~ ${teacherHoursSaved} Jam / Bulan</strong>
+            <small>Otomatisasi rekap kehadiran gerbang & predikat ekskul</small>
+          </div>
+          <div class="calc-res-item">
+            <span>Transparansi Orang Tua Siswa</span>
+            <strong id="res-reports">100% Real-time</strong>
+            <small>Notifikasi kehadiran instan tanpa biaya SMS manual</small>
           </div>
         </div>
       </div>
@@ -48,15 +60,17 @@ export function mountCalculator(container: HTMLElement): void {
   const valDisplay = container.querySelector<HTMLElement>("#slider-val");
   const resTime = container.querySelector<HTMLElement>("#res-time");
   const resWaste = container.querySelector<HTMLElement>("#res-waste");
+  const resTeacher = container.querySelector<HTMLElement>("#res-teacher");
 
-  if (!slider || !valDisplay || !resTime || !resWaste) return;
+  if (!slider || !valDisplay || !resTime || !resWaste || !resTeacher) return;
 
   slider.addEventListener("input", () => {
     const num = parseInt(slider.value, 10);
     valDisplay.textContent = num.toLocaleString("id-ID");
 
-    const { timeMinutes, wasteKg } = calculateMetrics(num);
+    const { timeMinutes, wasteKg, teacherHoursSaved } = calculateMetrics(num);
     resTime.textContent = `< ${timeMinutes} Menit Total`;
     resWaste.textContent = `~ ${wasteKg.toLocaleString("id-ID")} Kg / Bulan`;
+    resTeacher.textContent = `~ ${teacherHoursSaved} Jam / Bulan`;
   });
 }

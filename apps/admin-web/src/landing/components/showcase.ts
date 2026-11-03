@@ -45,17 +45,19 @@ export function renderShowcase(): string {
   return `
     <section class="landing-section showcase-section" id="modul">
       <div class="section-head">
-        <span class="eyebrow">MODUL LAYANAN AKSIS</span>
-        <h2>Jelajahi Fitur & Keunggulan Layanan</h2>
-        <p>Pilih modul di bawah untuk melihat rincian manfaat operasional bagi sekolah Anda.</p>
+        <span class="eyebrow">7 MODUL LAYANAN EKOSISTEM AKSIS</span>
+        <h2>Jelajahi Solusi Terpadu Sekolah Cerdas</h2>
+        <p>Pilih modul di bawah untuk mempelajari peran dan manfaat spesifik bagi operasional sekolah Anda.</p>
       </div>
 
       <div class="showcase-tabs">
         <button class="showcase-tab active" data-tab="idcard">💳 Smart ID Card</button>
         <button class="showcase-tab" data-tab="presensi">🚪 Presensi IoT & LED</button>
+        <button class="showcase-tab" data-tab="parent">📱 Portal Orang Tua</button>
         <button class="showcase-tab" data-tab="sampah">♻ Bank Sampah</button>
         <button class="showcase-tab" data-tab="perpus">▤ Perpustakaan</button>
         <button class="showcase-tab" data-tab="ekskul">⭐ Ekskul & eRapor</button>
+        <button class="showcase-tab" data-tab="command">🖥 Command Center TV</button>
       </div>
 
       <div class="showcase-content-box" id="showcase-display">

@@ -4,6 +4,7 @@ import { mountHeader, renderHeader } from "./components/header";
 import { renderHero } from "./components/hero";
 import { renderFeatures } from "./components/features";
 import { mountShowcase, renderShowcase } from "./components/showcase";
+import { renderStakeholders } from "./components/stakeholders";
 import { mountCalculator, renderCalculator } from "./components/calculator";
 import { renderContact } from "./components/contact";
 import { mountFooter, renderFooter } from "./components/footer";
@@ -21,6 +22,7 @@ export function renderLandingPage(navigate: (path: string) => void): void {
         ${renderHero()}
         ${renderFeatures()}
         ${renderShowcase()}
+        ${renderStakeholders()}
         ${renderCalculator(750)}
         ${renderContact()}
       </main>

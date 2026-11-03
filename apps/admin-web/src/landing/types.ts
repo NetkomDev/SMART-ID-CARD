@@ -3,7 +3,14 @@ export interface ComponentMountContext {
   navigate: (path: string) => void;
 }
 
-export type ShowcaseModuleKey = "idcard" | "presensi" | "sampah" | "perpus" | "ekskul";
+export type ShowcaseModuleKey =
+  | "idcard"
+  | "presensi"
+  | "parent"
+  | "sampah"
+  | "perpus"
+  | "ekskul"
+  | "command";
 
 export interface ShowcaseModule {
   id: ShowcaseModuleKey;
@@ -14,4 +21,12 @@ export interface ShowcaseModule {
   features: string[];
   statusLabel: string;
   metricBadge: string;
+}
+
+export interface StakeholderBenefit {
+  role: string;
+  icon: string;
+  tagline: string;
+  benefits: string[];
+  themeColorClass: "sage" | "lime" | "blue" | "sand";
 }

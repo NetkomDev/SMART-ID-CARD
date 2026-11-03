@@ -842,4 +842,82 @@
     font-size: 1.15rem;
     line-height: 1;
   }
+
+  /* Horizontal scrollable tabs on small mobile devices */
+  .aksis-landing .showcase-tabs {
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+  }
+  .aksis-landing .showcase-tab {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
 }
+
+/* Stakeholders Section */
+.aksis-landing .stakeholders-section {
+  padding-top: 3rem;
+}
+
+.aksis-landing .stakeholders-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.5rem;
+}
+
+.aksis-landing .stakeholder-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 1.5rem;
+  padding: 2rem;
+  box-shadow: var(--card-shadow);
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.aksis-landing .stakeholder-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.08);
+  border-color: rgba(5, 150, 105, 0.4);
+}
+
+.aksis-landing .stakeholder-head {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.aksis-landing .stakeholder-head h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text);
+}
+
+.aksis-landing .stakeholder-tagline {
+  font-size: 0.82rem;
+  color: var(--muted);
+  display: block;
+  margin-top: 0.2rem;
+}
+
+.aksis-landing .stakeholder-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.aksis-landing .stakeholder-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  font-size: 0.9rem;
+  color: var(--text);
+  line-height: 1.5;
+}
+
