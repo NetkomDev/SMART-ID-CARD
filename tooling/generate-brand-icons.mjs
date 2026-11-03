@@ -2,7 +2,8 @@ import sharp from "sharp";
 import { readFileSync, writeFileSync, copyFileSync, existsSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 
-const masterPath = "/Users/berech/.gemini/antigravity-ide/brain/f380d515-40f5-439d-af34-9f175dfa05be/.user_uploaded/media_1793595212557.png";
+const defaultMasterPath = resolve("apps/shared/assets/aksis-logo-master.png");
+const masterPath = process.argv[2] ? resolve(process.argv[2]) : defaultMasterPath;
 
 function createIco(pngBuffers) {
   const header = Buffer.alloc(6);
@@ -32,10 +33,12 @@ async function main() {
   console.log("Reading master logo from:", masterPath);
   const masterRaw = readFileSync(masterPath);
 
-  // Save master copy
+  // Save master copy when an external source path is provided
   const sharedAssetsDir = resolve("apps/shared/assets");
   if (!existsSync(sharedAssetsDir)) mkdirSync(sharedAssetsDir, { recursive: true });
-  copyFileSync(masterPath, resolve(sharedAssetsDir, "aksis-logo-master.png"));
+  if (masterPath !== defaultMasterPath) {
+    copyFileSync(masterPath, defaultMasterPath);
+  }
 
   // Trim to content bounding box
   const trimmedBuffer = await sharp(masterRaw).trim().toBuffer();
@@ -155,13 +158,6 @@ async function main() {
     writeFileSync(resolve(fullDir, "icon.svg"), svgContent);
     console.log(`Updated assets in: ${dir}`);
   }
-
-  // Root level assets
-  writeFileSync(resolve("Launcher Icon.png"), icon512Buffer);
-  writeFileSync(resolve("logo_transparent.png"), logoPngBuffer);
-  writeFileSync(resolve("Logo.svg"), svgContent);
-  writeFileSync(resolve("test-512.png"), icon512Buffer);
-  console.log("Updated root level assets (Launcher Icon.png, logo_transparent.png, Logo.svg).");
 
   console.log("All brand icons generated successfully!");
 }

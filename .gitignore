@@ -1,12 +1,11 @@
 node_modules/
 dist/
 coverage/
-.env
-.env.*
+.env*
 !.env.example
 *.log
 .vercel
-.env*
 .DS_Store
 .vscode/
 *.tsbuildinfo
+supabase/.temp/

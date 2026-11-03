@@ -7,18 +7,5 @@ dist
 **/dist
 coverage
 docs
-scratch
 supabase
 *.log
-db_dump.sql
-parent_profile.sql
-test*.js
-test*.ts
-test*.png
-check*.js
-query-qr.js
-print-console.mjs
-temp_*.txt
-apps/api/scratch.ts
-apps/api/test_rpc.ts
-apps/akun akses.md
