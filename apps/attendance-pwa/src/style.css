@@ -23,6 +23,7 @@ body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
+body::before { display: none; }
 
 .sync-progress-bar {
   position: absolute;

@@ -21,7 +21,7 @@ export function setupInstallPrompt(appName: string, base: string, production = t
   window.addEventListener("appinstalled", () => document.querySelector("#aksis-install")?.remove());
   if ("serviceWorker" in navigator) {
     const swPath = `${base.endsWith('/') ? base : base + '/'}sw.js`;
-    void navigator.serviceWorker.register(swPath, { scope: base }).catch(() => undefined);
+    void navigator.serviceWorker.register(swPath, { scope: base }).then((reg) => reg.update()).catch(() => undefined);
   }
 }
 export function offerInstall() { ready = true; show(); }

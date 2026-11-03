@@ -25,6 +25,8 @@ export default defineConfig(({ command, mode }) => {
           ];
           const hasher = createHash("sha256").update(assets.join("|"));
           hasher.update(readFileSync(resolve("apps/attendance-pwa/public/sw.js")));
+          hasher.update(readFileSync(resolve("apps/attendance-pwa/public/manifest.webmanifest")));
+          hasher.update(readFileSync(resolve("apps/attendance-pwa/index.html")));
           const version = hasher.digest("hex").slice(0, 16);
           this.emitFile({
             type: "asset",

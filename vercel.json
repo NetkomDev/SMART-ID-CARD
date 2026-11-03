@@ -13,8 +13,16 @@
       "destination": "/api"
     },
     {
+      "source": "/parent",
+      "destination": "/parent/index.html"
+    },
+    {
       "source": "/parent/(.*)",
       "destination": "/parent/index.html"
+    },
+    {
+      "source": "/waste",
+      "destination": "/pwa-waste/index.html"
     },
     {
       "source": "/waste/",
@@ -25,12 +33,20 @@
       "destination": "/pwa-waste/$1"
     },
     {
+      "source": "/extracurricular",
+      "destination": "/pwa-extracurricular/index.html"
+    },
+    {
       "source": "/extracurricular/",
       "destination": "/pwa-extracurricular/index.html"
     },
     {
       "source": "/extracurricular/(.*)",
       "destination": "/pwa-extracurricular/$1"
+    },
+    {
+      "source": "/attendance",
+      "destination": "/pwa-attendance/index.html"
     },
     {
       "source": "/attendance/",
@@ -41,12 +57,20 @@
       "destination": "/pwa-attendance/$1"
     },
     {
+      "source": "/library",
+      "destination": "/pwa-library/index.html"
+    },
+    {
       "source": "/library/",
       "destination": "/pwa-library/index.html"
     },
     {
       "source": "/library/(.*)",
       "destination": "/pwa-library/$1"
+    },
+    {
+      "source": "/led",
+      "destination": "/pwa-led/index.html"
     },
     {
       "source": "/led/",
