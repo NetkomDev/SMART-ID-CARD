@@ -3,11 +3,61 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#172d28" />
+    <meta name="theme-color" content="#ffffff" />
     <meta name="description" content="AKSIS - Platform Smart School terpadu. Solusi cetak ID Card Siswa, Kartu Pelajar, dan Kartu Siswa Multifungsi untuk Presensi IoT, Perpustakaan & Bank Sampah." />
-    <meta name="keywords" content="id card, id card siswa, kartu siswa, kartu pelajar, cetak id card, id card sekolah, kartu pelajar pintar, sistem presensi, bank sampah sekolah" />
-    <meta property="og:title" content="AKSIS - Smart ID Card & Kartu Pelajar Terintegrasi" />
-    <meta property="og:description" content="Platform ekosistem sekolah cerdas untuk pembuatan ID Card Siswa multifungsi." />
+    <meta name="keywords" content="id card, id card siswa, kartu siswa, kartu pelajar, cetak id card, id card sekolah, kartu pelajar pintar, sistem presensi, bank sampah sekolah, smart school" />
+    <meta name="author" content="AKSIS Team" />
+    <link rel="canonical" href="https://www.aksis.co.id/" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://www.aksis.co.id/" />
+    <meta property="og:title" content="AKSIS - Platform Smart ID Card Siswa & Kartu Pelajar Terintegrasi" />
+    <meta property="og:description" content="Platform ekosistem sekolah cerdas untuk pembuatan ID Card Siswa multifungsi, presensi IoT gerbang, bank sampah edukatif, dan perpustakaan digital." />
+    <meta property="og:image" content="https://www.aksis.co.id/logo.png" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://www.aksis.co.id/" />
+    <meta name="twitter:title" content="AKSIS - Platform Smart ID Card Siswa & Kartu Pelajar Terintegrasi" />
+    <meta name="twitter:description" content="Platform ekosistem sekolah cerdas untuk pembuatan ID Card Siswa multifungsi, presensi IoT gerbang, bank sampah edukatif, dan perpustakaan digital." />
+    <meta name="twitter:image" content="https://www.aksis.co.id/logo.png" />
+
+    <!-- Schema.org JSON-LD Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://www.aksis.co.id/#organization",
+          "name": "AKSIS Platform",
+          "url": "https://www.aksis.co.id",
+          "logo": "https://www.aksis.co.id/logo.png",
+          "contactPoint": {
+            "@type": "ContactPoint",
+            "telephone": "+62-856-9448-8510",
+            "contactType": "customer service",
+            "areaServed": "ID",
+            "availableLanguage": ["Indonesian"]
+          }
+        },
+        {
+          "@type": "SoftwareApplication",
+          "@id": "https://www.aksis.co.id/#software",
+          "name": "AKSIS Smart School Ecosystem",
+          "operatingSystem": "All",
+          "applicationCategory": "EducationalApplication",
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "IDR"
+          }
+        }
+      ]
+    }
+    </script>
+
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="icon" href="/icon-192.png" type="image/png" sizes="192x192" />
@@ -17,8 +67,8 @@
       html, body {
         margin: 0;
         padding: 0;
-        background-color: #172d28;
-        color: #f8fafc;
+        background-color: #ffffff;
+        color: #0f172a;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         min-height: 100vh;
       }
@@ -28,8 +78,8 @@
         align-items: center;
         justify-content: center;
         min-height: 100vh;
-        background: radial-gradient(circle at 50% 40%, #1c3a34 0%, #12221f 100%);
-        color: #ffffff;
+        background: #ffffff;
+        color: #0f172a;
         text-align: center;
         padding: 1.5rem;
         box-sizing: border-box;
@@ -44,7 +94,7 @@
         height: 76px;
         width: auto;
         object-fit: contain;
-        filter: drop-shadow(0 4px 14px rgba(0,0,0,0.4));
+        filter: drop-shadow(0 4px 14px rgba(0,0,0,0.08));
         animation: aksisPulse 2s ease-in-out infinite;
       }
       .aksis-loader-spinner-ring {
@@ -58,22 +108,22 @@
         box-sizing: border-box;
         position: absolute;
         inset: 0;
-        border: 3.5px solid rgba(255, 255, 255, 0.12);
-        border-top-color: #00e699;
-        border-right-color: #38bdf8;
+        border: 3.5px solid rgba(5, 150, 105, 0.15);
+        border-top-color: #059669;
+        border-right-color: #10b981;
         border-radius: 50%;
         animation: aksisSpin 0.75s cubic-bezier(0.68, -0.55, 0.27, 1.55) infinite;
       }
       .aksis-loader-title {
         font-size: 1.05rem;
-        font-weight: 600;
-        color: #f1f5f9;
-        letter-spacing: 0.01em;
+        font-weight: 700;
+        color: #0f172a;
+        letter-spacing: -0.01em;
         margin: 0 0 0.35rem 0;
       }
       .aksis-loader-subtitle {
-        font-size: 0.825rem;
-        color: #94a3b8;
+        font-size: 0.85rem;
+        color: #64748b;
         margin: 0;
       }
       @keyframes aksisSpin {
@@ -90,7 +140,7 @@
     <div id="app">
       <div class="aksis-initial-loader">
         <div class="aksis-loader-brand">
-          <img src="/brand-mark.webp" alt="AKSIS Logo" class="aksis-loader-logo" />
+          <img src="/logo.png" alt="AKSIS Logo" class="aksis-loader-logo" />
         </div>
         <div class="aksis-loader-spinner-ring"></div>
         <h3 class="aksis-loader-title">Memuat AKSIS Platform...</h3>

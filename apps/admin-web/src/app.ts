@@ -4,7 +4,6 @@ import { ApiClientError, api, login } from "./lib/api";
 import { canAccess, isPlatformRoute } from "./lib/permissions";
 import { clearSession, getSession, setSchoolId, setSession } from "./lib/session";
 import type { AcademicYear, Attendance, AuthContext, Card, Device, Extracurricular, LedContent, School, SchoolClass, Student } from "./lib/types";
-import { renderLandingPage } from "./landing";
 import { toast, toastSuccess, toastError } from "./lib/toast";
 import { optimistic, removeRowOptimistic } from "./lib/optimistic";
 import { confirmModal } from "./lib/confirm-modal";
@@ -3475,7 +3474,10 @@ async function pwaPortalsPage() {
   }
 }
 
+let currentRenderToken = 0;
+
 export async function render(): Promise<void> {
+  const renderToken = ++currentRenderToken;
   clearDashboard(); disposeNavigation?.(); disposeNavigation = undefined;
   try {
     const currentPath = location.pathname;
@@ -3486,12 +3488,31 @@ export async function render(): Promise<void> {
         loginView();
         return;
       }
-      renderLandingPage(navigate);
+      try {
+        const { renderLandingPage } = await import("./landing");
+        if (renderToken !== currentRenderToken) return;
+        renderLandingPage(navigate);
+      } catch {
+        if (renderToken !== currentRenderToken) return;
+        const app = getApp();
+        app.innerHTML = `
+          <div class="state-card state-error" style="max-width:500px;margin:4rem auto;text-align:center;padding:2rem;">
+            <span>!</span>
+            <div>
+              <strong>Gagal memuat halaman</strong>
+              <p>Terjadi kendala saat mengunduh halaman. Periksa koneksi internet Anda.</p>
+              <button onclick="location.reload()" class="button primary" style="margin-top:1rem;">Muat Ulang</button>
+            </div>
+          </div>
+        `;
+      }
       return;
     }
 
     // If logged in and visits /landing explicitly, show landing page
     if (currentPath === "/landing") {
+      const { renderLandingPage } = await import("./landing");
+      if (renderToken !== currentRenderToken) return;
       renderLandingPage(navigate);
       return;
     }
