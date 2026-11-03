@@ -1,1 +1,0 @@
-PASS: 11 viewports, full-height fallback, contained charts, 3 arrivals and 9 support rows, filters, keyboard, explicit demo, zero live data and outage. Evidence: /tmp/aksis-command-center
