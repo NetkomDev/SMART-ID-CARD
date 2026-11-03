@@ -34,6 +34,13 @@ Semua perbaikan telah divalidasi dengan `npm run build:attendance`, `npm run typ
   - Ditambahkan status banner offline interaktif (`#offline-badge` / `.offline-badge-bar`): `"📡 Mode Offline · Kehadiran gerbang tersimpan di HP dan menunggu sinkronisasi"`.
   - Terintegrasi penuh dengan event listener `window.addEventListener("online")` dan `window.addEventListener("offline")`. Saat online kembali, banner otomatis disembunyikan dan antrean lokal langsung disinkronkan secara mulus ke server.
 
+### D. Penyeragaman Warna Latar Splash Screen PWA
+- **Sebelumnya**:
+  - `manifest.webmanifest` mendefinisikan `"background_color": "#064e3b"` (hijau tua), menyebabkan layar pembuka (splash screen OS / browser) saat peluncuran PWA berlatar belakang hijau tua pekat, tidak seragam dengan portal PWA lainnya.
+- **Perbaikan**:
+  - Nilai `background_color` pada `apps/attendance-pwa/public/manifest.webmanifest` diubah menjadi `#ffffff` (putih bersih) agar seragam dengan seluruh portal PWA AKSIS.
+  - Ditambahkan deklarasi `html, body { background-color: #ffffff; }` dan `.aksis-initial-loader { background-color: #ffffff; }` pada inline style `index.html` untuk menjamin frame awal peluncuran aplikasi langsung bersih dan konsisten.
+
 ---
 
 ## 3. Hasil Pengujian & Verifikasi

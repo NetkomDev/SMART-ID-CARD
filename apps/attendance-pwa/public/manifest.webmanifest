@@ -4,7 +4,7 @@
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#064e3b",
+  "background_color": "#ffffff",
   "theme_color": "#064e3b",
   "description": "Portal pemindaian QR presensi kehadiran dan kepulangan siswa oleh guru piket & satpam sekolah.",
   "icons": [
